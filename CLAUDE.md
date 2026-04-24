@@ -4,18 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environment
 
-Python 3.12 managed via conda env `hackupc` + uv for packages.
+Python 3.12 managed via uv for packages.
 
 Activate before any work:
-```bash
-conda activate hackupc
-```
+
 
 ## Commands
 
 ```bash
+uv add                  #add a new pithon package
 uv sync                   # install / re-sync dependencies
-uv run main.py            # run the entry point
+uv uv run main.py            # run the entry point
 uv run pytest             # run all tests
 uv run pytest tests/path/to/test_file.py::test_name  # single test
 uv add <package>          # add a dependency (commits pyproject.toml + uv.lock)
