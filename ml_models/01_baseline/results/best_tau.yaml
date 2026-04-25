@@ -1,0 +1,13 @@
+tau_nom_h:
+  C1: 199.06996673933375
+  C2: 16675.211761940118
+  C3: 221.58209626026718
+  C4: 600.9974718380311
+  C5: 770.6109342596955
+  C6: 1595.7084694148352
+validated_on: full fleet (printer_id 0..99)
+penalised_value: 10500000000.0
+annual_cost_eur_per_printer_year: 4701527.995893786
+availability: 0.0
+preventive_cost_eur_per_printer_year: 21389.171981932657
+corrective_cost_eur_per_printer_year: 4680138.823911853
