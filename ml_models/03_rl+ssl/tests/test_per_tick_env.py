@@ -156,13 +156,13 @@ def test_spr_module_runs_one_update_and_lowers_loss() -> None:
     from gymnasium import spaces
     from ml_models.lib.rl import SharedSPRFeaturesExtractor, SPRModule
 
-    obs_space = spaces.Box(low=-np.inf, high=np.inf, shape=(52,), dtype=np.float32)
+    obs_space = spaces.Box(low=-np.inf, high=np.inf, shape=(59,), dtype=np.float32)
     extractor = SharedSPRFeaturesExtractor(obs_space, features_dim=32, hidden_dims=(64,))
     spr = SPRModule(extractor, action_dim=6, k=2, ema_tau=0.05, learning_rate=1e-3)
     rng = np.random.default_rng(0)
-    obs_t = torch.as_tensor(rng.standard_normal((16, 52)), dtype=torch.float32)
+    obs_t = torch.as_tensor(rng.standard_normal((16, 59)), dtype=torch.float32)
     actions = torch.as_tensor(rng.integers(0, 2, size=(16, 2, 6)), dtype=torch.float32)
-    obs_tk = torch.as_tensor(rng.standard_normal((16, 52)), dtype=torch.float32)
+    obs_tk = torch.as_tensor(rng.standard_normal((16, 59)), dtype=torch.float32)
 
     loss0 = spr.compute_and_step(obs_t, actions, obs_tk)
     for _ in range(20):

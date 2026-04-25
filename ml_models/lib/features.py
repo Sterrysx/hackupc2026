@@ -7,11 +7,12 @@ import pandas as pd
 from sdg.schema import COMPONENT_IDS
 
 WEATHER_COLS = ["ambient_temp_c", "humidity_pct"]
-WORKLOAD_COLS = ["jobs_today", "dust_concentration", "Q_demand"]
+WORKLOAD_COLS = ["daily_print_hours", "cumulative_print_hours", "dust_concentration", "Q_demand"]
 COUNTER_COLS = ["N_f", "N_c", "N_TC", "N_on"]
 HEALTH_COLS = [f"H_{component_id}" for component_id in COMPONENT_IDS]
 TAU_COLS = [f"tau_{component_id}" for component_id in COMPONENT_IDS]
 LIFE_COLS = [f"L_{component_id}" for component_id in COMPONENT_IDS]
+HOURS_SINCE_FAILURE_COLS = [f"hours_since_{component_id}_failure" for component_id in COMPONENT_IDS]
 LAMBDA_COLS = [f"lambda_{component_id}" for component_id in COMPONENT_IDS]
 CALENDAR_COLS = ["sin_doy", "cos_doy", "sin_month", "cos_month"]
 
@@ -24,6 +25,7 @@ def base_feature_columns() -> list[str]:
         + HEALTH_COLS
         + TAU_COLS
         + LIFE_COLS
+        + HOURS_SINCE_FAILURE_COLS
         + LAMBDA_COLS
         + CALENDAR_COLS
     )

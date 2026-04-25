@@ -60,7 +60,7 @@ interface TimelineFrame {
   day: number[];
   ambient_temp_c: number[];
   humidity_pct: number[];
-  jobs_today: number[];
+  daily_print_hours: number[];
   status_C1: string[];
   status_C2: string[];
   status_C3: string[];
@@ -93,7 +93,7 @@ export function LifetimeTelemetryTile({ className }: { className?: string }) {
           city: backendCityName(selectedCity),
           printerId: selectedPrinterId,
           fields: [
-            "ambient_temp_c", "humidity_pct", "jobs_today",
+            "ambient_temp_c", "humidity_pct", "daily_print_hours",
             "status_C1", "status_C2", "status_C3",
             "status_C4", "status_C5", "status_C6",
           ],
@@ -215,9 +215,9 @@ function TimelineCanvas({
   // ── Driver paths ─────────────────────────────────────────────────────
   const driverPaths = useMemo(() => {
     return [
-      driverLine(frame.ambient_temp_c, frame.day, dayW, -10, 40, 0),
-      driverLine(frame.humidity_pct,   frame.day, dayW, 0, 100, DRIVERS_H / 3),
-      driverLine(frame.jobs_today,     frame.day, dayW, 0, Math.max(60, ...frame.jobs_today), 2 * DRIVERS_H / 3),
+      driverLine(frame.ambient_temp_c,   frame.day, dayW, -10, 40, 0),
+      driverLine(frame.humidity_pct,     frame.day, dayW, 0, 100, DRIVERS_H / 3),
+      driverLine(frame.daily_print_hours, frame.day, dayW, 0, Math.max(12, ...frame.daily_print_hours), 2 * DRIVERS_H / 3),
     ];
   }, [frame, dayW]);
 
@@ -298,7 +298,7 @@ function TimelineCanvas({
       <g transform={`translate(0, ${HEADER_H})`}>
         <DriverRow label="Temperature" pathD={driverPaths[0]} y={0}             color="var(--color-fg)" />
         <DriverRow label="Humidity"    pathD={driverPaths[1]} y={DRIVERS_H/3}   color="var(--color-fg-muted)" />
-        <DriverRow label="Print vol."  pathD={driverPaths[2]} y={2*DRIVERS_H/3} color="var(--color-accent)" />
+        <DriverRow label="Print hours" pathD={driverPaths[2]} y={2*DRIVERS_H/3} color="var(--color-accent)" />
       </g>
 
       {/* Status grid */}

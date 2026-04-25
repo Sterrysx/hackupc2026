@@ -9,7 +9,7 @@ from sdg.core.component import Component
 from sdg.core.degradation import compute_cross_factors, compute_lambda
 from sdg.core.simulator import apply_maintenance_and_safety, run_printer
 from sdg.generate import load_configs
-from sdg.schema import COMPONENT_IDS
+from sdg.schema import COMPONENT_IDS, FINAL_SCHEMA
 
 
 def test_nominal_driver_values_match_base_lambda() -> None:
@@ -76,6 +76,129 @@ def test_preventive_happens_before_corrective_on_same_day() -> None:
     assert maint["C1"] is True
     assert failure["C1"] is False
     assert math.isclose(components["C1"].H, 0.55)
+
+
+def test_apply_corrective_resets_hours_since_failure() -> None:
+    components_cfg, _couplings_cfg, _cities_cfg = load_configs()
+    component = _components(components_cfg)["C1"]
+    component.hours_since_failure = 100.0
+
+    component.apply_corrective()
+
+    assert component.hours_since_failure == 0.0
+
+
+def test_apply_preventive_does_not_reset_hours_since_failure() -> None:
+    components_cfg, _couplings_cfg, _cities_cfg = load_configs()
+    component = _components(components_cfg)["C1"]
+    component.hours_since_failure = 100.0
+
+    component.apply_preventive()
+
+    assert component.hours_since_failure == 100.0
+
+
+def test_calibration_invariant_for_failure_targets() -> None:
+    components_cfg, _couplings_cfg, _cities_cfg = load_configs()
+    for component_id in COMPONENT_IDS:
+        spec = components_cfg["components"][component_id]
+        target = spec.get("first_failure_target_d")
+        if target is None:
+            continue
+        expected = 0.9 / float(target)
+        assert math.isclose(
+            float(spec["lambda0_per_d"]), expected, rel_tol=1e-6
+        ), f"{component_id}: lambda0_per_d != 0.9 / first_failure_target_d"
+
+
+def test_schema_includes_new_columns() -> None:
+    names = set(FINAL_SCHEMA.names)
+    assert "daily_print_hours" in names
+    assert "cumulative_print_hours" in names
+    for component_id in COMPONENT_IDS:
+        assert f"hours_since_{component_id}_failure" in names
+    assert "jobs_today" not in names
+
+
+def test_daily_print_hours_distribution() -> None:
+    components_cfg, couplings_cfg, cities_cfg = load_configs()
+    dates = [date(2015, 1, 1) + timedelta(days=day) for day in range(720)]
+    rows = run_printer(
+        printer_id=0,
+        city_profile=cities_cfg["cities"][0],
+        dates=dates,
+        components_cfg=components_cfg,
+        couplings_cfg=couplings_cfg,
+        rng=np.random.default_rng(0),
+        monthly_jobs=12.0,
+        alphas={component_id: 1.0 for component_id in COMPONENT_IDS},
+    )
+
+    hours = np.array([row["daily_print_hours"] for row in rows], dtype=np.float64)
+    # Gamma(2, 2) has mean 4, std 2*sqrt(2) ≈ 2.83. 720-day SE on the mean ≈ 0.106.
+    assert hours.min() >= 0.0
+    assert abs(hours.mean() - 4.0) < 0.5
+    assert abs(hours.std() - 2 * math.sqrt(2)) < 0.5
+
+
+def test_cumulative_print_hours_is_running_sum() -> None:
+    components_cfg, couplings_cfg, cities_cfg = load_configs()
+    dates = [date(2015, 1, 1) + timedelta(days=day) for day in range(30)]
+    rows = run_printer(
+        printer_id=0,
+        city_profile=cities_cfg["cities"][0],
+        dates=dates,
+        components_cfg=components_cfg,
+        couplings_cfg=couplings_cfg,
+        rng=np.random.default_rng(0),
+        monthly_jobs=12.0,
+        alphas={component_id: 1.0 for component_id in COMPONENT_IDS},
+    )
+
+    expected = 0.0
+    for row in rows:
+        expected += float(row["daily_print_hours"])
+        assert math.isclose(float(row["cumulative_print_hours"]), expected, rel_tol=1e-6)
+
+
+def test_hours_since_failure_resets_on_failure_event() -> None:
+    components_cfg, couplings_cfg, cities_cfg = load_configs()
+    # Long enough that C1 fails at least once under nominal-ish driving.
+    dates = [date(2015, 1, 1) + timedelta(days=day) for day in range(300)]
+    rows = run_printer(
+        printer_id=0,
+        city_profile=cities_cfg["cities"][0],
+        dates=dates,
+        components_cfg=components_cfg,
+        couplings_cfg=couplings_cfg,
+        rng=np.random.default_rng(0),
+        monthly_jobs=12.0,
+        alphas={component_id: 1.0 for component_id in COMPONENT_IDS},
+    )
+
+    # Find a row where C1 fails, assert hours_since_C1_failure is small (= today's hours).
+    for row in rows:
+        if bool(row["failure_C1"]):
+            assert float(row["hours_since_C1_failure"]) <= float(row["daily_print_hours"]) + 1e-6
+            return
+    raise AssertionError("expected at least one C1 failure within 300-day run")
+
+
+def test_alpha_sigma_is_validated() -> None:
+    from sdg.core.degradation import validate_components_config
+
+    components_cfg, _couplings_cfg, _cities_cfg = load_configs()
+    # Spec is valid as-is.
+    validate_components_config(components_cfg)
+    # Mutate one component to have an invalid alpha_sigma and expect a raise.
+    bad = {**components_cfg, "components": {**components_cfg["components"]}}
+    bad["components"]["C1"] = {**bad["components"]["C1"], "alpha_sigma": 1.5}
+    try:
+        validate_components_config(bad)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for alpha_sigma >= 1.0")
 
 
 def _components(components_cfg: dict) -> dict[str, Component]:

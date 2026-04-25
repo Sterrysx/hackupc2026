@@ -214,10 +214,12 @@ def test_compute_forecasts_falls_back_to_analytic_when_head_missing(monkeypatch)
 
 
 def test_ssl_forecasts_use_learned_rationale_when_head_present():
-    if not forecast._has_rul_head():
-        pytest.skip("rul_head_ssl.pt not on disk — analytic-only environment")
     # Force-clear cache so we exercise the load path.
     forecast.reset_model_cache()
+    if forecast.active_path() != "ssl":
+        pytest.skip(
+            "SSL head not active (file missing or feature-width mismatch with live parquet)"
+        )
     pid = twin_data.list_printers("Barcelona")[0]
     forecasts = forecast.compute_forecasts("Barcelona", pid, day=400)
 

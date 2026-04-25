@@ -69,7 +69,7 @@ BAD_DRIVERS = {
     "T_max": 200.0,
 }
 
-JOBS_PER_DAY = 10.0 / 30.0  # average
+HOURS_PER_DAY = 4.0  # mean of Gamma(2, 2) used by the simulator
 
 MAX_DH_PER_DAY = 1.2
 
@@ -136,11 +136,11 @@ def run_diagnostic(
 
     for day in range(days):
         # (1) Counters: deterministic accumulation matching simulator's mean rate.
-        jobs_today = JOBS_PER_DAY  # fractional, deterministic
-        counters["N_f"] += int(jobs_today * float(process["fires_per_job"]))
-        counters["N_c"] += int(jobs_today * float(process["layers_per_job"]))
-        counters["N_TC"] += int(jobs_today)
-        counters["N_on"] += int(jobs_today * 1.5)
+        hours = HOURS_PER_DAY  # deterministic, matches Gamma(2,2) mean
+        counters["N_f"] += int(hours * float(process["fires_per_hour"]))
+        counters["N_c"] += int(hours * float(process["layers_per_hour"]))
+        counters["N_TC"] += int(hours / float(process["hours_per_job"]))
+        counters["N_on"] += max(1, int(round(hours * 0.05)))
 
         # (2) Cross-cascades (optionally disabled to isolate per-comp degradation).
         if enable_cross_cascade:
@@ -240,6 +240,19 @@ def report(traces: dict[str, CompTrace], scenario_name: str) -> None:
     # Health summary at end
     healthy = [cid for cid in COMPONENT_IDS if traces[cid].first_failure_day is None]
     print(f"\nNo failures within window: {', '.join(healthy) if healthy else '(none)'}")
+
+    # Calibration check: how close is each first-failure day to the YAML target?
+    print("\nCalibration vs first_failure_target_d (under nominal drivers, target should match):")
+    for cid in COMPONENT_IDS:
+        target = components_cfg["components"][cid].get("first_failure_target_d")
+        actual = traces[cid].first_failure_day
+        if target is None:
+            note = "n/a (no target)"
+        elif actual is None:
+            note = f"target={target:.1f}, actual=NEVER (window too short or drivers too soft)"
+        else:
+            note = f"target={target:.1f}, actual={actual}, ratio={actual / float(target):.2f}"
+        print(f"  {cid}: {note}")
 
 
 def main() -> None:

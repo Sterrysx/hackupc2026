@@ -50,7 +50,8 @@ def _schema_fields(include_rul: bool) -> list[pa.Field]:
         _field("humidity_pct", pa.float32()),
         _field("dust_concentration", pa.float32()),
         _field("Q_demand", pa.float32()),
-        _field("jobs_today", pa.int16()),
+        _field("daily_print_hours", pa.float32()),
+        _field("cumulative_print_hours", pa.float32()),
     ]
     fields += [_field(f"H_{component_id}", pa.float32()) for component_id in COMPONENT_IDS]
     fields += [_field(f"status_{component_id}", _DICT) for component_id in COMPONENT_IDS]
@@ -65,6 +66,9 @@ def _schema_fields(include_rul: bool) -> list[pa.Field]:
     fields += [_field(f"lambda_{component_id}", pa.float32()) for component_id in COMPONENT_IDS]
     fields += [_field(f"maint_{component_id}", pa.bool_()) for component_id in COMPONENT_IDS]
     fields += [_field(f"failure_{component_id}", pa.bool_()) for component_id in COMPONENT_IDS]
+    fields += [
+        _field(f"hours_since_{component_id}_failure", pa.float32()) for component_id in COMPONENT_IDS
+    ]
     if include_rul:
         fields += [_field(f"rul_{component_id}", pa.int32(), nullable=True) for component_id in COMPONENT_IDS]
         fields.append(_field("rul_system", pa.int32(), nullable=True))
@@ -101,7 +105,6 @@ def coerce_dataframe(df: pd.DataFrame, *, include_rul: bool) -> pd.DataFrame:
     df["climate_zone"] = pd.Categorical(df["climate_zone"], categories=CLIMATE_CATEGORIES)
     df["date"] = pd.to_datetime(df["date"]).dt.date
     df["day"] = df["day"].astype("int16")
-    df["jobs_today"] = df["jobs_today"].astype("int16")
 
     for column in _float_columns():
         df[column] = df[column].astype("float32")
@@ -141,9 +144,12 @@ def _float_columns() -> list[str]:
         "humidity_pct",
         "dust_concentration",
         "Q_demand",
+        "daily_print_hours",
+        "cumulative_print_hours",
     ]
     columns += [f"H_{component_id}" for component_id in COMPONENT_IDS]
     columns += [f"tau_{component_id}" for component_id in COMPONENT_IDS]
     columns += [f"L_{component_id}" for component_id in COMPONENT_IDS]
     columns += [f"lambda_{component_id}" for component_id in COMPONENT_IDS]
+    columns += [f"hours_since_{component_id}_failure" for component_id in COMPONENT_IDS]
     return columns

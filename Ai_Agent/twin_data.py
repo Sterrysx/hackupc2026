@@ -118,7 +118,7 @@ def _build_drivers(row: pd.Series) -> dict[str, float]:
         "ambientTempC": float(row["ambient_temp_c"]),
         "humidityPct": float(row["humidity_pct"]),
         "contaminationPct": float(row["dust_concentration"]),
-        "loadPct": float(row["jobs_today"]),
+        "loadPct": float(row["daily_print_hours"]),
         "maintenanceCoeff": 1.0,
     }
 
@@ -166,15 +166,17 @@ def get_snapshot(
 
 _TIMELINE_ALLOWED_COLUMNS: frozenset[str] = frozenset(
     ["day", "date", "ambient_temp_c", "humidity_pct",
-     "dust_concentration", "Q_demand", "jobs_today",
+     "dust_concentration", "Q_demand",
+     "daily_print_hours", "cumulative_print_hours",
      "N_f", "N_c", "N_TC", "N_on"]
-    + [f"H_{c}"      for c in COMPONENT_IDS]
-    + [f"status_{c}" for c in COMPONENT_IDS]
-    + [f"tau_{c}"    for c in COMPONENT_IDS]
-    + [f"L_{c}"      for c in COMPONENT_IDS]
-    + [f"lambda_{c}" for c in COMPONENT_IDS]
-    + [f"maint_{c}"  for c in COMPONENT_IDS]
-    + [f"failure_{c}" for c in COMPONENT_IDS]
+    + [f"H_{c}"                     for c in COMPONENT_IDS]
+    + [f"status_{c}"                for c in COMPONENT_IDS]
+    + [f"tau_{c}"                   for c in COMPONENT_IDS]
+    + [f"L_{c}"                     for c in COMPONENT_IDS]
+    + [f"lambda_{c}"                for c in COMPONENT_IDS]
+    + [f"maint_{c}"                 for c in COMPONENT_IDS]
+    + [f"failure_{c}"               for c in COMPONENT_IDS]
+    + [f"hours_since_{c}_failure"   for c in COMPONENT_IDS]
 )
 
 

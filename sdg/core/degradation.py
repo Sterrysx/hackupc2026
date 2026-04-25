@@ -59,8 +59,21 @@ def validate_components_config(components_cfg: Mapping) -> None:
         spec = components[component_id]
         l_nom_d = float(spec["L_nom_d"])
         lambda0 = float(spec["lambda0_per_d"])
-        if not math.isclose(lambda0, 1.0 / l_nom_d, rel_tol=1e-6, abs_tol=1e-15):
-            raise ValueError(f"{component_id}: lambda0_per_d must equal 1 / L_nom_d")
+        target = spec.get("first_failure_target_d")
+        if target is not None and math.isfinite(float(target)):
+            expected = 0.9 / float(target)
+            if not math.isclose(lambda0, expected, rel_tol=1e-6, abs_tol=1e-15):
+                raise ValueError(
+                    f"{component_id}: lambda0_per_d must equal 0.9 / first_failure_target_d"
+                )
+        elif not math.isclose(lambda0, 1.0 / l_nom_d, rel_tol=1e-6, abs_tol=1e-15):
+            raise ValueError(
+                f"{component_id}: lambda0_per_d must equal 1 / L_nom_d when first_failure_target_d is null"
+            )
+        if "alpha_sigma" in spec:
+            sigma = float(spec["alpha_sigma"])
+            if not (0.0 < sigma < 1.0):
+                raise ValueError(f"{component_id}: alpha_sigma must be in (0, 1)")
         if float(spec["tau_nom_d"]) <= 0:
             raise ValueError(f"{component_id}: tau_nom_d must be positive")
         for variable in (*spec.get("ext_vars", ()), *spec.get("int_vars", ())):

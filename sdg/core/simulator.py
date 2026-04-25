@@ -26,8 +26,12 @@ def run_printer(
     monthly_jobs: float,
     alphas: Mapping[str, float],
 ) -> list[dict]:
-    """Return row dictionaries for one printer trajectory."""
-    counters, components = _initial_state(components_cfg, alphas)
+    """Return row dictionaries for one printer trajectory.
+
+    ``monthly_jobs`` is accepted for API compatibility but no longer used —
+    daily workload is now sampled as ``daily_print_hours ~ Gamma(2, 2)``.
+    """
+    counters, printer_state, components = _initial_state(components_cfg, alphas)
     rows: list[dict] = []
     start_date = dates[0]
     for current_date in dates:
@@ -37,11 +41,11 @@ def run_printer(
             current_date=current_date,
             start_date=start_date,
             counters=counters,
+            printer_state=printer_state,
             components=components,
             components_cfg=components_cfg,
             couplings_cfg=couplings_cfg,
             rng=rng,
-            monthly_jobs=monthly_jobs,
             agent_action=None,
         )
         rows.append(row)
@@ -88,9 +92,11 @@ class PrinterStepper:
         self.components_cfg = components_cfg
         self.couplings_cfg = couplings_cfg
         self.rng = rng
-        self.monthly_jobs = float(monthly_jobs)
+        self.monthly_jobs = float(monthly_jobs)  # accepted for API compat; unused
         self.alphas = dict(alphas)
-        self.counters, self.components = _initial_state(components_cfg, self.alphas)
+        self.counters, self.printer_state, self.components = _initial_state(
+            components_cfg, self.alphas
+        )
         self._start_date: Date | None = None
         self._steps_taken: int = 0
 
@@ -108,11 +114,11 @@ class PrinterStepper:
             current_date=current_date,
             start_date=self._start_date,
             counters=self.counters,
+            printer_state=self.printer_state,
             components=self.components,
             components_cfg=self.components_cfg,
             couplings_cfg=self.couplings_cfg,
             rng=self.rng,
-            monthly_jobs=self.monthly_jobs,
             agent_action=agent_action,
         )
         self._steps_taken += 1
@@ -195,8 +201,9 @@ def apply_agent_maintenance(
 def _initial_state(
     components_cfg: Mapping,
     alphas: Mapping[str, float],
-) -> tuple[dict[str, int], dict[str, Component]]:
+) -> tuple[dict[str, int], dict[str, float], dict[str, Component]]:
     counters: dict[str, int] = {"N_f": 0, "N_c": 0, "N_TC": 0, "N_on": 0}
+    printer_state: dict[str, float] = {"cumulative_print_hours": 0.0}
     components = {
         component_id: Component(
             id=component_id,
@@ -206,7 +213,7 @@ def _initial_state(
         )
         for component_id in COMPONENT_IDS
     }
-    return counters, components
+    return counters, printer_state, components
 
 
 def _cascade_factor(h: float) -> float:
@@ -228,24 +235,24 @@ def _simulate_one_day(
     current_date: Date,
     start_date: Date,
     counters: MutableMapping[str, int],
+    printer_state: MutableMapping[str, float],
     components: MutableMapping[str, Component],
     components_cfg: Mapping,
     couplings_cfg: Mapping,
     rng: np.random.Generator,
-    monthly_jobs: float,
     agent_action: Mapping[str, bool] | None,
 ) -> tuple[dict, dict[str, bool], dict[str, bool]]:
     """Single-day simulator step shared by ``run_printer`` and ``PrinterStepper``.
 
-    ``components`` and ``counters`` are mutated in place. ``agent_action``
-    selects between the original tau-based rule (None) and the agent-driven
-    rule (any mapping).
+    ``components``, ``counters`` and ``printer_state`` are mutated in place.
+    ``agent_action`` selects between the original tau-based rule (None) and
+    the agent-driven rule (any mapping).
     """
     process = components_cfg["process_constants"]
 
     weather_drivers = get_drivers(city_profile["name"], current_date)
-    jobs_today = int(rng.poisson(float(monthly_jobs) / 30.0))
-    _update_counters(counters, jobs_today, process, rng)
+    daily_print_hours = float(rng.gamma(2.0, 2.0))
+    _update_counters(counters, daily_print_hours, process)
 
     c_p = float(process["c_p0"]) * _cascade_factor(components["C1"].H)
     q_demand = float(process["Q0"]) * _cascade_factor(components["C6"].H)
@@ -268,6 +275,14 @@ def _simulate_one_day(
             components, couplings_cfg, agent_action
         )
 
+    # Order: apply_corrective resets hours_since_failure to 0, then we add the
+    # day's hours. So a component that failed today shows ~daily_print_hours
+    # for hours_since_<C>_failure on the failure-day row.
+    for component in components.values():
+        component.accumulate_hours(daily_print_hours)
+
+    printer_state["cumulative_print_hours"] += daily_print_hours
+
     for component in components.values():
         component.advance_time(1.0)
 
@@ -280,7 +295,8 @@ def _simulate_one_day(
         weather_drivers=weather_drivers,
         c_p=c_p,
         q_demand=q_demand,
-        jobs_today=jobs_today,
+        daily_print_hours=daily_print_hours,
+        cumulative_print_hours=float(printer_state["cumulative_print_hours"]),
         components=components,
         counters=counters,
         lambda_values=lambda_values,
@@ -292,15 +308,17 @@ def _simulate_one_day(
 
 def _update_counters(
     counters: dict[str, int],
-    jobs_today: int,
+    daily_print_hours: float,
     process: Mapping,
-    rng: np.random.Generator,
 ) -> None:
-    counters["N_f"] += jobs_today * int(round(float(process["fires_per_job"])))
-    counters["N_c"] += jobs_today * int(process["layers_per_job"])
-    counters["N_TC"] += jobs_today
-    if jobs_today > 0:
-        counters["N_on"] += int(rng.integers(1, 3))
+    fph = float(process["fires_per_hour"])
+    lph = float(process["layers_per_hour"])
+    hpj = float(process["hours_per_job"])
+    counters["N_f"] += int(round(daily_print_hours * fph))
+    counters["N_c"] += int(round(daily_print_hours * lph))
+    counters["N_TC"] += int(round(daily_print_hours / hpj))
+    if daily_print_hours > 0.0:
+        counters["N_on"] += max(1, int(round(daily_print_hours * 0.05)))
 
 
 def _build_driver_namespace(
@@ -341,7 +359,8 @@ def _row_dict(
     weather_drivers: Mapping[str, float],
     c_p: float,
     q_demand: float,
-    jobs_today: int,
+    daily_print_hours: float,
+    cumulative_print_hours: float,
     components: Mapping[str, Component],
     counters: Mapping[str, int],
     lambda_values: Mapping[str, float],
@@ -358,7 +377,8 @@ def _row_dict(
         "humidity_pct": weather_drivers["humidity_pct"],
         "dust_concentration": c_p,
         "Q_demand": q_demand,
-        "jobs_today": jobs_today,
+        "daily_print_hours": daily_print_hours,
+        "cumulative_print_hours": cumulative_print_hours,
     }
     for component_id in COMPONENT_IDS:
         row[f"H_{component_id}"] = components[component_id].H
@@ -382,4 +402,6 @@ def _row_dict(
         row[f"maint_{component_id}"] = maint_events[component_id]
     for component_id in COMPONENT_IDS:
         row[f"failure_{component_id}"] = failure_events[component_id]
+    for component_id in COMPONENT_IDS:
+        row[f"hours_since_{component_id}_failure"] = components[component_id].hours_since_failure
     return row

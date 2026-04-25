@@ -377,6 +377,13 @@ def ssl_forecasts(
         row = twin_data._row_for(city, printer_id, day, df)  # noqa: SLF001
         return analytic_forecasts(row, horizon_d)
 
+    if window.shape[1] != bundle.channel_mean.shape[0]:
+        # Trained head's feature width is stale vs. the current parquet schema
+        # (e.g. SDG was refactored after the head was trained). Fall back to
+        # analytic forecasts until Stage 02 is retrained.
+        row = twin_data._row_for(city, printer_id, day, df)  # noqa: SLF001
+        return analytic_forecasts(row, horizon_d)
+
     normed = (window - bundle.channel_mean) / bundle.channel_std
     torch = bundle.torch
     with torch.no_grad():
@@ -425,8 +432,16 @@ def active_path() -> str:
     """Return the dispatch path that ``compute_forecasts`` would take right now.
 
     Useful for surfacing the model state in the UI or logs:
-    ``"ssl"`` when the trained head is loaded, ``"analytic"`` otherwise.
+    ``"ssl"`` when the trained head is loaded *and compatible* with the live
+    parquet schema, ``"analytic"`` otherwise.
     """
-    if _has_rul_head() and _get_bundle() is not None:
-        return "ssl"
-    return "analytic"
+    if not _has_rul_head():
+        return "analytic"
+    bundle = _get_bundle()
+    if bundle is None:
+        return "analytic"
+    from ml_models.lib.features import base_feature_columns
+    if bundle.channel_mean.shape[0] != len(base_feature_columns()):
+        # Trained head's feature width is stale vs. the current schema.
+        return "analytic"
+    return "ssl"

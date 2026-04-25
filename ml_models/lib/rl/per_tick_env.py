@@ -18,13 +18,14 @@ Observation (raw, no encoder needed because the LSTM builds memory):
   ``L_nom_d``), ``L_Ci`` (normalised), ``lambda_Ci`` (log-scaled). 4 × 6 = 24.
 - Counters (log1p of N_f, N_c, N_TC, N_on). 4.
 - Weather/load: ambient_temp_c, humidity_pct, dust_concentration, Q_demand,
-  jobs_today. 5.
+  daily_print_hours, cumulative_print_hours. 6.
+- Per-component hours_since_<C>_failure. 6.
 - Calendar: sin/cos of doy + month. 4.
 - City one-hot. 15.
 - Optional: SSL embedding (encoder applied to first-360-day window once at
   reset). +d_model. Off by default.
 
-Total without SSL: 52-d. With SSL (256-d): 308-d.
+Total without SSL: 59-d. With SSL (256-d): 315-d.
 """
 from __future__ import annotations
 
@@ -84,8 +85,16 @@ def _weather_features(row: Mapping[str, Any]) -> np.ndarray:
             float(row["humidity_pct"]),
             float(row["dust_concentration"]),
             float(row["Q_demand"]),
-            float(row["jobs_today"]),
+            float(row["daily_print_hours"]),
+            float(row["cumulative_print_hours"]),
         ],
+        dtype=np.float32,
+    )
+
+
+def _hours_since_failure_features(row: Mapping[str, Any]) -> np.ndarray:
+    return np.array(
+        [float(row[f"hours_since_{component_id}_failure"]) for component_id in COMPONENT_IDS],
         dtype=np.float32,
     )
 
@@ -186,11 +195,12 @@ class MaintenancePerTickEnv(gym.Env):
         self.action_space = spaces.MultiBinary(len(COMPONENT_IDS))
         ssl_dim = self._encoder.d_model if self._encoder is not None else 0
         obs_dim = (
-            4 * len(COMPONENT_IDS)  # per-component state
-            + 4                      # counters
-            + 5                      # weather + load
-            + 4                      # calendar
-            + self._n_cities         # city one-hot
+            4 * len(COMPONENT_IDS)   # per-component state
+            + 4                       # counters
+            + 6                       # weather + load (incl. cumulative_print_hours)
+            + len(COMPONENT_IDS)      # hours_since_<C>_failure per component
+            + 4                       # calendar
+            + self._n_cities          # city one-hot
             + ssl_dim
         )
         self.observation_space = spaces.Box(
@@ -230,17 +240,19 @@ class MaintenancePerTickEnv(gym.Env):
     ) -> np.ndarray:
         if last_row is None:
             # Pre-step observation at reset() — no row yet, use zeros for
-            # weather/jobs and lambda placeholder.
-            weather = np.zeros(5, dtype=np.float32)
+            # weather/load and hours-since-failure placeholders.
+            weather = np.zeros(6, dtype=np.float32)
+            hours_since = np.zeros(len(COMPONENT_IDS), dtype=np.float32)
         else:
             weather = _weather_features(last_row)
+            hours_since = _hours_since_failure_features(last_row)
         per_component = _component_state_features(state_snapshot, lambda_values)
         counters = _counter_features(
             self._stepper.counters if self._stepper is not None else
             {"N_f": 0, "N_c": 0, "N_TC": 0, "N_on": 0}
         )
         calendar = _calendar_features(current_date)
-        parts = [per_component, counters, weather, calendar, self._city_one_hot]
+        parts = [per_component, counters, weather, hours_since, calendar, self._city_one_hot]
         if self._ssl_context is not None:
             parts.append(self._ssl_context)
         return np.concatenate(parts).astype(np.float32)

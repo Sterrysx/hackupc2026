@@ -44,8 +44,22 @@ def main(output_path: str | Path = DEFAULT_OUTPUT_PATH) -> None:
             rng = np.random.default_rng(printer_id)
             city_profile = printer_city_map[printer_id]
             monthly_jobs = float(rng.uniform(8.0, 15.0))
-            alpha_values = rng.uniform(0.7, 1.3, size=len(COMPONENT_IDS))
-            alphas = dict(zip(COMPONENT_IDS, alpha_values, strict=True))
+            # Per-component Gaussian alpha sampling. alpha multiplies lambda0,
+            # so alpha > 1 = faster degradation = shorter lifetime. We accept
+            # the small bias E[1/N(1,σ)] ≈ 1 + σ² (negligible at σ ≤ 0.15).
+            alphas = {
+                cid: float(
+                    np.clip(
+                        rng.normal(
+                            1.0,
+                            float(components_cfg["components"][cid].get("alpha_sigma", 0.10)),
+                        ),
+                        0.5,
+                        2.0,
+                    )
+                )
+                for cid in COMPONENT_IDS
+            }
             rows = run_printer(
                 printer_id=printer_id,
                 city_profile=city_profile,

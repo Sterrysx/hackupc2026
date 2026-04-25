@@ -10,14 +10,20 @@ process_constants:
   c_p0: 50.0
   Q0: 1.0
   phi_R: 0.20
-  fires_per_job: 5000000000.0
-  layers_per_job: 2800
+  hours_per_job: 0.5             # average print job duration
+  fires_per_hour: 500000000.0    # 5e8/h × 4h/day ≈ old 0.4 jobs/day × 5e9 fires/job
+  layers_per_hour: 280.0         # 280/h × 4h/day ≈ old 0.4 jobs/day × 2800 layers/job
 
-# All time fields in DAYS. lambda0_per_d = 1 / L_nom_d.
+# All time fields in DAYS. lambda0_per_d is calibrated so that under nominal
+# drivers (f_ext=f_int=f_cross=1) H reaches 0.1 at first_failure_target_d.
+# For components with first_failure_target_d == null, the legacy invariant
+# lambda0_per_d == 1/L_nom_d is preserved.
 components:
   C1:
     L_nom_d: 33.333333
-    lambda0_per_d: 0.03
+    first_failure_target_d: 22.0
+    alpha_sigma: 0.10
+    lambda0_per_d: 0.040909090909090909   # 0.9 / 22
     cost_preventive_eur: 250
     cost_corrective_eur: 3500
     downtime_preventive_d: 0.0625    # 1.5h
@@ -35,6 +41,8 @@ components:
 
   C2:
     L_nom_d: 750.0
+    first_failure_target_d: null
+    alpha_sigma: 0.10
     lambda0_per_d: 0.001333333333333333
     cost_preventive_eur: 400
     cost_corrective_eur: 8500
@@ -55,7 +63,9 @@ components:
     # Recalibrated: HP TIJ printheads are operator-replaceable consumables
     # with industrial life ~33-62d (literature). Was 146d.
     L_nom_d: 50.0
-    lambda0_per_d: 0.02
+    first_failure_target_d: 41.0
+    alpha_sigma: 0.12
+    lambda0_per_d: 0.021951219512195122   # 0.9 / 41
     cost_preventive_eur: 2500
     cost_corrective_eur: 12000
     downtime_preventive_d: 0.0833333 # 2h
@@ -75,7 +85,9 @@ components:
 
   C4:
     L_nom_d: 208.333333
-    lambda0_per_d: 0.0048
+    first_failure_target_d: 115.0
+    alpha_sigma: 0.10
+    lambda0_per_d: 0.007826086956521739   # 0.9 / 115
     cost_preventive_eur: 2500
     cost_corrective_eur: 12000
     downtime_preventive_d: 0.0833333 # 2h
@@ -92,6 +104,8 @@ components:
 
   C5:
     L_nom_d: 500.0
+    first_failure_target_d: null
+    alpha_sigma: 0.10
     lambda0_per_d: 0.002
     cost_preventive_eur: 900
     cost_corrective_eur: 8000
@@ -112,6 +126,8 @@ components:
     # Recalibrated: BJT insulation works at ~180C, far below ceramic-fiber
     # rated 1260C. Real-world life dominated by humidity/dust, not T. Was 1250d.
     L_nom_d: 2500.0
+    first_failure_target_d: null
+    alpha_sigma: 0.10
     lambda0_per_d: 0.0004
     cost_preventive_eur: 1500
     cost_corrective_eur: 7000

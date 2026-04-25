@@ -13,6 +13,7 @@ class Component:
     H: float = 1.0
     tau_mant_d: float = 0.0
     L_d: float = 0.0
+    hours_since_failure: float = 0.0
 
     @property
     def lambda0_per_d(self) -> float:
@@ -39,7 +40,11 @@ class Component:
         self.H = 1.0
         self.tau_mant_d = 0.0
         self.L_d = 0.0
+        self.hours_since_failure = 0.0
         return True
+
+    def accumulate_hours(self, hours: float) -> None:
+        self.hours_since_failure += float(hours)
 
     def advance_time(self, days: float) -> None:
         self.tau_mant_d += float(days)

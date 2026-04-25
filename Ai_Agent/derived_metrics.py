@@ -61,9 +61,9 @@ def _blade_wear_um(row: pd.Series, _sid: str, h: float) -> float:
 
 
 def _motor_current_a(row: pd.Series, _sid: str, h: float) -> float:
-    # Idle ~2.4 A, climbs with load and as bearings wear.
-    jobs = float(row["jobs_today"])
-    return 2.4 + 0.04 * jobs + 1.5 * (_H_FULL - h)
+    # Idle ~2.4 A, climbs with daily print hours and as bearings wear.
+    hours = float(row["daily_print_hours"])
+    return 2.4 + 0.08 * hours + 1.5 * (_H_FULL - h)
 
 
 def _vibration_g(_row: pd.Series, _sid: str, h: float) -> float:

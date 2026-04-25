@@ -23,7 +23,8 @@ def _tiny_frame() -> pd.DataFrame:
             "date": pd.to_datetime(["2020-01-01", "2020-04-01", "2020-07-01", "2020-10-01"]),
             "ambient_temp_c": [22.0, 24.0, 28.0, 25.0],
             "humidity_pct": [50.0, 55.0, 45.0, 60.0],
-            "jobs_today": [1, 0, 2, 1],
+            "daily_print_hours": [4.0, 0.5, 6.0, 3.0],
+            "cumulative_print_hours": [4.0, 4.5, 10.5, 13.5],
             "dust_concentration": [50.0, 60.0, 55.0, 70.0],
             "Q_demand": [1.0, 1.1, 1.2, 1.0],
             "N_f": [0, 100, 1000, 10000],
@@ -33,6 +34,7 @@ def _tiny_frame() -> pd.DataFrame:
             **{f"H_C{i}": [1.0, 0.95, 0.9, 0.85] for i in range(1, 7)},
             **{f"tau_C{i}": [0.0, 24.0, 48.0, 72.0] for i in range(1, 7)},
             **{f"L_C{i}": [0.0, 24.0, 48.0, 72.0] for i in range(1, 7)},
+            **{f"hours_since_C{i}_failure": [0.0, 4.0, 8.0, 12.0] for i in range(1, 7)},
             **{f"lambda_C{i}": [1e-3, 1.1e-3, 1.2e-3, 1.3e-3] for i in range(1, 7)},
         }
     )
@@ -110,10 +112,12 @@ def test_features_align_with_real_parquet_schema_when_available() -> None:
         "date",
         "ambient_temp_c",
         "humidity_pct",
-        "jobs_today",
+        "daily_print_hours",
+        "cumulative_print_hours",
         "dust_concentration",
         "Q_demand",
         *COUNTER_COLS,
+        *(f"hours_since_C{i}_failure" for i in range(1, 7)),
     }
     schema_names = set(schema.names)
     missing = needed - schema_names
