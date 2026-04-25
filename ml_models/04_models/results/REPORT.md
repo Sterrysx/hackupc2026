@@ -99,5 +99,5 @@ High-leverage next steps:
 ## Reproduce
 
 ```bash
-uv run jupyter nbconvert --to notebook --execute --inplace ml_models/04/results/compare_01_02_03.ipynb
+uv run jupyter nbconvert --to notebook --execute --inplace ml_models/04_models/results/compare_01_02_03.ipynb
 ```

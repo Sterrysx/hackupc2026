@@ -23,7 +23,7 @@ from stt.transcriber import SpeechToText
 from tts.speaker import TextToSpeech
 from Ai_Agent.db import insert_telemetry, init_db
 from Ai_Agent.trace import build_reasoning_trace
-from Ai_Agent import twin_data, forecast
+from Ai_Agent import twin_data, forecast, predictions
 
 # Chat-agent stack imports the langchain/langgraph stack, which currently
 # pulls in ``langchain_protocol`` — a transitive dep that may not be
@@ -391,6 +391,45 @@ async def twin_timeline(
             city, printer_id, requested,
             day_from=day_from, day_to=day_to,
         )
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/twin/predictions/timeline")
+async def twin_predictions_timeline(
+    city: str,
+    printer_id: int,
+    fields: str,
+    day_from: Optional[int] = None,
+    day_to: Optional[int] = None,
+):
+    """Per-day predicted trajectory from `data/validation/fleet_2026_2035.parquet`.
+
+    Same shape as `/twin/timeline` but reads the forward-projected validation
+    fleet. Use for analytics tiles that animate the model's prediction as the
+    operator scrubs through time.
+    """
+    requested = [f.strip() for f in fields.split(",") if f.strip()]
+    if not requested:
+        raise HTTPException(status_code=400, detail="fields must be non-empty")
+    try:
+        return predictions.get_timeline(
+            city, printer_id, requested,
+            day_from=day_from, day_to=day_to,
+        )
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/twin/predictions/cities")
+async def twin_predictions_cities():
+    return {"cities": predictions.list_cities()}
+
+
+@app.get("/twin/predictions/printers")
+async def twin_predictions_printers(city: str):
+    try:
+        return {"city": city, "printers": predictions.list_printers(city)}
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

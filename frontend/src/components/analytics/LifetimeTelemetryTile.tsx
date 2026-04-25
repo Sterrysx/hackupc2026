@@ -159,19 +159,18 @@ export function LifetimeTelemetryTile({ className }: { className?: string }) {
 /*  Canvas — pure SVG, no chart lib, exact match to the schematic           */
 /* ───────────────────────────────────────────────────────────────────────── */
 
-// Layout constants — tuned for a `row-span-4` bento tile (~640 px tall).
-// Driver area gets nearly 50 % more vertical room so each of the three
-// traces breathes; the per-component status rows are taller so the bands
-// read as separate channels rather than a striped block.
-const PAD_LEFT = 100;      // label gutter on the left
-const PAD_RIGHT = 20;
-const HEADER_H = 30;       // year ribbon
-const DRIVERS_H = 168;     // 3 stacked driver lines
-const DRIVERS_GAP = 22;    // breathing room between drivers band and status grid
-const ROW_H = 24;          // status grid row height
-const ROW_GAP = 4;
+// Layout constants — tuned for a `row-span-5` bento tile (~800 px tall).
+// Driver area gets ~85 px per trace, status rows are 38 px tall — every
+// channel now reads as its own region with real whitespace between them.
+const PAD_LEFT = 108;      // label gutter on the left
+const PAD_RIGHT = 24;
+const HEADER_H = 36;       // year ribbon
+const DRIVERS_H = 256;     // 3 stacked driver lines (~85 px each)
+const DRIVERS_GAP = 34;    // breathing room between drivers band and status grid
+const ROW_H = 32;          // status grid row height
+const ROW_GAP = 6;
 const GRID_H = COMPONENT_ROWS.length * (ROW_H + ROW_GAP);
-const FOOTER_PAD = 26;     // bottom buffer below the status grid
+const FOOTER_PAD = 38;     // bottom buffer below the status grid
 const TOTAL_H = HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H + FOOTER_PAD;
 
 function TimelineCanvas({

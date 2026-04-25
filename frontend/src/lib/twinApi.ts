@@ -158,3 +158,27 @@ export async function fetchTimeline(args: {
     },
   );
 }
+
+/**
+ * Fetch the model-prediction timeline from `data/validation/fleet_2026_2035`.
+ * Mirrors `fetchTimeline` shape but goes through the analytics-only
+ * `/twin/predictions/timeline` endpoint and may include `rul_C{i}` columns.
+ */
+export async function fetchPredictionsTimeline(args: {
+  city: string;
+  printerId: number;
+  fields: string[];
+  dayFrom?: number;
+  dayTo?: number;
+}): Promise<Record<string, number[] | string[] | boolean[]>> {
+  return getJson<Record<string, number[] | string[] | boolean[]>>(
+    "/twin/predictions/timeline",
+    {
+      city: args.city,
+      printer_id: args.printerId,
+      fields: args.fields.join(","),
+      day_from: args.dayFrom,
+      day_to: args.dayTo,
+    },
+  );
+}

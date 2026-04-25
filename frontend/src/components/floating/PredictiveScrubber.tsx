@@ -19,9 +19,20 @@ import { useTwin } from "@/store/twin";
  * widgets) is responsible for picking the right snapshot/forecast frame.
  */
 
-const BASE_DAYS_PER_SEC = 0.6;        // 1× plays the full horizon in ~50 s
-const SPEEDS = [1, 2, 4, 8] as const; // matches Apple-tier speed stepper conventions
+// 10-year horizon ≈ 3 652 days. At 1× we want the full horizon to play in
+// ~30 s wall-clock, which sets the base rate at ~120 sim-days/sec. Faster
+// speed picks let the operator skim across years in seconds.
+const BASE_DAYS_PER_SEC = 120;
+const SPEEDS = [1, 2, 4, 8] as const;
 const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+/** Format a day-offset compactly: <60d → "+Nd", <2y → "+Nmo", else "+Ny". */
+function formatHorizonOffset(days: number): string {
+  if (days < 1) return `+${days.toFixed(1)}d`;
+  if (days < 60) return `+${days.toFixed(0)}d`;
+  if (days < 730) return `+${Math.round(days / 30)}mo`;
+  return `+${(days / 365).toFixed(1)}y`;
+}
 
 export function PredictiveScrubber() {
   const horizon = useTwin((s) => s.forecastHorizonDays);
@@ -134,7 +145,7 @@ export function PredictiveScrubber() {
             }}
           />
           <span className="text-[11px] font-medium tracking-tight tabular-nums">
-            {isLive ? "Now" : `+${displayDays.toFixed(1)}d`}
+            {isLive ? "Now" : formatHorizonOffset(displayDays)}
           </span>
         </button>
 
@@ -177,18 +188,19 @@ export function PredictiveScrubber() {
               boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.04)`,
             }}
           />
-          {/* Tick markers — sit just below, in the same faint typography as
-              the rest of the chrome captions. */}
+          {/* Tick markers — quartile labels formatted on the same horizon
+              scale as the lozenge so the eye reads "Now → +Ny" without
+              mental conversion. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 -bottom-3 flex justify-between
                        text-[9px] uppercase tracking-[0.18em] text-[var(--color-fg-faint)]"
           >
             <span>Now</span>
-            <span>+{Math.round(horizonMax * 0.25)}d</span>
-            <span>+{Math.round(horizonMax * 0.5)}d</span>
-            <span>+{Math.round(horizonMax * 0.75)}d</span>
-            <span>+{horizonMax}d</span>
+            <span>{formatHorizonOffset(horizonMax * 0.25)}</span>
+            <span>{formatHorizonOffset(horizonMax * 0.5)}</span>
+            <span>{formatHorizonOffset(horizonMax * 0.75)}</span>
+            <span>{formatHorizonOffset(horizonMax)}</span>
           </div>
         </div>
 

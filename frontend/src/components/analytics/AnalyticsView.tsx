@@ -8,6 +8,7 @@ import { useTwin } from "@/store/twin";
 import { liveDaysRemaining, formatEta } from "@/lib/alerts";
 import { TICKS_PER_DAY, tickToDay } from "@/lib/twinApi";
 import { LifetimeTelemetryTile } from "@/components/analytics/LifetimeTelemetryTile";
+import { PredictiveTrajectoryTile } from "@/components/analytics/PredictiveTrajectoryTile";
 import type { ComponentForecast, ComponentState } from "@/types/telemetry";
 
 /**
@@ -66,10 +67,17 @@ export function AnalyticsView() {
         {/* Bento grid — 6 cols × auto rows. Each tile spans by intent. */}
         <div className="grid grid-cols-6 auto-rows-[160px] gap-4">
           {/* HERO: HP page-12 schematic — driver traces + status grid +
-              year ribbon + scrubbable cursor. Full bento width, taller
-              than the surrounding tiles so the three driver traces and
-              six component bands have real breathing room. */}
-          <LifetimeTelemetryTile className="col-span-6 row-span-4" />
+              year ribbon + scrubbable cursor. Full bento width and tall
+              (5 rows) so every region — three driver traces, six
+              component bands, year ribbon, cursor caption — has real
+              whitespace and never reads as cramped. */}
+          <LifetimeTelemetryTile className="col-span-6 row-span-5" />
+
+          {/* Forward 10-year prediction trajectory from
+              `data/validation/fleet_2026_2035.parquet`. Cursor walks with
+              `tick` in playback mode, frozen on the current day in live
+              mode — predictions are baked, never re-run client-side. */}
+          <PredictiveTrajectoryTile className="col-span-6 row-span-4" />
 
           <DegradationForecastTile
             className="col-span-6 md:col-span-4 row-span-2"

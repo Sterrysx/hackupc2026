@@ -181,7 +181,12 @@ interface TwinState {
 const INITIAL_TICK = 150;
 
 /** Width of the predictive horizon, in days. Caps how far the scrubber goes. */
-const FORECAST_HORIZON_MAX_DAYS = 30;
+// Predictive scrubber spans the FULL validation horizon (2026-01-01 ..
+// 2035-12-31). The forward simulator + RUL head produce one prediction row
+// per day for the entire 10-year window, so capping the scrubber at 30 days
+// hides the bulk of the data — the operator should be able to walk all the
+// way out to 2035 if they want.
+const FORECAST_HORIZON_MAX_DAYS = 3652;
 /** Total ms the mock "Execute Print" animation runs end-to-end. */
 const PRINT_ANIMATION_MS = 5000;
 
