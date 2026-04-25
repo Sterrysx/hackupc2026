@@ -73,15 +73,31 @@ export class AgentApiError extends Error {
 
 export async function queryAgent(body: AgentQueryBody): Promise<AgentResponse> {
   const url = twinApiUrl("/agent/query");
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: body.query,
-      thread_id: body.thread_id,
-      run_identifier: body.run_identifier ?? "",
-    }),
-  });
+  const raw = Number(import.meta.env.VITE_AGENT_QUERY_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(raw) && raw > 0 ? raw : 90000;
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: body.query,
+        thread_id: body.thread_id,
+        run_identifier: body.run_identifier ?? "",
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new AgentApiError("Agent request timed out.", 408);
+    }
+    throw err;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
 
   if (!res.ok) throw await readApiError(res);
   return (await res.json()) as AgentResponse;

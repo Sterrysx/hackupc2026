@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 import base64
 
 from stt.transcriber import SpeechToText
@@ -147,7 +148,7 @@ async def analyze_and_notify(data: TelemetryData):
             "validation_attempts": 0,
         }
         
-        result = agent_graph.invoke(initial_state, config=config)
+        result = await run_in_threadpool(agent_graph.invoke, initial_state, config=config)
         report = result.get("final_report")
         trace = build_reasoning_trace(result)
 
@@ -280,8 +281,8 @@ async def query_agent(request: AgentRequest):
             "validation_attempts": 0,
         }
 
-        # Invoke the graph with thread configuration
-        result = agent_graph.invoke(initial_state, config=config)
+        # Run the blocking LangGraph call in a worker thread to keep the event loop responsive.
+        result = await run_in_threadpool(agent_graph.invoke, initial_state, config=config)
 
         final_report = result.get("final_report")
         if not final_report:
