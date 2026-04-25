@@ -2,22 +2,22 @@
   "0": {
     "best_path": "/home/sterry/Desktop/projects/hackupc2026/ml_models/03_rl+ssl/models/per_tick/seed_0/ppo_per_tick_best.zip",
     "final_path": "/home/sterry/Desktop/projects/hackupc2026/ml_models/03_rl+ssl/models/per_tick/seed_0/ppo_per_tick_final.zip",
-    "best_val_value": 3725941780.8219175,
-    "best_val_at": 2000,
-    "final_value": 3726369863.013698
+    "best_val_value": 2422488265.753402,
+    "best_val_at": 4000,
+    "final_value": 2422488265.753402
   },
   "1": {
     "best_path": "/home/sterry/Desktop/projects/hackupc2026/ml_models/03_rl+ssl/models/per_tick/seed_1/ppo_per_tick_best.zip",
     "final_path": "/home/sterry/Desktop/projects/hackupc2026/ml_models/03_rl+ssl/models/per_tick/seed_1/ppo_per_tick_final.zip",
-    "best_val_value": 2937785388.127854,
+    "best_val_value": 2422488265.753402,
     "best_val_at": 2000,
-    "final_value": 3726369863.013698
+    "final_value": 2422488265.753402
   },
   "2": {
     "best_path": "/home/sterry/Desktop/projects/hackupc2026/ml_models/03_rl+ssl/models/per_tick/seed_2/ppo_per_tick_best.zip",
     "final_path": "/home/sterry/Desktop/projects/hackupc2026/ml_models/03_rl+ssl/models/per_tick/seed_2/ppo_per_tick_final.zip",
-    "best_val_value": 3726369863.013698,
+    "best_val_value": 2422488265.753402,
     "best_val_at": 2000,
-    "final_value": 3726369863.013698
+    "final_value": 2422488265.753402
   }
 }

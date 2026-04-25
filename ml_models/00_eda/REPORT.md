@@ -1,6 +1,6 @@
 # Fleet Baseline EDA
 
-Input: `data\fleet_baseline.parquet`.
+Input: `data/fleet_baseline.parquet`.
 
 This report profiles the deterministic SDG fleet baseline: one daily row per printer, city, and component state. The SDG generator seeds each printer by `printer_id`, assigns printers to 15 configured European cities, simulates weather and demand, evolves six component health channels `C1`-`C6`, emits maintenance and failure booleans, then derives RUL labels from future failure events.
 
@@ -10,7 +10,7 @@ A null RUL value means the row is right-censored for that label: no later failur
 
 | metric               | value                       |
 | -------------------- | --------------------------- |
-| data_file            | data\fleet_baseline.parquet |
+| data_file            | data/fleet_baseline.parquet |
 | file_size_mb         | 48.86                       |
 | parquet_rows         | 365,300                     |
 | parquet_columns      | 70                          |
@@ -196,27 +196,27 @@ Mean and +/-1 sigma of the day-index when each component first fails, computed a
 
 ## Figures
 
-![city_printer_distribution](figures\city_printer_distribution.png)
+![city_printer_distribution](figures/city_printer_distribution.png)
 
-![climate_row_distribution](figures\climate_row_distribution.png)
+![climate_row_distribution](figures/climate_row_distribution.png)
 
-![component_status_share](figures\component_status_share.png)
+![component_status_share](figures/component_status_share.png)
 
-![component_health_summary](figures\component_health_summary.png)
+![component_health_summary](figures/component_health_summary.png)
 
-![maintenance_failure_events](figures\maintenance_failure_events.png)
+![maintenance_failure_events](figures/maintenance_failure_events.png)
 
-![rul_label_coverage](figures\rul_label_coverage.png)
+![rul_label_coverage](figures/rul_label_coverage.png)
 
-![variable_correlation_heatmap](figures\variable_correlation_heatmap.png)
+![variable_correlation_heatmap](figures/variable_correlation_heatmap.png)
 
-![climate_profile_heatmap](figures\climate_profile_heatmap.png)
+![climate_profile_heatmap](figures/climate_profile_heatmap.png)
 
-![component_dynamics_heatmap](figures\component_dynamics_heatmap.png)
+![component_dynamics_heatmap](figures/component_dynamics_heatmap.png)
 
-![component_risk_profile](figures\component_risk_profile.png)
+![component_risk_profile](figures/component_risk_profile.png)
 
-![mean_time_to_error_by_component](figures\mean_time_to_error_by_component.png)
+![mean_time_to_error_by_component](figures/mean_time_to_error_by_component.png)
 
 ## Reproduce
 

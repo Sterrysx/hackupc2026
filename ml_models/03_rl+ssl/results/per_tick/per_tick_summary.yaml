@@ -1,0 +1,12 @@
+evaluated_on: test printers (id 85..99)
+fleet_value: 2906381813.7605205
+fleet_annual_cost_eur_per_printer_year: 1374526.8375307966
+fleet_availability: 0.7593618186239479
+fleet_deficit: 0.19063818137605204
+ensemble_size: 3
+config:
+  total_timesteps_per_seed: 20000
+  n_steps: 180
+  spr_weight: 0.5
+  spr_k: 2
+  features_dim: 64

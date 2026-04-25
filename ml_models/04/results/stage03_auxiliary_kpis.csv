@@ -1,4 +1,4 @@
 stage,policy_class,description,fleet_value,fleet_annual_cost,fleet_availability,fleet_deficit,feasible_printer_pct,infeasible_floor_breached,n_test_printers
-stage_01,constant τ,Optuna over constant τ,10500000000.0,4748685.940323022,0.0,0.95,0.0,True,15
-stage_02,constant τ,SSL+RUL surrogate over constant τ,10500000000.0,4507037.68683274,0.0,0.95,0.0,True,15
-stage_03,per-printer τ,"PPO + frozen SSL encoder, per-printer τ",10500000000.0,4492501.676704079,0.0,0.95,0.0,True,15
+stage_01,constant τ,Optuna over constant τ,9923761311.981018,3620777.675882836,0.0576238688018981,0.8923761311981019,0.0,True,15
+stage_02,constant τ,SSL+RUL surrogate over constant τ,10500000000.0,4044316.696550781,0.0,0.95,0.0,True,15
+stage_03,per-printer τ,"PPO + frozen SSL encoder, per-printer τ",9991901654.074276,3644173.139885026,0.0508098345925723,0.8991901654074276,0.0,True,15
