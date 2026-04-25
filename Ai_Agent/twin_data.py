@@ -22,7 +22,11 @@ from Ai_Agent.derived_metrics import compute_metrics, primary_metric_key
 from sdg.schema import COMPONENT_IDS
 
 DEFAULT_PARQUET_PATH = os.path.join("data", "fleet_baseline.parquet")
-DEFAULT_FORECAST_HORIZON_MIN = 45
+# Forecast horizon in DAYS — projection window used by `forecast.py`. The
+# simulator advances 1 day per tick, so a 1-day horizon makes "predicted
+# health" mean "where will this part be tomorrow". The frontend can query a
+# longer horizon if it wants further-out projections.
+DEFAULT_FORECAST_HORIZON_D = 1.0
 
 
 def _resolve_path(path: str | None) -> str:
@@ -142,7 +146,7 @@ def get_snapshot(
     day: int,
     *,
     path: str | None = None,
-    forecast_horizon_min: int = DEFAULT_FORECAST_HORIZON_MIN,
+    forecast_horizon_d: float = DEFAULT_FORECAST_HORIZON_D,
 ) -> dict[str, Any]:
     """Return a single SystemSnapshot-shaped dict for one (city, printer, day)."""
     df = get_dataset(path)
@@ -153,7 +157,7 @@ def get_snapshot(
         "drivers": _build_drivers(row),
         "components": _build_components(row),
         "forecasts": [],  # populated by the Stage 2 forecast endpoint
-        "forecastHorizonMin": int(forecast_horizon_min),
+        "forecastHorizonDays": float(forecast_horizon_d),
     }
 
 

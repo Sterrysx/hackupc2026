@@ -21,7 +21,7 @@ def test_nominal_driver_values_match_base_lambda() -> None:
         component = Component(component_id, spec, counters, alpha=1.0)
         drivers = _nominal_drivers_for(spec)
         lambda_i = compute_lambda(component, drivers, f_cross=1.0)
-        assert math.isclose(lambda_i, float(spec["lambda0_per_h"]), rel_tol=0.01)
+        assert math.isclose(lambda_i, float(spec["lambda0_per_d"]), rel_tol=0.01)
 
 
 def test_coupling_orientation_source_to_target() -> None:
@@ -69,7 +69,7 @@ def test_preventive_happens_before_corrective_on_same_day() -> None:
     components_cfg, couplings_cfg, _cities_cfg = load_configs()
     components = _components(components_cfg)
     components["C1"].H = 0.05
-    components["C1"].tau_mant_h = float(components["C1"].spec["tau_nom_h"])
+    components["C1"].tau_mant_d = float(components["C1"].spec["tau_nom_d"])
 
     maint, failure = apply_maintenance_and_safety(components, couplings_cfg)
 

@@ -18,7 +18,13 @@ py-modules = ["app"]
 [tool.pytest.ini_options]
 # Live tests hit the real Groq LLM; keep them out of the default run so
 # `uv run pytest` stays fast and offline. Opt in explicitly with `-m live`.
-addopts = "-m 'not live'"
+# `--import-mode=importlib` was added during the e2e-tests work upstream
+# and is required by `tests/test_integration_e2e.py`.
+addopts = ["-m", "not live", "--import-mode=importlib"]
+# `--import-mode=importlib` doesn't auto-prepend rootdir to sys.path the way
+# the default `prepend` mode does, so we make the project root importable
+# explicitly. Without this `from app import app` fails in every test module.
+pythonpath = ["."]
 markers = [
     "live: end-to-end tests that hit real external services (Groq LLM); require GROQ_API_KEY and network. Opt-in via `-m live`.",
 ]
@@ -62,5 +68,3 @@ dependencies = [
     "stable-baselines3>=2.8.0",
 ]
 
-[tool.pytest.ini_options]
-addopts = ["--import-mode=importlib"]

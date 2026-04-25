@@ -14,6 +14,7 @@ import { SpotlightChat } from "@/components/floating/SpotlightChat";
 import { ViewToggle } from "@/components/floating/ViewToggle";
 import { OpenViewButton } from "@/components/floating/OpenViewButton";
 import LocationSelectorPage from "@/components/location/LocationSelectorPage";
+import { AnalyticsView } from "@/components/analytics/AnalyticsView";
 
 /**
  * "Ethereal Spatial" shell — Phase 3.6 + Location Selector.
@@ -67,7 +68,8 @@ export default function App() {
     return () => clearInterval(id);
   }, [advance, appPhase]);
 
-  const showDashboardPanel = dashboardOpen && !selectedId;
+  const showDashboardPanel = dashboardOpen && !selectedId && viewMode !== "analytics";
+  const inAnalytics = viewMode === "analytics";
 
   return (
     <AnimatePresence mode="wait">
@@ -94,11 +96,25 @@ export default function App() {
             still looked fine). Use a plain div + fixed viewport fill instead.
             2D keeps the cross-fade.
           */}
-          <div className="absolute inset-0 min-h-0">
+          {/*
+            Background canvas. In analytics mode it stays mounted but is
+            heavily blurred + darkened, so the bento grid floats over a
+            recognisable but recessed copy of the scene the operator just
+            left. The blur is GPU-cheap because it's the only thing in the
+            backdrop layer at that moment.
+          */}
+          <div
+            className={
+              "absolute inset-0 min-h-0 transition-[filter,opacity] duration-500 " +
+              (inAnalytics
+                ? "blur-[28px] brightness-[0.35] pointer-events-none"
+                : "")
+            }
+          >
             <div
               className={
                 "fixed left-0 top-0 z-0 h-[100dvh] w-full min-w-0 transition-opacity duration-500 " +
-                (viewMode === "3d" ? "opacity-100" : "opacity-0 pointer-events-none")
+                (viewMode === "3d" || inAnalytics ? "opacity-100" : "opacity-0 pointer-events-none")
               }
             >
               <SpatialScene />
@@ -114,6 +130,11 @@ export default function App() {
             </div>
           </div>
 
+          {/* Analytics overlay — fades in over the blurred backdrop. */}
+          <AnimatePresence>
+            {inAnalytics && <AnalyticsView key="analytics" />}
+          </AnimatePresence>
+
           {/* Floating chrome — view-agnostic. */}
           <BrandMark />
           <ViewToggle />
@@ -121,10 +142,10 @@ export default function App() {
           <SidebarToggle />
           <SimControls />
 
-          {/* Right-side data surface — exactly one at a time. */}
+          {/* Right-side data surface — hidden in analytics mode. */}
           <AnimatePresence mode="wait">
             {showDashboardPanel && <DashboardPanel key="dashboard" />}
-            {selectedId && <ARDataCard key={`ar-${selectedId}`} id={selectedId} />}
+            {selectedId && !inAnalytics && <ARDataCard key={`ar-${selectedId}`} id={selectedId} />}
           </AnimatePresence>
 
           {/* Persistent chat surface — FAB + summonable overlay. */}

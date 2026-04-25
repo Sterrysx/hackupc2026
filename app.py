@@ -13,18 +13,40 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 import base64
+import logging
 
 from stt.transcriber import SpeechToText
 from tts.speaker import TextToSpeech
-from Ai_Agent.graph import build_graph
 from Ai_Agent.db import insert_telemetry, init_db
 from Ai_Agent.trace import build_reasoning_trace
 from Ai_Agent import twin_data, forecast
+
+# Chat-agent stack imports the langchain/langgraph stack, which currently
+# pulls in ``langchain_protocol`` — a transitive dep that may not be
+# installed in every environment. Make this optional so /twin/* endpoints
+# (the dashboard data path) keep serving even when the chat agent is
+# unavailable. The /agent/* endpoints will return 503 instead of 200 in
+# that case.
+logger = logging.getLogger(__name__)
+try:
+    from langchain_core.messages import HumanMessage, AIMessage, BaseMessage  # type: ignore
+    from Ai_Agent.graph import build_graph  # type: ignore
+    _CHAT_AGENT_AVAILABLE = True
+    _CHAT_AGENT_IMPORT_ERROR = None
+except Exception as _exc:  # broad: ImportError, attribute errors from broken deps
+    HumanMessage = AIMessage = BaseMessage = None  # type: ignore
+    build_graph = None  # type: ignore
+    _CHAT_AGENT_AVAILABLE = False
+    _CHAT_AGENT_IMPORT_ERROR = str(_exc)
+    logger.warning(
+        "Chat agent stack failed to import (%s). /agent/* endpoints will return 503; "
+        "/twin/* endpoints still work.",
+        _exc,
+    )
 
 app = FastAPI(title="Digital Twin AI API")
 
@@ -73,7 +95,7 @@ manager = ConnectionManager()
 # Initialize components
 transcriber = SpeechToText()
 speaker = TextToSpeech()
-agent_graph = build_graph()
+agent_graph = build_graph() if _CHAT_AGENT_AVAILABLE and build_graph is not None else None
 
 # Initialize DB
 init_db()
@@ -130,6 +152,9 @@ async def analyze_and_notify(data: TelemetryData):
     """
     Background task to analyze a critical telemetry reading and notify all connected clients.
     """
+    if not _CHAT_AGENT_AVAILABLE or agent_graph is None:
+        logger.warning("analyze_and_notify skipped — chat agent unavailable: %s", _CHAT_AGENT_IMPORT_ERROR)
+        return
     try:
         query = (
             f"ALERT: Component '{data.component}' reported status '{data.status}' "
@@ -271,6 +296,15 @@ async def query_agent(request: AgentRequest):
     """
     Endpoint to trigger the AI Agent workflow with persistent memory.
     """
+    if not _CHAT_AGENT_AVAILABLE or agent_graph is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Chat agent unavailable in this environment "
+                f"(import failed: {_CHAT_AGENT_IMPORT_ERROR}). "
+                "Twin endpoints remain functional; install missing langchain deps to enable chat."
+            ),
+        )
     try:
         config = {"configurable": {"thread_id": request.thread_id}}
         
@@ -366,21 +400,21 @@ async def twin_state(
     city: str,
     printer_id: int,
     day: int,
-    horizon_min: int = twin_data.DEFAULT_FORECAST_HORIZON_MIN,
+    horizon_d: float = twin_data.DEFAULT_FORECAST_HORIZON_D,
 ):
     """Combined snapshot + Stage 2 forecast — single round-trip per UI tick.
 
-    Forecasts use the analytic projection by default (per-hour hazard ×
+    Forecasts use the analytic projection by default (per-day hazard times
     horizon). When `ml_models/02_ssl/models/rul_head_ssl.pt` appears, the
     forecast module switches automatically — no API change required.
     """
     try:
         snap = twin_data.get_snapshot(
             city, printer_id, day,
-            forecast_horizon_min=horizon_min,
+            forecast_horizon_d=horizon_d,
         )
         snap["forecasts"] = forecast.compute_forecasts(
-            city, printer_id, day, horizon_min=horizon_min,
+            city, printer_id, day, horizon_d=horizon_d,
         )
         return snap
     except KeyError as e:
@@ -402,13 +436,13 @@ async def twin_forecast(
     city: str,
     printer_id: int,
     day: int,
-    horizon_min: int = twin_data.DEFAULT_FORECAST_HORIZON_MIN,
+    horizon_d: float = twin_data.DEFAULT_FORECAST_HORIZON_D,
 ):
     try:
         return {
-            "horizonMin": horizon_min,
+            "horizonDays": horizon_d,
             "forecasts": forecast.compute_forecasts(
-                city, printer_id, day, horizon_min=horizon_min,
+                city, printer_id, day, horizon_d=horizon_d,
             ),
         }
     except KeyError as e:

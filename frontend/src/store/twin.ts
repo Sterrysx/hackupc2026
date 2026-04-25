@@ -70,9 +70,9 @@ interface TwinState {
   tick: number;
   snapshot: SystemSnapshot;
   /** Store-tick value at which the *current* snapshot landed. Used to
-   *  smoothly interpolate ETAs (`minutesUntilFailure`,
-   *  `minutesUntilCritical`) between snapshot fetches: the displayed ETA
-   *  decrements by `(tick − snapshotMarkTick) · SIM_MINUTES_PER_TICK`. */
+   *  smoothly interpolate ETAs (`daysUntilFailure`,
+   *  `daysUntilCritical`) between snapshot fetches: the displayed ETA
+   *  decrements by `(tick - snapshotMarkTick)` sim-days (1 tick = 1 day). */
   snapshotMarkTick: number;
   alerts: Alert[];
   alertHistory: Alert[];
@@ -95,10 +95,12 @@ interface TwinState {
    */
   dashboardOpen: boolean;
   /**
-   * Background visualization. The selected component, dashboard, AR card,
-   * chat, etc. are all view-agnostic — they read the same store either way.
+   * Background visualization. "2d" = SVG schematic, "3d" = R3F spatial twin,
+   * "analytics" = bento-grid ML/telemetry overview rendered over a heavily
+   * blurred copy of the underlying scene. The selected component, dashboard,
+   * AR card, chat, etc. are all view-agnostic — they read the same store.
    */
-  viewMode: "2d" | "3d";
+  viewMode: "2d" | "3d" | "analytics";
   /** When true while focused in 3D, user can orbit/pan freely. */
   cameraOpen: boolean;
 
@@ -135,14 +137,17 @@ interface TwinState {
   setChatOpen: (o: boolean) => void;
   setDashboardOpen: (o: boolean) => void;
   toggleDashboard: () => void;
-  setViewMode: (m: "2d" | "3d") => void;
+  setViewMode: (m: "2d" | "3d" | "analytics") => void;
   setCameraOpen: (open: boolean) => void;
   sendUserMessage: (text: string) => void;
   refreshChatApiStatus: () => Promise<void>;
   ingestProactiveNotification: (payload: Record<string, unknown>) => void;
 }
 
-const INITIAL_TICK = 1200; // start a few hours in so degradation is visible
+// 1 tick = 1 sim day. Starting on day 150 gives the printer 5 months of
+// runtime so the simulator has had a chance to build up real degradation
+// before the operator looks at it.
+const INITIAL_TICK = 150;
 
 function buildState(tick: number, prevAlertIds: Set<string>) {
   const snapshot = snapshotAtTick(tick);

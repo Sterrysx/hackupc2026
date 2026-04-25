@@ -2,11 +2,15 @@
  * Alert engine — fires on BOTH current-state thresholds and predictive thresholds.
  *
  * This is the dual-trigger system the brief calls out:
- *   1. CURRENT  → a metric or healthIndex is breaching its operating band right now.
- *   2. PREDICTIVE → the ML forecast says it will breach within the horizon.
+ *   1. CURRENT  -> a metric or healthIndex is breaching its operating band right now.
+ *   2. PREDICTIVE -> the ML forecast says it will breach within the horizon.
  *
  * Predictive alerts are intentionally surfaced *before* current ones so the
  * operator gets time to act — that's the whole point of a Digital Co-Pilot.
+ *
+ * UNIT CONTRACT: every time field in this module is in DAYS. The backend hands
+ * us `daysUntilCritical` / `daysUntilFailure`; the live ETA decrements by
+ * `(tick - snapshotMarkTick)` since one tick equals one sim-day. No minute math.
  */
 
 import type {
@@ -17,6 +21,12 @@ import type {
   SystemSnapshot,
 } from "@/types/telemetry";
 import { tickToHHMMSS } from "@/lib/mockData";
+
+// Predictive thresholds in DAYS. Critical lead-time > failure lead-time
+// because operators want a 5-day heads-up to schedule maintenance, but a
+// 2-day "act now" siren when failure is imminent.
+const FAILURE_ALERT_LEAD_DAYS = 2;
+const CRITICAL_ALERT_LEAD_DAYS = 5;
 
 export function deriveAlerts(snapshot: SystemSnapshot): Alert[] {
   const out: Alert[] = [];
@@ -36,7 +46,7 @@ export function deriveAlerts(snapshot: SystemSnapshot): Alert[] {
     const severityRank = sevRank(b.severity) - sevRank(a.severity);
     if (severityRank !== 0) return severityRank;
     if (a.kind !== b.kind) return a.kind === "predictive" ? -1 : 1;
-    return (a.etaMinutes ?? 0) - (b.etaMinutes ?? 0);
+    return (a.etaDays ?? 0) - (b.etaDays ?? 0);
   });
 }
 
@@ -98,31 +108,31 @@ function predictiveAlertsFor(
 ): Alert[] {
   const out: Alert[] = [];
 
-  if (f.minutesUntilFailure !== null && f.minutesUntilFailure <= 120) {
+  if (f.daysUntilFailure !== null && f.daysUntilFailure <= FAILURE_ALERT_LEAD_DAYS) {
     out.push({
       id: `pred-fail-${f.id}-${snap.tick}`,
       componentId: f.id,
       componentLabel: present.label,
       severity: "CRITICAL",
       kind: "predictive",
-      title: `${present.label} forecast: failure in ~${formatEta(f.minutesUntilFailure)}`,
+      title: `${present.label} forecast: failure in ~${formatEta(f.daysUntilFailure)}`,
       detail: f.rationale,
       raisedAtTick: snap.tick,
       raisedAtIso: snap.timestamp,
-      etaMinutes: f.minutesUntilFailure,
+      etaDays: f.daysUntilFailure,
     });
-  } else if (f.minutesUntilCritical !== null && f.minutesUntilCritical <= 240) {
+  } else if (f.daysUntilCritical !== null && f.daysUntilCritical <= CRITICAL_ALERT_LEAD_DAYS) {
     out.push({
       id: `pred-crit-${f.id}-${snap.tick}`,
       componentId: f.id,
       componentLabel: present.label,
       severity: "WARNING",
       kind: "predictive",
-      title: `${present.label} forecast: critical in ~${formatEta(f.minutesUntilCritical)}`,
+      title: `${present.label} forecast: critical in ~${formatEta(f.daysUntilCritical)}`,
       detail: f.rationale,
       raisedAtTick: snap.tick,
       raisedAtIso: snap.timestamp,
-      etaMinutes: f.minutesUntilCritical,
+      etaDays: f.daysUntilCritical,
     });
   }
 
@@ -140,10 +150,10 @@ function predictiveAlertsFor(
         severity: futureBreach === "hard" ? "CRITICAL" : "WARNING",
         kind: "predictive",
         title: `${present.label} · ${presentMetric.label} forecast breach`,
-        detail: `Predicted to reach ${pm.value}${presentMetric.unit} within ${snap.forecastHorizonMin} min.`,
+        detail: `Predicted to reach ${pm.value}${presentMetric.unit} within ${snap.forecastHorizonDays} day(s).`,
         raisedAtTick: snap.tick,
         raisedAtIso: snap.timestamp,
-        etaMinutes: snap.forecastHorizonMin,
+        etaDays: snap.forecastHorizonDays,
         metricKey: pm.key,
       });
     }
@@ -171,40 +181,48 @@ function sevRank(s: AlertSeverity): number {
  * Smoothly interpolate a forecast ETA between snapshot fetches.
  *
  * The backend only refreshes a snapshot at sim-day boundaries (every
- * `TICKS_PER_DAY` store ticks), so the raw `minutesUntilFailure` field stays
+ * `TICKS_PER_DAY` store ticks), so the raw `daysUntilFailure` field stays
  * frozen for up to a sim day at a time. To keep the badge alive while the
- * day clock advances, we subtract simulated minutes elapsed since the
- * snapshot landed.
+ * day clock advances, we subtract simulated days elapsed since the
+ * snapshot landed (one tick = one sim day, so it's just a subtraction).
  *
  * Returns:
- *   • `null` if the source ETA was already null (stable / past horizon)
- *   • `0` once the elapsed sim time has caught up with the original ETA
- *   • the remaining sim minutes otherwise
+ *   - `null` if the source ETA was already null (stable / past horizon)
+ *   - `0` once the elapsed sim time has caught up with the original ETA
+ *   - the remaining sim days otherwise
  */
-export function liveMinutesRemaining(
-  rawMinutes: number | null,
+export function liveDaysRemaining(
+  rawDays: number | null,
   currentTick: number,
   snapshotMarkTick: number,
-  simMinutesPerTick: number,
 ): number | null {
-  if (rawMinutes === null) return null;
-  const elapsedSimMin = Math.max(0, currentTick - snapshotMarkTick) * simMinutesPerTick;
-  return Math.max(0, rawMinutes - elapsedSimMin);
+  if (rawDays === null) return null;
+  const elapsedSimDays = Math.max(0, currentTick - snapshotMarkTick);
+  return Math.max(0, rawDays - elapsedSimDays);
 }
 
-export function formatEta(minutes: number): string {
-  if (minutes < 60) return `${Math.round(minutes)} min`;
-  if (minutes < 24 * 60) {
-    const h = Math.floor(minutes / 60);
-    const m = Math.round(minutes % 60);
-    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+/**
+ * Format a day-valued ETA for the operator UI. Picks an appropriately coarse
+ * unit so a 730-day horizon doesn't render as "730d".
+ */
+export function formatEta(days: number): string {
+  if (days < 1) {
+    // sub-day ETAs land here when the printer is *very* close to failure;
+    // show the fractional day directly so the operator sees the urgency
+    // without inventing finer time units that aren't in our contract.
+    return `${days.toFixed(2)}d`;
   }
-  if (minutes < 14 * 24 * 60) {
-    const days = minutes / 1440;
+  if (days < 14) {
     return `${days.toFixed(1)}d`;
   }
-  const weeks = Math.round(minutes / (7 * 1440));
-  return `${weeks}w`;
+  if (days < 60) {
+    return `${Math.round(days / 7)}w`;
+  }
+  if (days < 730) {
+    return `${Math.round(days / 30)}mo`;
+  }
+  const years = days / 365;
+  return `${years.toFixed(1)}y`;
 }
 
 /** Pick the single most urgent alert, used by the failure-ribbon. */

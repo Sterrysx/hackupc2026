@@ -3,8 +3,10 @@
  *
  * Design notes:
  *  - Deterministic per `tick` so screenshots & demos are repeatable when needed.
- *  - Drives a slow, plausible degradation curve over many ticks so alerts
- *    actually fire during a demo (every tick = ~1 simulated minute of printer time).
+ *  - **One tick = one simulated day** — same unit as the real backend. Wear
+ *    curves below were calibrated for the legacy "1 tick = 1 minute" demo,
+ *    so over 365 ticks they barely degrade; that's fine because the demo
+ *    runs against the real backend and only falls through here when offline.
  *  - Each component models a different decay primitive (exponential, fatigue,
  *    Weibull-ish, drift) so the dashboard tells visibly different stories.
  *
@@ -23,7 +25,7 @@ import type {
   SystemSnapshot,
 } from "@/types/telemetry";
 
-const FORECAST_HORIZON_MIN = 45;
+const FORECAST_HORIZON_DAYS = 1;
 
 /* ─── Deterministic PRNG (mulberry32) ──────────────────────────────────── */
 
@@ -398,33 +400,35 @@ const COMPONENT_SPECS: ComponentSpec[] = [
 /* ─── Forecasting ──────────────────────────────────────────────────────── */
 
 function forecastFor(spec: ComponentSpec, tick: number): ComponentForecast {
-  const futureTick = tick + FORECAST_HORIZON_MIN;
+  const futureTick = tick + FORECAST_HORIZON_DAYS;
   const futureDrivers = driversAtTick(futureTick);
   const future = spec.build(futureTick, futureDrivers);
   const present = spec.build(tick, driversAtTick(tick));
 
-  const minutesUntilCritical = projectMinutesUntil(spec, tick, 0.35);
-  const minutesUntilFailure = projectMinutesUntil(spec, tick, 0.12);
+  const daysUntilCritical = projectDaysUntil(spec, tick, 0.35);
+  const daysUntilFailure = projectDaysUntil(spec, tick, 0.12);
 
   return {
     id: spec.id,
     predictedHealthIndex: future.healthIndex,
     predictedStatus: future.status,
     predictedMetrics: future.metrics.map((m) => ({ key: m.key, value: m.value })),
-    minutesUntilCritical,
-    minutesUntilFailure,
+    daysUntilCritical,
+    daysUntilFailure,
     rationale: rationaleFor(spec, present, future, futureDrivers),
     confidence: round2(0.78 + Math.min(0.18, (1 - future.healthIndex) * 0.25)),
   };
 }
 
-function projectMinutesUntil(
+function projectDaysUntil(
   spec: ComponentSpec,
   tick: number,
   threshold: number,
 ): number | null {
-  // Sparse search out to 24h, then 0..24h binary refinement if we cross.
-  const horizons = [15, 30, 60, 120, 240, 480, 720, 1080, 1440];
+  // Sparse search across the operational window (tick = day), then binary
+  // refinement to 1-day resolution. The wide horizon (~6 months) covers the
+  // slow mock curves; live backend forecasts come straight from the API.
+  const horizons = [1, 2, 3, 5, 7, 14, 30, 60, 120, 180];
   let lo = 0;
   let hi: number | null = null;
   for (const dt of horizons) {
@@ -479,7 +483,7 @@ export function snapshotAtTick(tick: number): SystemSnapshot {
     drivers,
     components,
     forecasts,
-    forecastHorizonMin: FORECAST_HORIZON_MIN,
+    forecastHorizonDays: FORECAST_HORIZON_DAYS,
   };
 }
 
@@ -496,7 +500,7 @@ export function healthHistory(
   const out: { tick: number; healthIndex: number; predictedHealthIndex: number }[] = [];
   for (let t = start; t <= endTick; t += stride) {
     const present = spec.build(t, driversAtTick(t));
-    const future = spec.build(t + FORECAST_HORIZON_MIN, driversAtTick(t + FORECAST_HORIZON_MIN));
+    const future = spec.build(t + FORECAST_HORIZON_DAYS, driversAtTick(t + FORECAST_HORIZON_DAYS));
     out.push({
       tick: t,
       healthIndex: present.healthIndex,
@@ -527,16 +531,22 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
-/** Map a tick (1 min of simulated printer time) to an ISO timestamp anchored at session start. */
+/**
+ * Map a tick (1 sim-day) to an ISO wall-clock timestamp anchored at session
+ * start. The wall-clock spacing is arbitrary — we use 1 minute per tick so the
+ * timeline ticker on screen looks alive — but the *semantic* unit of a tick
+ * remains one simulated day.
+ */
 const SESSION_START = Date.now();
+const WALL_CLOCK_MS_PER_TICK = 60_000;
 export function tickToIso(tick: number): string {
-  return new Date(SESSION_START + tick * 60_000).toISOString();
+  return new Date(SESSION_START + tick * WALL_CLOCK_MS_PER_TICK).toISOString();
 }
 
 export function tickToHHMMSS(tick: number): string {
-  const d = new Date(SESSION_START + tick * 60_000);
+  const d = new Date(SESSION_START + tick * WALL_CLOCK_MS_PER_TICK);
   return d.toTimeString().slice(0, 8);
 }
 
 export const ALL_COMPONENT_IDS = COMPONENT_SPECS.map((s) => s.id);
-export const FORECAST_HORIZON = FORECAST_HORIZON_MIN;
+export const FORECAST_HORIZON = FORECAST_HORIZON_DAYS;

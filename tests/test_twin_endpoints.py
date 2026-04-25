@@ -1,6 +1,7 @@
 """End-to-end tests for /twin/* HTTP endpoints."""
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app import app
@@ -40,7 +41,7 @@ def test_twin_snapshot_returns_systemsnapshot_shape():
     )
     assert res.status_code == 200
     body = res.json()
-    for key in ("timestamp", "tick", "drivers", "components", "forecasts", "forecastHorizonMin"):
+    for key in ("timestamp", "tick", "drivers", "components", "forecasts", "forecastHorizonDays"):
         assert key in body
     assert body["tick"] == 200
     assert len(body["components"]) == 6
@@ -80,21 +81,21 @@ def test_twin_state_now_includes_six_forecasts():
     assert len(state["forecasts"]) == 6
     for f in state["forecasts"]:
         for key in ("id", "predictedHealthIndex", "predictedStatus",
-                    "predictedMetrics", "minutesUntilCritical",
-                    "minutesUntilFailure", "rationale", "confidence"):
+                    "predictedMetrics", "daysUntilCritical",
+                    "daysUntilFailure", "rationale", "confidence"):
             assert key in f
 
 
-def test_twin_state_horizon_min_query_param_is_respected():
+def test_twin_state_horizon_d_query_param_is_respected():
     pid = client.get("/twin/printers", params={"city": "Athens"}).json()["printers"][0]
     state = client.get(
         "/twin/state",
-        params={"city": "Athens", "printer_id": pid, "day": 200, "horizon_min": 0},
+        params={"city": "Athens", "printer_id": pid, "day": 200, "horizon_d": 0},
     ).json()
     by_id_health = {c["id"]: c["healthIndex"] for c in state["components"]}
     for f in state["forecasts"]:
         assert f["predictedHealthIndex"] == by_id_health[f["id"]]
-    assert state["forecastHorizonMin"] == 0
+    assert state["forecastHorizonDays"] == 0.0
 
 
 def test_twin_forecast_endpoint_returns_six_forecasts():
@@ -105,7 +106,7 @@ def test_twin_forecast_endpoint_returns_six_forecasts():
     )
     assert res.status_code == 200
     body = res.json()
-    assert body["horizonMin"] == 45
+    assert body["horizonDays"] == pytest.approx(1.0)
     assert len(body["forecasts"]) == 6
 
 

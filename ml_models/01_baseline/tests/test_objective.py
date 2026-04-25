@@ -63,7 +63,7 @@ def test_single_corrective_event_charges_corrective_cost_and_downtime() -> None:
 
     availability = compute_availability(df, components_cfg)
     n_days = costs["horizon_days"]
-    expected_availability = (n_days * 24 - float(spec["downtime_corrective_h"])) / (n_days * 24)
+    expected_availability = (n_days - float(spec["downtime_corrective_d"])) / n_days
     assert availability == pytest.approx(expected_availability)
 
 
@@ -84,7 +84,7 @@ def test_scalar_objective_jumps_above_floor_when_infeasible() -> None:
 
     spec = components_cfg["components"]["C2"]
     n_days = 10
-    forced_availability = (n_days * 24 - float(spec["downtime_corrective_h"])) / (n_days * 24)
+    forced_availability = (n_days - float(spec["downtime_corrective_d"])) / n_days
     assert forced_availability < 0.95
 
     penalised = scalar_objective(df, components_cfg, availability_threshold=0.95)
@@ -131,7 +131,7 @@ def test_run_with_tau_returns_dataframe_with_required_event_columns() -> None:
 
     components_cfg, couplings_cfg, cities_cfg = load_configs()
     short_dates = [date(2015, 1, 1) + timedelta(days=d) for d in range(20)]
-    tau = {component_id: float(components_cfg["components"][component_id]["tau_nom_h"])
+    tau = {component_id: float(components_cfg["components"][component_id]["tau_nom_d"])
            for component_id in COMPONENT_IDS}
     df = run_with_tau(
         tau, printer_ids=[0], dates=short_dates,

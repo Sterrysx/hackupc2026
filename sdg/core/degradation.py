@@ -45,24 +45,24 @@ def compute_lambda(
     drivers: Mapping[str, float],
     f_cross: float,
 ) -> float:
-    """Compute lambda_i = lambda0_i * f_ext * f_int * f_cross, per hour."""
+    """Compute lambda_i = lambda0_i * f_ext * f_int * f_cross, per day."""
     spec = component.spec
     f_ext = _variable_product(spec.get("ext_vars", ()), drivers)
     f_int = _maintenance_factor(component) * _life_factor(component)
     f_int *= _variable_product(spec.get("int_vars", ()), drivers)
-    return component.lambda0_per_h * f_ext * f_int * float(f_cross)
+    return component.lambda0_per_d * f_ext * f_int * float(f_cross)
 
 
 def validate_components_config(components_cfg: Mapping) -> None:
     components = components_cfg["components"]
     for component_id in COMPONENT_IDS:
         spec = components[component_id]
-        l_nom_h = float(spec["L_nom_h"])
-        lambda0 = float(spec["lambda0_per_h"])
-        if not math.isclose(lambda0, 1.0 / l_nom_h, rel_tol=0.0, abs_tol=1e-15):
-            raise ValueError(f"{component_id}: lambda0_per_h must equal 1 / L_nom_h")
-        if float(spec["tau_nom_h"]) <= 0:
-            raise ValueError(f"{component_id}: tau_nom_h must be positive")
+        l_nom_d = float(spec["L_nom_d"])
+        lambda0 = float(spec["lambda0_per_d"])
+        if not math.isclose(lambda0, 1.0 / l_nom_d, rel_tol=1e-6, abs_tol=1e-15):
+            raise ValueError(f"{component_id}: lambda0_per_d must equal 1 / L_nom_d")
+        if float(spec["tau_nom_d"]) <= 0:
+            raise ValueError(f"{component_id}: tau_nom_d must be positive")
         for variable in (*spec.get("ext_vars", ()), *spec.get("int_vars", ())):
             if variable.get("enabled", True) is False:
                 continue
@@ -71,14 +71,14 @@ def validate_components_config(components_cfg: Mapping) -> None:
 
 
 def _maintenance_factor(component: Component) -> float:
-    tau_nom = float(component.spec["tau_nom_h"])
+    tau_nom = float(component.spec["tau_nom_d"])
     if math.isinf(tau_nom):
         return 1.0
-    return (1.0 + component.tau_mant_h / tau_nom) ** float(component.spec["b_M"])
+    return (1.0 + component.tau_mant_d / tau_nom) ** float(component.spec["b_M"])
 
 
 def _life_factor(component: Component) -> float:
-    return (1.0 + component.L_h / float(component.spec["L_nom_h"])) ** float(component.spec["b_L"])
+    return (1.0 + component.L_d / float(component.spec["L_nom_d"])) ** float(component.spec["b_L"])
 
 
 def _variable_product(variables: list[Mapping] | tuple[Mapping, ...], drivers: Mapping[str, float]) -> float:

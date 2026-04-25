@@ -8,8 +8,7 @@ import { HealthRing } from "@/components/HealthRing";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { MicButton } from "@/components/floating/MicButton";
 import { HealthTimelineChart } from "@/components/sidebar/HealthTimelineChart";
-import { formatEta, liveMinutesRemaining } from "@/lib/alerts";
-import { SIM_MINUTES_PER_TICK } from "@/lib/twinApi";
+import { formatEta, liveDaysRemaining } from "@/lib/alerts";
 import type { ComponentId, ComponentMetric } from "@/types/telemetry";
 
 const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -142,7 +141,7 @@ export function ComponentFocus({ id }: { id: string }) {
       <motion.section variants={itemVariants}>
         <header className="flex items-baseline justify-between mb-3">
           <h3 className="text-[10px] uppercase tracking-[0.20em] text-[var(--color-fg-faint)]">
-            Forecast · {snapshot.forecastHorizonMin} min
+            Forecast · {snapshot.forecastHorizonDays} day{snapshot.forecastHorizonDays === 1 ? "" : "s"}
           </h3>
           <span className="text-[10.5px] text-[var(--color-fg-faint)] tabular-nums">
             <AnimatedNumber value={f.confidence * 100} format={(v) => `${Math.round(v)}% confidence`} />
@@ -150,35 +149,34 @@ export function ComponentFocus({ id }: { id: string }) {
         </header>
         {(() => {
           // Tone the badge by *urgency*, not by mere presence of a forecast.
-          // The backend already drops ETAs beyond the 30-day operational
-          // horizon (see `Ai_Agent/forecast.py::_OPERATIONAL_HORIZON_MIN`),
+          // The backend already drops ETAs beyond the 5-year operational
+          // horizon (see `Ai_Agent/forecast.py::_OPERATIONAL_HORIZON_D`),
           // so anything we get here is at least within planning range — but
-          // we still need to distinguish "act in the next hour" from
-          // "schedule maintenance next week".
-          const FAILURE_HOT_MIN = 2 * 60;        // < 2h → CRITICAL red
-          const FAILURE_SOON_MIN = 24 * 60;      // < 24h → WARN amber
-          const CRITICAL_HOT_MIN = 8 * 60;       // < 8h → WARN amber
+          // we still need to distinguish "act today" from "schedule next month".
+          const FAILURE_HOT_DAYS = 2;       // <  2d -> CRITICAL red
+          const FAILURE_SOON_DAYS = 14;     // < 14d -> WARN amber
+          const CRITICAL_HOT_DAYS = 7;      // <  7d -> WARN amber
           // Smoothly interpolate ETA between snapshot fetches so the badge
           // counts down with simulated time instead of staying frozen for
-          // a full sim-day (see `liveMinutesRemaining` in lib/alerts).
-          const mF = liveMinutesRemaining(f.minutesUntilFailure, tick, snapshotMarkTick, SIM_MINUTES_PER_TICK);
-          const mC = liveMinutesRemaining(f.minutesUntilCritical, tick, snapshotMarkTick, SIM_MINUTES_PER_TICK);
-          const failureBadge = mF === null
+          // a full sim-day (see `liveDaysRemaining` in lib/alerts).
+          const dF = liveDaysRemaining(f.daysUntilFailure, tick, snapshotMarkTick);
+          const dC = liveDaysRemaining(f.daysUntilCritical, tick, snapshotMarkTick);
+          const failureBadge = dF === null
             ? null
-            : mF < FAILURE_HOT_MIN
-              ? <Badge key="f" tone="crit" size="sm">Failure ~{formatEta(mF)}</Badge>
-              : mF < FAILURE_SOON_MIN
-                ? <Badge key="f" tone="warn" size="sm">Failure ~{formatEta(mF)}</Badge>
-                : <Badge key="f" tone="neutral" size="sm">Failure ~{formatEta(mF)}</Badge>;
-          const criticalBadge = mC === null
+            : dF < FAILURE_HOT_DAYS
+              ? <Badge key="f" tone="crit" size="sm">Failure ~{formatEta(dF)}</Badge>
+              : dF < FAILURE_SOON_DAYS
+                ? <Badge key="f" tone="warn" size="sm">Failure ~{formatEta(dF)}</Badge>
+                : <Badge key="f" tone="neutral" size="sm">Failure ~{formatEta(dF)}</Badge>;
+          const criticalBadge = dC === null
             ? null
-            : mC < CRITICAL_HOT_MIN
-              ? <Badge key="c" tone="warn" size="sm">Critical ~{formatEta(mC)}</Badge>
-              : <Badge key="c" tone="neutral" size="sm">Critical ~{formatEta(mC)}</Badge>;
+            : dC < CRITICAL_HOT_DAYS
+              ? <Badge key="c" tone="warn" size="sm">Critical ~{formatEta(dC)}</Badge>
+              : <Badge key="c" tone="neutral" size="sm">Critical ~{formatEta(dC)}</Badge>;
           if (failureBadge === null && criticalBadge === null) {
             return (
               <div className="flex flex-wrap gap-1.5 mb-3">
-                <Badge tone="ok" size="sm">Stable · no failure in 30 d</Badge>
+                <Badge tone="ok" size="sm">Stable · no failure forecast</Badge>
               </div>
             );
           }

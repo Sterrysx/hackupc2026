@@ -9,13 +9,13 @@ forward via :class:`sdg.core.simulator.PrinterStepper` and returns:
 - terminated when the printer reaches the last date in ``dates``
 
 A ``constant_τ`` bandit policy is a special case: emit ``True`` whenever
-``tau_mant_h ≥ τ_C`` (and never otherwise). So the per-tick policy class
+``tau_mant_d ≥ τ_C`` (and never otherwise). So the per-tick policy class
 strictly contains Stage 03's bandit class.
 
 Observation (raw, no encoder needed because the LSTM builds memory):
 
 - Per-component current state: ``H_Ci``, ``tau_mant_Ci`` (normalised by
-  ``L_nom_h``), ``L_Ci`` (normalised), ``lambda_Ci`` (log-scaled). 4 × 6 = 24.
+  ``L_nom_d``), ``L_Ci`` (normalised), ``lambda_Ci`` (log-scaled). 4 × 6 = 24.
 - Counters (log1p of N_f, N_c, N_TC, N_on). 4.
 - Weather/load: ambient_temp_c, humidity_pct, dust_concentration, Q_demand,
   jobs_today. 5.
@@ -38,7 +38,6 @@ from gymnasium import spaces
 
 from ml_models.lib.env_runner import default_dates, make_printer_stepper
 from ml_models.lib.features import build_feature_matrix
-from sdg.core.simulator import HOURS_PER_DAY
 from sdg.generate import build_printer_city_map, load_configs
 from sdg.schema import COMPONENT_IDS
 
@@ -47,15 +46,15 @@ from .encoder_loader import SSLEncoderBundle
 
 # Per-component normalisers — derived from components.yaml ranges, fixed for
 # determinism so observations don't drift between runs.
-_TAU_NORM_HOURS: dict[str, float] = {
-    "C1": 2_000.0,
-    "C2": 20_000.0,
-    "C3": 500.0,
-    "C4": 2_000.0,
-    "C5": 8_000.0,
-    "C6": 20_000.0,
+_TAU_NORM_DAYS: dict[str, float] = {
+    "C1": 83.333,    # was 2_000h
+    "C2": 833.333,   # was 20_000h
+    "C3": 20.833,    # was 500h
+    "C4": 83.333,    # was 2_000h
+    "C5": 333.333,   # was 8_000h
+    "C6": 833.333,   # was 20_000h
 }
-_LIFE_NORM_HOURS: float = 100_000.0
+_LIFE_NORM_DAYS: float = 4166.667  # was 100_000h
 _LAMBDA_LOG_FLOOR: float = 1e-9
 
 
@@ -65,8 +64,8 @@ def _component_state_features(state_snapshot: Mapping[str, Mapping[str, float]],
     for i, component_id in enumerate(COMPONENT_IDS):
         s = state_snapshot[component_id]
         out[4 * i + 0] = float(s["H"])
-        out[4 * i + 1] = float(s["tau_mant_h"]) / float(_TAU_NORM_HOURS[component_id])
-        out[4 * i + 2] = float(s["L_h"]) / float(_LIFE_NORM_HOURS)
+        out[4 * i + 1] = float(s["tau_mant_d"]) / float(_TAU_NORM_DAYS[component_id])
+        out[4 * i + 2] = float(s["L_d"]) / float(_LIFE_NORM_DAYS)
         out[4 * i + 3] = float(np.log10(max(float(lambda_values[component_id]), _LAMBDA_LOG_FLOOR)))
     return out
 
@@ -158,8 +157,8 @@ class MaintenancePerTickEnv(gym.Env):
             component_id: {
                 "preventive": float(components_cfg["components"][component_id]["cost_preventive_eur"]),
                 "corrective": float(components_cfg["components"][component_id]["cost_corrective_eur"]),
-                "downtime_preventive": float(components_cfg["components"][component_id]["downtime_preventive_h"]),
-                "downtime_corrective": float(components_cfg["components"][component_id]["downtime_corrective_h"]),
+                "downtime_preventive": float(components_cfg["components"][component_id]["downtime_preventive_d"]),
+                "downtime_corrective": float(components_cfg["components"][component_id]["downtime_corrective_d"]),
             }
             for component_id in COMPONENT_IDS
         }
@@ -206,7 +205,7 @@ class MaintenancePerTickEnv(gym.Env):
         self._ssl_context: np.ndarray | None = None
         self._last_lambda: dict[str, float] | None = None
         self._cum_cost: float = 0.0
-        self._cum_downtime_hours: float = 0.0
+        self._cum_downtime_days: float = 0.0
         self._cum_preventive: int = 0
         self._cum_corrective: int = 0
         self._all_rows: list[dict] = []
@@ -283,7 +282,7 @@ class MaintenancePerTickEnv(gym.Env):
         )
         self._date_idx = 0
         self._cum_cost = 0.0
-        self._cum_downtime_hours = 0.0
+        self._cum_downtime_days = 0.0
         self._cum_preventive = 0
         self._cum_corrective = 0
         self._all_rows = []
@@ -321,28 +320,28 @@ class MaintenancePerTickEnv(gym.Env):
         # Compute today's cost contribution + downtime.
         daily_preventive_cost = 0.0
         daily_corrective_cost = 0.0
-        daily_downtime_hours = 0.0
+        daily_downtime_days = 0.0
         n_pm = 0
         n_cm = 0
         for component_id in COMPONENT_IDS:
             spec = self._spec_costs[component_id]
             if bool(row[f"maint_{component_id}"]):
                 daily_preventive_cost += spec["preventive"]
-                daily_downtime_hours += spec["downtime_preventive"]
+                daily_downtime_days += spec["downtime_preventive"]
                 n_pm += 1
             if bool(row[f"failure_{component_id}"]):
                 daily_corrective_cost += spec["corrective"]
-                daily_downtime_hours += spec["downtime_corrective"]
+                daily_downtime_days += spec["downtime_corrective"]
                 n_cm += 1
         self._cum_cost += daily_preventive_cost + daily_corrective_cost
-        self._cum_downtime_hours += daily_downtime_hours
+        self._cum_downtime_days += daily_downtime_days
         self._cum_preventive += n_pm
         self._cum_corrective += n_cm
 
-        # Reward shaping: per-day cost in € and downtime hours, scaled.
+        # Reward shaping: per-day cost in € + fractional downtime, scaled.
         reward = -(
             (daily_preventive_cost + daily_corrective_cost) / self._cost_scale
-            + self._downtime_lambda * (daily_downtime_hours / HOURS_PER_DAY)
+            + self._downtime_lambda * daily_downtime_days
         )
 
         # Build next observation from updated state + the row we just got.
@@ -362,9 +361,9 @@ class MaintenancePerTickEnv(gym.Env):
             "printer_id": int(self._current_pid),
             "day": int(row["day"]),
             "daily_cost": float(daily_preventive_cost + daily_corrective_cost),
-            "daily_downtime_h": float(daily_downtime_hours),
+            "daily_downtime_d": float(daily_downtime_days),
             "cum_cost": float(self._cum_cost),
-            "cum_downtime_h": float(self._cum_downtime_hours),
+            "cum_downtime_d": float(self._cum_downtime_days),
             "cum_preventive": int(self._cum_preventive),
             "cum_corrective": int(self._cum_corrective),
             "row": row,
@@ -372,8 +371,7 @@ class MaintenancePerTickEnv(gym.Env):
         if terminated:
             # Episode-level fleet-comparable KPIs (single printer).
             n_days = len(self._all_rows)
-            total_hours = n_days * HOURS_PER_DAY
-            availability = max(0.0, min(1.0, (total_hours - self._cum_downtime_hours) / total_hours))
+            availability = max(0.0, min(1.0, (n_days - self._cum_downtime_days) / max(n_days, 1)))
             years = n_days / 365.25
             annual_cost = float(self._cum_cost / max(years, 1e-9))
             info["episode_summary"] = {

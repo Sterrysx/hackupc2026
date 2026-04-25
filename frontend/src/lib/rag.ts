@@ -34,7 +34,7 @@ export function answer(prompt: string, snap: SystemSnapshot): RagReply {
   // Greetings / system identity.
   if (/^(hi|hello|hey|yo|sup)\b/.test(q)) {
     return {
-      text: "Hi — I'm Aether, the digital co-pilot for this Metal Jet S100. Ask me about any component, the live alerts, or what the next 45 minutes look like.",
+      text: "Hi — I'm Aether, the digital co-pilot for this Metal Jet S100. Ask me about any component, the live alerts, or what the next 24 hours look like.",
       citations: [],
       severity: "INFO",
     };
@@ -103,13 +103,15 @@ function describeComponent(c: ComponentState, snap: SystemSnapshot): RagReply {
 
   let severity: AlertSeverity = sevFromStatus(c.status);
 
-  if (f && f.minutesUntilCritical !== null && f.minutesUntilCritical < 240) {
-    text += ` Forecast: trending toward CRITICAL in ~${formatEta(f.minutesUntilCritical)} (${f.rationale})`;
+  // Trending-to-critical lookahead window: 5 sim-days. Mirrors the alert
+  // engine's CRITICAL_ALERT_LEAD_DAYS so the chatbot and badges agree.
+  if (f && f.daysUntilCritical !== null && f.daysUntilCritical < 5) {
+    text += ` Forecast: trending toward CRITICAL in ~${formatEta(f.daysUntilCritical)} (${f.rationale})`;
     citations.push({
       componentId: c.id,
       componentLabel: c.label,
-      tick: snap.tick + f.minutesUntilCritical,
-      timestamp: tickToHHMMSS(snap.tick + f.minutesUntilCritical),
+      tick: snap.tick + f.daysUntilCritical,
+      timestamp: tickToHHMMSS(snap.tick + f.daysUntilCritical),
     });
     severity = "WARNING";
   }
@@ -138,20 +140,20 @@ function describeSubsystem(subsystem: ComponentState["subsystem"], snap: SystemS
 
 function describeForecast(snap: SystemSnapshot): RagReply {
   const ranked = [...snap.forecasts].sort((a, b) => {
-    const am = a.minutesUntilFailure ?? a.minutesUntilCritical ?? 1e9;
-    const bm = b.minutesUntilFailure ?? b.minutesUntilCritical ?? 1e9;
+    const am = a.daysUntilFailure ?? a.daysUntilCritical ?? 1e9;
+    const bm = b.daysUntilFailure ?? b.daysUntilCritical ?? 1e9;
     return am - bm;
   });
   const top = ranked.slice(0, 3);
   const lines = top.map((f) => {
     const c = snap.components.find((x) => x.id === f.id)!;
-    if (f.minutesUntilFailure !== null) return `${c.label}: failure in ~${formatEta(f.minutesUntilFailure)}`;
-    if (f.minutesUntilCritical !== null) return `${c.label}: critical in ~${formatEta(f.minutesUntilCritical)}`;
+    if (f.daysUntilFailure !== null) return `${c.label}: failure in ~${formatEta(f.daysUntilFailure)}`;
+    if (f.daysUntilCritical !== null) return `${c.label}: critical in ~${formatEta(f.daysUntilCritical)}`;
     return `${c.label}: stable`;
   });
   const citations: RagCitation[] = top.map((f) => {
     const c = snap.components.find((x) => x.id === f.id)!;
-    const horizon = f.minutesUntilFailure ?? f.minutesUntilCritical ?? snap.forecastHorizonMin;
+    const horizon = f.daysUntilFailure ?? f.daysUntilCritical ?? snap.forecastHorizonDays;
     return {
       componentId: f.id,
       componentLabel: c.label,
@@ -160,9 +162,9 @@ function describeForecast(snap: SystemSnapshot): RagReply {
     };
   });
   return {
-    text: `Looking ${snap.forecastHorizonMin} min ahead, three components warrant attention. ${lines.join(". ")}.`,
+    text: `Looking ${snap.forecastHorizonDays} day(s) ahead, three components warrant attention. ${lines.join(". ")}.`,
     citations,
-    severity: top[0]?.minutesUntilFailure !== null ? "CRITICAL" : "WARNING",
+    severity: top[0]?.daysUntilFailure !== null ? "CRITICAL" : "WARNING",
   };
 }
 
@@ -172,14 +174,18 @@ function describeWorst(snap: SystemSnapshot): RagReply {
 }
 
 function describeMaintenance(snap: SystemSnapshot): RagReply {
+  // Look two weeks ahead for "schedule maintenance" candidates — long enough
+  // that the operator has time to plan, short enough that we're not nagging
+  // about month-out forecasts that the daily refresh will revise.
+  const MAINT_LOOKAHEAD_DAYS = 14;
   const candidates = snap.components
     .map((c) => ({ c, f: snap.forecasts.find((f) => f.id === c.id)! }))
-    .filter((x) => x.f.minutesUntilCritical !== null && x.f.minutesUntilCritical < 720)
-    .sort((a, b) => (a.f.minutesUntilCritical ?? 1e9) - (b.f.minutesUntilCritical ?? 1e9));
+    .filter((x) => x.f.daysUntilCritical !== null && x.f.daysUntilCritical < MAINT_LOOKAHEAD_DAYS)
+    .sort((a, b) => (a.f.daysUntilCritical ?? 1e9) - (b.f.daysUntilCritical ?? 1e9));
 
   if (candidates.length === 0) {
     return {
-      text: "No maintenance is required right now — every component is FUNCTIONAL with no forecast breach in the next 12 hours.",
+      text: `No maintenance is required right now — every component is FUNCTIONAL with no forecast breach in the next ${MAINT_LOOKAHEAD_DAYS} days.`,
       citations: snap.components.slice(0, 3).map((c) => ({
         componentId: c.id,
         componentLabel: c.label,
@@ -191,15 +197,17 @@ function describeMaintenance(snap: SystemSnapshot): RagReply {
   }
 
   const next = candidates[0];
-  const window = Math.max(15, (next.f.minutesUntilCritical ?? 60) - 30);
+  // Schedule the window a couple days *before* the forecast crossing so the
+  // operator isn't doing surgery on a part that's already critical.
+  const window = Math.max(0.5, (next.f.daysUntilCritical ?? 1) - 2);
   return {
     text: `Recommend scheduling a maintenance window in the next ${formatEta(window)} to address ${next.c.label}. ${next.f.rationale}`,
     citations: [
       {
         componentId: next.c.id,
         componentLabel: next.c.label,
-        tick: snap.tick + (next.f.minutesUntilCritical ?? 0),
-        timestamp: tickToHHMMSS(snap.tick + (next.f.minutesUntilCritical ?? 0)),
+        tick: snap.tick + (next.f.daysUntilCritical ?? 0),
+        timestamp: tickToHHMMSS(snap.tick + (next.f.daysUntilCritical ?? 0)),
       },
     ],
     severity: "WARNING",

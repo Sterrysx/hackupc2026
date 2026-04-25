@@ -12,7 +12,7 @@ from sdg.core.degradation import compute_cross_factors, compute_lambda
 from sdg.core.weather import get_drivers
 from sdg.schema import COMPONENT_IDS
 
-HOURS_PER_DAY = 24.0
+# Per-day cap on health drop. Above this is non-physical jitter.
 MAX_DH_PER_DAY = 1.2
 
 
@@ -53,16 +53,16 @@ class PrinterStepper:
 
     Lets an RL policy drive the simulator one tick at a time. The agent's
     optional ``agent_action`` argument to :meth:`step` *overrides* the
-    τ-based preventive-maintenance rule for that day:
+    tau-based preventive-maintenance rule for that day:
 
     - If a component's ``agent_action`` value is truthy, that component
-      receives a preventive maintenance today (regardless of ``tau_mant_h``).
+      receives a preventive maintenance today (regardless of ``tau_nom_d``).
     - If it's falsy or missing, **no preventive** is performed today, even
-      if the τ rule would normally trigger one.
-    - Corrective failures (``H ≤ 0.1``) and the C5/C6 critical-pair safety
+      if the tau rule would normally trigger one.
+    - Corrective failures (``H <= 0.1``) and the C5/C6 critical-pair safety
       rule still fire automatically — the agent can't suppress those.
 
-    When ``agent_action is None`` the original τ-based rule applies, so a
+    When ``agent_action is None`` the original tau-based rule applies, so a
     plain replay of the historical schedule is recoverable.
 
     Use as::
@@ -128,8 +128,8 @@ class PrinterStepper:
         return {
             cid: {
                 "H": float(c.H),
-                "tau_mant_h": float(c.tau_mant_h),
-                "L_h": float(c.L_h),
+                "tau_mant_d": float(c.tau_mant_d),
+                "L_d": float(c.L_d),
             }
             for cid, c in self.components.items()
         }
@@ -144,8 +144,8 @@ def apply_maintenance_and_safety(
 
     for component_id in COMPONENT_IDS:
         component = components[component_id]
-        tau_nom = float(component.spec["tau_nom_h"])
-        if not isinf(tau_nom) and component.tau_mant_h >= tau_nom:
+        tau_nom = float(component.spec["tau_nom_d"])
+        if not isinf(tau_nom) and component.tau_mant_d >= tau_nom:
             maint_events[component_id] = component.apply_preventive()
 
     for component_id in COMPONENT_IDS:
@@ -169,7 +169,7 @@ def apply_agent_maintenance(
     """Maintenance rule when an agent makes per-day decisions.
 
     - Preventive maintenance fires *only* for components with truthy ``agent_action``.
-    - Corrective failures still fire automatically when ``H ≤ 0.1`` (the agent
+    - Corrective failures still fire automatically when ``H <= 0.1`` (the agent
       cannot suppress safety responses).
     - The C5/C6 critical-pair safety rule still applies.
     """
@@ -209,6 +209,18 @@ def _initial_state(
     return counters, components
 
 
+def _cascade_factor(h: float) -> float:
+    """Soft cascade modulator: ~1.0 for healthy parts, climbing toward 2.0 only
+    when the upstream is severely degraded.
+
+    Replaces the legacy linear ``2 - H`` rule (which doubled the cascade as soon
+    as H slipped past 0.5). Now ``f(1.0) = 1.0`` exactly and ``f(0.0) = 2.0``,
+    with a quadratic ramp that keeps healthy/moderately-degraded upstreams from
+    dragging their downstream neighbours into early failure.
+    """
+    return 1.0 + (1.0 - max(0.0, min(1.0, h))) ** 2
+
+
 def _simulate_one_day(
     *,
     printer_id: int,
@@ -226,7 +238,7 @@ def _simulate_one_day(
     """Single-day simulator step shared by ``run_printer`` and ``PrinterStepper``.
 
     ``components`` and ``counters`` are mutated in place. ``agent_action``
-    selects between the original τ-based rule (None) and the agent-driven
+    selects between the original tau-based rule (None) and the agent-driven
     rule (any mapping).
     """
     process = components_cfg["process_constants"]
@@ -235,8 +247,8 @@ def _simulate_one_day(
     jobs_today = int(rng.poisson(float(monthly_jobs) / 30.0))
     _update_counters(counters, jobs_today, process, rng)
 
-    c_p = float(process["c_p0"]) * (2.0 - components["C1"].H)
-    q_demand = float(process["Q0"]) * (2.0 - components["C6"].H)
+    c_p = float(process["c_p0"]) * _cascade_factor(components["C1"].H)
+    q_demand = float(process["Q0"]) * _cascade_factor(components["C6"].H)
     drivers = _build_driver_namespace(weather_drivers, process, counters, c_p, q_demand)
 
     cross_factors = compute_cross_factors(components, couplings_cfg)
@@ -245,7 +257,7 @@ def _simulate_one_day(
         component = components[component_id]
         lambda_i = compute_lambda(component, drivers, cross_factors[component_id])
         lambda_values[component_id] = lambda_i
-        component.apply_degradation(min(lambda_i * HOURS_PER_DAY, MAX_DH_PER_DAY))
+        component.apply_degradation(min(lambda_i, MAX_DH_PER_DAY))
 
     if agent_action is None:
         maint_events, failure_events = apply_maintenance_and_safety(
@@ -257,7 +269,7 @@ def _simulate_one_day(
         )
 
     for component in components.values():
-        component.advance_time(HOURS_PER_DAY)
+        component.advance_time(1.0)
 
     day = (current_date - start_date).days
     row = _row_dict(
@@ -353,9 +365,9 @@ def _row_dict(
     for component_id in COMPONENT_IDS:
         row[f"status_{component_id}"] = components[component_id].status()
     for component_id in COMPONENT_IDS:
-        row[f"tau_{component_id}"] = components[component_id].tau_mant_h
+        row[f"tau_{component_id}"] = components[component_id].tau_mant_d
     for component_id in COMPONENT_IDS:
-        row[f"L_{component_id}"] = components[component_id].L_h
+        row[f"L_{component_id}"] = components[component_id].L_d
     row.update(
         {
             "N_f": counters["N_f"],

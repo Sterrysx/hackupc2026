@@ -49,10 +49,10 @@ def test_get_snapshot_shape_matches_frontend_contract():
 
     assert set(snap.keys()) == {
         "timestamp", "tick", "drivers", "components",
-        "forecasts", "forecastHorizonMin",
+        "forecasts", "forecastHorizonDays",
     }
     assert snap["tick"] == 100
-    assert snap["forecastHorizonMin"] == 45
+    assert snap["forecastHorizonDays"] == pytest.approx(1.0)
     assert snap["forecasts"] == []
     assert "T" in snap["timestamp"]  # ISO
 

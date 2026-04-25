@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Pause, Play, RotateCcw, FastForward, Command,
   ChevronUp, ChevronDown, SkipBack, SkipForward,
@@ -11,16 +11,18 @@ import { TICKS_PER_DAY, SIM_DAY_COUNT, tickToDay } from "@/lib/twinApi";
 /**
  * Floating transport for the simulator.
  *
- * Apple-style progressive disclosure: the **collapsed** bar is the same
- * minimal glass pill we shipped before (play, speed cycle, +2h, reset, tick
- * counter). Hitting the chevron **expands** it into a YouTube-style player
- * with a scrub track over the full 10-year sim, day/hour readout switch,
- * jump-by-day/week shortcuts, and a six-step speed picker. All extra
- * complexity stays hidden until the operator asks for it.
+ * Apple-style progressive disclosure: the **collapsed** bar is a minimal
+ * glass pill (play, speed cycle, +1d, reset, day counter). Hitting the
+ * chevron **expands** it into a YouTube-style player with a scrub track
+ * over the full 10-year sim, jump-by-day/week shortcuts, and a six-step
+ * speed picker. All extra complexity stays hidden until the operator
+ * asks for it.
+ *
+ * The simulator is *daily*: the parquet has one row per day and the RUL
+ * head reasons in days, so the entire transport speaks days. No hours.
  */
 
 const SIM_START_DATE_UTC = Date.UTC(2015, 0, 1);
-const HOURS_PER_TICK = 24 / TICKS_PER_DAY;
 const SPEED_STEPS = [1, 2, 4, 8, 16, 32] as const;
 
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -40,39 +42,40 @@ function dayToISODate(day: number): string {
 }
 
 export function SimControls() {
-  const {
-    tick, paused, speed, setPaused, setSpeed,
-    jumpForward, setTick, reset,
-    setCommandPaletteOpen,
-  } = useTwin();
+  const tick = useTwin((s) => s.tick);
+  const paused = useTwin((s) => s.paused);
+  const speed = useTwin((s) => s.speed);
+  const setPaused = useTwin((s) => s.setPaused);
+  const setSpeed = useTwin((s) => s.setSpeed);
+  const jumpForward = useTwin((s) => s.jumpForward);
+  const setTick = useTwin((s) => s.setTick);
+  const reset = useTwin((s) => s.reset);
+  const setCommandPaletteOpen = useTwin((s) => s.setCommandPaletteOpen);
+
   const [expanded, setExpanded] = useState(false);
-  const [unit, setUnit] = useState<"days" | "hours">("days");
-  // Local thumb position while the user is actively dragging — decouples
-  // the slider from the store so a slow live-mode fetch can't snap the
-  // thumb back to its previous value mid-drag.
+  // Local thumb position while the user is actively dragging — decouples the
+  // slider from the store so a slow live-mode fetch can't snap the thumb back
+  // to its previous value mid-drag.
   const [scrubDay, setScrubDay] = useState<number | null>(null);
 
   const day = tickToDay(tick);
-  const hourOfDay = Math.floor((tick % TICKS_PER_DAY) * HOURS_PER_TICK);
   const totalDays = SIM_DAY_COUNT;
-  const totalHours = totalDays * 24;
   const sliderDay = scrubDay !== null ? scrubDay : day;
   const dateLabel = dayToISODate(sliderDay);
+  const fillPct = (sliderDay / Math.max(1, totalDays - 1)) * 100;
 
   function onScrubInput(e: React.ChangeEvent<HTMLInputElement>) {
     const targetDay = Number(e.target.value);
     setScrubDay(targetDay);
-    // Update tick immediately so the rest of the UI (badges, date readout)
-    // tracks the cursor without waiting for a network round-trip.
     setTick(targetDay * TICKS_PER_DAY);
   }
   function onScrubRelease() {
     setScrubDay(null);
   }
 
-  // Keyboard shortcuts — active only while the transport is expanded so the
-  // collapsed-by-default surface keeps zero hidden behaviour. Suppressed when
-  // an input/textarea/contenteditable has focus, so chat & search keep ←/→/space.
+  // Keyboard shortcuts — active only while the transport is expanded.
+  // Suppressed when an input/textarea/contenteditable has focus, so chat &
+  // search keep ←/→/space.
   useEffect(() => {
     if (!expanded) return;
     function onKey(e: KeyboardEvent) {
@@ -94,15 +97,15 @@ export function SimControls() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded, paused, setPaused, jumpForward]);
 
+  // NOTE: no framer `layout` props on this container — they fight the native
+  // range input by re-applying transforms during state updates. Width is
+  // animated via plain CSS transition instead.
   return (
-    <motion.div
-      layout
-      transition={{ type: "spring", stiffness: 260, damping: 30 }}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 rounded-3xl glass-floating overflow-hidden"
+    <div
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 rounded-3xl glass-floating overflow-hidden transition-[width] duration-300 ease-out"
       style={{ width: expanded ? "min(720px, calc(100vw - 48px))" : "auto" }}
     >
-      {/* Always-visible row — keeps the same compact pill look when collapsed. */}
-      <motion.div layout className="flex items-center gap-1 p-1">
+      <div className="flex items-center gap-1 p-1">
         <Button
           variant="ghost"
           size="icon"
@@ -127,18 +130,18 @@ export function SimControls() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => jumpForward(120)}
-              title="Jump 2 hours"
+              onClick={() => jumpForward(TICKS_PER_DAY)}
+              title="Jump 1 day"
               className="px-2.5"
             >
-              +2h
+              +1d
             </Button>
             <Button variant="ghost" size="icon" onClick={reset} title="Reset">
               <RotateCcw size={13} />
             </Button>
             <span className="mx-2 h-4 w-px bg-white/10" />
             <span className="text-[10.5px] tabular-nums text-[var(--color-fg-faint)] mr-2 ml-0.5">
-              tick {tick}
+              day {day}
             </span>
           </>
         )}
@@ -146,36 +149,12 @@ export function SimControls() {
         {expanded && (
           <>
             <span className="ml-2 text-[11.5px] tabular-nums text-[var(--color-fg)]">
-              {unit === "days"
-                ? `Day ${sliderDay} / ${totalDays - 1}`
-                : `Hour ${sliderDay * 24 + hourOfDay} / ${totalHours - 1}`}
+              Day {sliderDay} / {totalDays - 1}
             </span>
-            <span className="text-[11px] text-[var(--color-fg-faint)] ml-2">{dateLabel}</span>
+            <span className="text-[11px] text-[var(--color-fg-faint)] ml-2">
+              {dateLabel}
+            </span>
             <span className="flex-1" />
-            <div className="flex items-center gap-0.5 rounded-full bg-white/[0.05] p-0.5 mr-1">
-              <button
-                type="button"
-                onClick={() => setUnit("days")}
-                className={`px-2 py-0.5 rounded-full text-[10.5px] transition-colors ${
-                  unit === "days"
-                    ? "bg-white/10 text-[var(--color-fg)]"
-                    : "text-[var(--color-fg-faint)] hover:text-[var(--color-fg-muted)]"
-                }`}
-              >
-                Days
-              </button>
-              <button
-                type="button"
-                onClick={() => setUnit("hours")}
-                className={`px-2 py-0.5 rounded-full text-[10.5px] transition-colors ${
-                  unit === "hours"
-                    ? "bg-white/10 text-[var(--color-fg)]"
-                    : "text-[var(--color-fg-faint)] hover:text-[var(--color-fg-muted)]"
-                }`}
-              >
-                Hours
-              </button>
-            </div>
           </>
         )}
 
@@ -198,9 +177,8 @@ export function SimControls() {
             <Command size={13} />
           </Button>
         )}
-      </motion.div>
+      </div>
 
-      {/* Expanded panel — scrub track + jump row + speed picker. */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -210,7 +188,6 @@ export function SimControls() {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="px-4 pb-3 overflow-hidden"
           >
-            {/* Scrub track (YouTube-style) */}
             <div className="pt-2 pb-2">
               <input
                 type="range"
@@ -223,9 +200,7 @@ export function SimControls() {
                 onBlur={onScrubRelease}
                 className="timeline-scrub w-full h-1 rounded-full appearance-none bg-white/[0.10] accent-[var(--color-accent)] cursor-pointer"
                 style={{
-                  background: `linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) ${
-                    (sliderDay / (totalDays - 1)) * 100
-                  }%, rgba(255,255,255,0.10) ${(sliderDay / (totalDays - 1)) * 100}%, rgba(255,255,255,0.10) 100%)`,
+                  background: `linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) ${fillPct}%, rgba(255,255,255,0.10) ${fillPct}%, rgba(255,255,255,0.10) 100%)`,
                 }}
                 aria-label="Scrub simulation timeline"
               />
@@ -238,50 +213,39 @@ export function SimControls() {
               </div>
             </div>
 
-            {/* Jump row */}
             <div className="flex items-center justify-center gap-1 mt-2">
               <Button
-                variant="ghost"
-                size="sm"
+                variant="ghost" size="sm"
                 onClick={() => jumpForward(-7 * TICKS_PER_DAY)}
-                title="-1 week"
-                className="px-2 gap-1"
+                title="-1 week" className="px-2 gap-1"
               >
                 <SkipBack size={11} />1w
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
+                variant="ghost" size="sm"
                 onClick={() => jumpForward(-TICKS_PER_DAY)}
-                title="-1 day"
-                className="px-2"
+                title="-1 day" className="px-2"
               >
                 -1d
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
+                variant="ghost" size="sm"
                 onClick={() => setPaused(!paused)}
-                title={paused ? "Resume" : "Pause"}
-                className="px-3"
+                title={paused ? "Resume" : "Pause"} className="px-3"
               >
                 {paused ? <Play size={12} /> : <Pause size={12} />}
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
+                variant="ghost" size="sm"
                 onClick={() => jumpForward(TICKS_PER_DAY)}
-                title="+1 day"
-                className="px-2"
+                title="+1 day" className="px-2"
               >
                 +1d
               </Button>
               <Button
-                variant="ghost"
-                size="sm"
+                variant="ghost" size="sm"
                 onClick={() => jumpForward(7 * TICKS_PER_DAY)}
-                title="+1 week"
-                className="px-2 gap-1"
+                title="+1 week" className="px-2 gap-1"
               >
                 1w<SkipForward size={11} />
               </Button>
@@ -290,8 +254,7 @@ export function SimControls() {
                 <RotateCcw size={13} />
               </Button>
               <Button
-                variant="ghost"
-                size="icon"
+                variant="ghost" size="icon"
                 onClick={() => setCommandPaletteOpen(true)}
                 title="Command palette (⌘K)"
               >
@@ -299,7 +262,6 @@ export function SimControls() {
               </Button>
             </div>
 
-            {/* Speed picker */}
             <div className="flex items-center justify-center gap-1 mt-3">
               <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-faint)] mr-2">
                 Speed
@@ -320,7 +282,6 @@ export function SimControls() {
               ))}
             </div>
 
-            {/* Shortcut hint — discoverable, but quiet. */}
             <div className="flex items-center justify-center gap-3 mt-3 text-[10px] text-[var(--color-fg-faint)]">
               <span><Kbd>←</Kbd> <Kbd>→</Kbd> day</span>
               <span><Kbd>⇧</Kbd>+<Kbd>←</Kbd> <Kbd>→</Kbd> week</span>
@@ -329,6 +290,6 @@ export function SimControls() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

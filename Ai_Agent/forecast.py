@@ -5,20 +5,23 @@ contract) for a single (city, printer, day) snapshot.
 
 Two execution paths share one output shape:
 
-  • **Analytic projection** (always available): uses the simulator's own
-    per-hour hazard rate ``λ`` to extrapolate health forward over a
+  * **Analytic projection** (always available): uses the simulator's own
+    per-day hazard rate ``lambda`` to extrapolate health forward over a
     configurable horizon. This is what runs when the Stage 2 SSL head
     isn't on disk.
 
-  • **SSL + RUL head** (auto-detected): when
+  * **SSL + RUL head** (auto-detected): when
     ``ml_models/02_ssl/models/rul_head_ssl.pt`` and the SSL encoder are
     both present, the forecast module loads them once and predicts a
     per-component remaining-useful-life (in days) from a 360-day window of
     telemetry. The predicted RUL is then mapped onto the same
-    ``minutesUntilCritical`` / ``minutesUntilFailure`` /
+    ``daysUntilCritical`` / ``daysUntilFailure`` /
     ``predictedHealthIndex`` keys.
 
 The frontend never needs to care which one produced a forecast.
+
+UNIT CONTRACT: every time field on the wire is in **days**. There is no
+hour-based or minute-based field anywhere on this layer.
 """
 from __future__ import annotations
 
@@ -38,7 +41,7 @@ from sdg.schema import COMPONENT_IDS
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_HORIZON_MIN = twin_data.DEFAULT_FORECAST_HORIZON_MIN
+DEFAULT_HORIZON_D = twin_data.DEFAULT_FORECAST_HORIZON_D
 
 # Health thresholds — match `Component.status()` in `sdg/core/component.py`.
 H_FAILED = 0.1
@@ -46,15 +49,17 @@ H_CRITICAL = 0.4
 H_WARNING = 0.7
 
 # Below this hazard rate, the part isn't measurably degrading on any
-# operational timescale; emitting a multi-year ETA misleads the operator,
-# so we collapse to None instead.
-_LAMBDA_OPERATIONAL_FLOOR = 1e-5
+# operational timescale; emitting a multi-decade ETA is just numerical
+# noise (a tiny float division by zero). Collapse to None instead.
+# 2.4e-4 per day == ~1e-5 per hour, the legacy floor.
+_LAMBDA_OPERATIONAL_FLOOR = 2.4e-4
 
-# Operational planning windows. ETAs beyond these are reported as None
-# ("stable") rather than rendered as e.g. "8760h" — the trained RUL head's
-# error band (~17 days MAE) makes any further horizon noise anyway.
-_OPERATIONAL_HORIZON_MIN = 30 * 24 * 60   # 30 days
-_CRITICAL_HORIZON_MIN    = 14 * 24 * 60   # 14 days
+# Outer horizon (in days): long enough that we expose the model's full
+# predictive range, short enough to still kill numerical-instability
+# infinities. The frontend decides URGENCY by colour-coding the ETA, so
+# the backend should hand back the honest analytical answer.
+_OPERATIONAL_HORIZON_D = 5 * 365   # ~5 years
+_CRITICAL_HORIZON_D    = 2 * 365   # ~2 years
 
 # Stage 2 artefact paths. The encoder + scaler come from `01_pretrain.ipynb`;
 # the RUL head comes from `02_finetune_rul.ipynb` (or
@@ -178,48 +183,46 @@ def _predicted_status_from_health(h: float) -> str:
     return map_status(sim)
 
 
-def _minutes_to_threshold(h: float, lam_per_h: float, threshold: float) -> float | None:
-    """How many minutes until ``h`` decays linearly past ``threshold``?
+def _days_to_threshold(h: float, lam_per_d: float, threshold: float) -> float | None:
+    """How many days until ``h`` decays linearly past ``threshold``?
 
     Returns ``None`` when:
     - the threshold has already been crossed (``h <= threshold``), OR
     - the hazard rate is below the operational floor (no measurable
       degradation in any actionable window), OR
     - the projected ETA exceeds the operational horizon (so the operator
-      sees "stable" instead of a misleading multi-year number rendered in
-      hours by the frontend).
+      sees "stable" instead of a misleading multi-year number).
     """
     if h <= threshold:
         return None
-    if lam_per_h <= _LAMBDA_OPERATIONAL_FLOOR:
+    if lam_per_d <= _LAMBDA_OPERATIONAL_FLOOR:
         return None
-    minutes = (h - threshold) / lam_per_h * 60.0
+    days = (h - threshold) / lam_per_d
     horizon = (
-        _CRITICAL_HORIZON_MIN if threshold == H_CRITICAL else _OPERATIONAL_HORIZON_MIN
+        _CRITICAL_HORIZON_D if threshold == H_CRITICAL else _OPERATIONAL_HORIZON_D
     )
-    if minutes > horizon:
+    if days > horizon:
         return None
-    return float(minutes)
+    return float(days)
 
 
-def _project_health(h: float, lam_per_h: float, horizon_min: int) -> float:
-    """Project health linearly over ``horizon_min`` using the per-hour hazard.
+def _project_health(h: float, lam_per_d: float, horizon_d: float) -> float:
+    """Project health linearly over ``horizon_d`` days using the per-day hazard.
 
     Clamps to the simulator's [0, 1] range. Mirrors
     ``Component.apply_degradation`` semantics over a partial day.
     """
-    hours = horizon_min / 60.0
-    projected = h - lam_per_h * hours
+    projected = h - lam_per_d * float(horizon_d)
     return max(0.0, min(1.0, projected))
 
 
-def _confidence(lam_per_h: float, h: float) -> float:
+def _confidence(lam_per_d: float, h: float) -> float:
     """Coarse confidence proxy.
 
     The analytic projection is most trustworthy when there's a real degradation
-    signal (λ > 0) and the part isn't already past the failure threshold.
+    signal (lambda > 0) and the part isn't already past the failure threshold.
     """
-    if lam_per_h <= 1e-9:
+    if lam_per_d <= 1e-9:
         return 0.4
     if h <= H_FAILED:
         return 0.5
@@ -231,7 +234,7 @@ def _dominant_driver_text(row: pd.Series) -> str:
 
     Cheap heuristic — picks the largest signed deviation from a hand-set
     nominal so the rationale string says something specific (e.g.
-    "elevated dust at 3.4×nominal") rather than the generic "running hot".
+    "elevated dust at 3.4xnominal") rather than the generic "running hot".
     """
     candidates = [
         ("ambient temperature", float(row["ambient_temp_c"]), 18.0),
@@ -245,35 +248,35 @@ def _dominant_driver_text(row: pd.Series) -> str:
     )
     ratio = value / ref if ref else 0.0
     direction = "elevated" if ratio >= 1.0 else "depressed"
-    return f"{direction} {label} at {ratio:.2f}× nominal"
+    return f"{direction} {label} at {ratio:.2f}x nominal"
 
 
 def _analytic_one_component(
     row: pd.Series,
     sim_id: str,
-    horizon_min: int,
+    horizon_d: float,
 ) -> dict[str, Any]:
     info = next(c for c in COMPONENTS if c.sim_id == sim_id)
     h_now = float(row[f"H_{sim_id}"])
     lam = max(0.0, float(row[f"lambda_{sim_id}"]))
-    h_next = _project_health(h_now, lam, horizon_min)
+    h_next = _project_health(h_now, lam, horizon_d)
     return {
         "id": info.frontend_id,
         "predictedHealthIndex": h_next,
         "predictedStatus": _predicted_status_from_health(h_next),
         "predictedMetrics": predicted_metrics(row, sim_id, h_next),
-        "minutesUntilCritical": _minutes_to_threshold(h_now, lam, H_CRITICAL),
-        "minutesUntilFailure":  _minutes_to_threshold(h_now, lam, H_FAILED),
+        "daysUntilCritical": _days_to_threshold(h_now, lam, H_CRITICAL),
+        "daysUntilFailure":  _days_to_threshold(h_now, lam, H_FAILED),
         "rationale": (
-            f"Projected from current λ={lam:.4f}/h with "
+            f"Projected from current lambda={lam:.4f}/d with "
             f"{_dominant_driver_text(row)}."
         ),
         "confidence": _confidence(lam, h_now),
     }
 
 
-def analytic_forecasts(row: pd.Series, horizon_min: int) -> list[dict[str, Any]]:
-    return [_analytic_one_component(row, sid, horizon_min) for sid in COMPONENT_IDS]
+def analytic_forecasts(row: pd.Series, horizon_d: float) -> list[dict[str, Any]]:
+    return [_analytic_one_component(row, sid, horizon_d) for sid in COMPONENT_IDS]
 
 
 # ----------------------------------------------------- SSL/RUL forecast
@@ -308,7 +311,7 @@ def _build_window(
         # Defensive: feature ordering must match what the model was trained on.
         raise RuntimeError(
             "feature column mismatch between scaler and runtime "
-            f"(scaler={feature_cols[:5]}…, runtime={cols[:5]}…)"
+            f"(scaler={feature_cols[:5]}..., runtime={cols[:5]}...)"
         )
     return enriched[cols].to_numpy(dtype=np.float32)
 
@@ -317,44 +320,39 @@ def _ssl_one_component(
     sim_id: str,
     row: pd.Series,
     rul_days: float,
-    horizon_min: int,
+    horizon_d: float,
 ) -> dict[str, Any]:
     info = next(c for c in COMPONENTS if c.sim_id == sim_id)
     h_now = float(row[f"H_{sim_id}"])
     lam = max(0.0, float(row[f"lambda_{sim_id}"]))
 
-    # Map predicted RUL → minutes to thresholds. The RUL the head learned is
+    # Map predicted RUL -> days to thresholds. The RUL the head learned is
     # "days until failure_C{i} fires", which is exactly the FAILED line. The
     # CRITICAL line lives further out, so we approximate it from the same
-    # decay rate the simulator uses (`H · 24 / λ` until threshold). When λ
-    # is ~0 the analytic CRITICAL slot collapses to None.
-    raw_minutes_to_failure = max(0.0, rul_days) * 24.0 * 60.0
-    # Clamp at the operational horizon — the head's MAE is ~17 days, so
-    # anything beyond ~30 days is noise dressed up as a precise number.
-    minutes_to_failure: float | None = (
-        raw_minutes_to_failure if raw_minutes_to_failure <= _OPERATIONAL_HORIZON_MIN
-        else None
+    # decay rate the simulator uses (analytic ``H / lambda``) until threshold.
+    days_to_failure: float | None = (
+        rul_days if rul_days <= _OPERATIONAL_HORIZON_D else None
     )
     if h_now > H_CRITICAL and lam > _LAMBDA_OPERATIONAL_FLOOR:
-        raw_minutes_to_critical = float((h_now - H_CRITICAL) / lam) * 60.0
-        minutes_to_critical: float | None = (
-            raw_minutes_to_critical
-            if raw_minutes_to_critical <= _CRITICAL_HORIZON_MIN
+        raw_days_to_critical = float((h_now - H_CRITICAL) / lam)
+        days_to_critical: float | None = (
+            raw_days_to_critical
+            if raw_days_to_critical <= _CRITICAL_HORIZON_D
             else None
         )
     else:
-        minutes_to_critical = None
+        days_to_critical = None
 
-    h_next = _project_health(h_now, lam, horizon_min)
+    h_next = _project_health(h_now, lam, horizon_d)
     return {
         "id": info.frontend_id,
         "predictedHealthIndex": h_next,
         "predictedStatus": _predicted_status_from_health(h_next),
         "predictedMetrics": predicted_metrics(row, sim_id, h_next),
-        "minutesUntilCritical": minutes_to_critical,
-        "minutesUntilFailure": minutes_to_failure,
+        "daysUntilCritical": days_to_critical,
+        "daysUntilFailure": days_to_failure,
         "rationale": (
-            f"SSL+RUL model: {rul_days:.1f}d remaining (λ={lam:.4f}/h, "
+            f"SSL+RUL model: {rul_days:.1f}d remaining (lambda={lam:.4f}/d, "
             f"{_dominant_driver_text(row)})."
         ),
         "confidence": 0.78,  # learned model — bumped above analytic baseline
@@ -366,7 +364,7 @@ def ssl_forecasts(
     city: str,
     printer_id: int,
     day: int,
-    horizon_min: int,
+    horizon_d: float,
     bundle: _ModelBundle,
 ) -> list[dict[str, Any]]:
     """Run the trained PatchTST RUL head for one (city, printer, day)."""
@@ -375,9 +373,9 @@ def ssl_forecasts(
         bundle.feature_cols, bundle.context_length,
     )
     if window is None:
-        # Not enough history → fall back analytically for this call only.
+        # Not enough history -> fall back analytically for this call only.
         row = twin_data._row_for(city, printer_id, day, df)  # noqa: SLF001
-        return analytic_forecasts(row, horizon_min)
+        return analytic_forecasts(row, horizon_d)
 
     normed = (window - bundle.channel_mean) / bundle.channel_std
     torch = bundle.torch
@@ -389,7 +387,7 @@ def ssl_forecasts(
 
     row = twin_data._row_for(city, printer_id, day, df)  # noqa: SLF001
     return [
-        _ssl_one_component(sid, row, float(rul_days[i]), horizon_min)
+        _ssl_one_component(sid, row, float(rul_days[i]), horizon_d)
         for i, sid in enumerate(COMPONENT_IDS)
     ]
 
@@ -402,7 +400,7 @@ def compute_forecasts(
     printer_id: int,
     day: int,
     *,
-    horizon_min: int = DEFAULT_HORIZON_MIN,
+    horizon_d: float = DEFAULT_HORIZON_D,
     path: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return one ComponentForecast per simulator component.
@@ -411,16 +409,16 @@ def compute_forecasts(
     1. If the SSL+RUL artefacts are on disk and load successfully, use the
        learned model.
     2. Otherwise (or if model loading fails), fall back to the analytic
-       per-hour-hazard projection.
-    Both paths emit the same output shape.
+       per-day-hazard projection.
+    Both paths emit the same output shape (with day-based ETA fields).
     """
     df = twin_data.get_dataset(path)
     if _has_rul_head():
         bundle = _get_bundle()
         if bundle is not None:
-            return ssl_forecasts(df, city, printer_id, day, horizon_min, bundle)
+            return ssl_forecasts(df, city, printer_id, day, horizon_d, bundle)
     row = twin_data._row_for(city, printer_id, day, df)  # noqa: SLF001
-    return analytic_forecasts(row, horizon_min)
+    return analytic_forecasts(row, horizon_d)
 
 
 def active_path() -> str:

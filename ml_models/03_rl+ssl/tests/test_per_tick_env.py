@@ -24,7 +24,7 @@ def test_printer_stepper_matches_run_printer_when_no_agent_action() -> None:
 
     components_cfg, couplings_cfg, cities_cfg = load_configs()
     short_dates = [date(2015, 1, 1) + timedelta(days=d) for d in range(20)]
-    tau = {c: float(components_cfg["components"][c]["tau_nom_h"]) for c in COMPONENT_IDS}
+    tau = {c: float(components_cfg["components"][c]["tau_nom_d"]) for c in COMPONENT_IDS}
 
     batch = run_with_tau(
         tau, printer_ids=[0], dates=short_dates,

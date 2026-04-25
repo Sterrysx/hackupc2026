@@ -114,33 +114,33 @@ def _skin_temp_c(row: pd.Series, _sid: str, h: float) -> float:
 _METRICS: Mapping[str, tuple[MetricSpec, MetricSpec, MetricSpec]] = {
     "C1": (  # recoater_blade
         MetricSpec("blade_wear_um", "Blade edge wear", "µm",   _blade_wear_um),
-        MetricSpec("lambda",        "Hazard rate",     "1/h",  _real_per_comp("lambda")),
-        MetricSpec("tau",           "Hours since service", "h", _real_per_comp("tau")),
+        MetricSpec("lambda",        "Hazard rate",     "1/d",  _real_per_comp("lambda")),
+        MetricSpec("tau",           "Days since service", "d", _real_per_comp("tau")),
     ),
     "C2": (  # recoater_motor
         MetricSpec("vibration_g",     "Vibration RMS",  "g",    _vibration_g),
         MetricSpec("motor_current_a", "Motor current",  "A",    _motor_current_a),
-        MetricSpec("lambda",          "Hazard rate",    "1/h",  _real_per_comp("lambda")),
+        MetricSpec("lambda",          "Hazard rate",    "1/d",  _real_per_comp("lambda")),
     ),
     "C3": (  # nozzle_plate
         MetricSpec("nozzle_temp_c", "Nozzle plate temp", "°C",  _nozzle_temp_c),
         MetricSpec("dropout_ppm",   "Jet dropouts",      "ppm", _dropout_ppm),
-        MetricSpec("lambda",        "Hazard rate",       "1/h", _real_per_comp("lambda")),
+        MetricSpec("lambda",        "Hazard rate",       "1/d", _real_per_comp("lambda")),
     ),
     "C4": (  # thermal_resistor
         MetricSpec("resistance_ohms", "Element resistance", "Ω",  _resistance_ohms),
-        MetricSpec("lambda",          "Hazard rate",        "1/h", _real_per_comp("lambda")),
-        MetricSpec("tau",             "Hours since service", "h",  _real_per_comp("tau")),
+        MetricSpec("lambda",          "Hazard rate",        "1/d", _real_per_comp("lambda")),
+        MetricSpec("tau",             "Days since service", "d",  _real_per_comp("tau")),
     ),
     "C5": (  # heating_element
         MetricSpec("surface_temp_c", "Surface temp",  "°C",   _surface_temp_c),
         MetricSpec("power_kw",       "Power draw",    "kW",   _power_kw),
-        MetricSpec("lambda",         "Hazard rate",   "1/h",  _real_per_comp("lambda")),
+        MetricSpec("lambda",         "Hazard rate",   "1/d",  _real_per_comp("lambda")),
     ),
     "C6": (  # insulation_panel
         MetricSpec("skin_temp_c",  "Outer skin temp", "°C",   _skin_temp_c),
         MetricSpec("humidity_pct", "Ambient humidity", "%",   _real("humidity_pct")),
-        MetricSpec("lambda",       "Hazard rate",     "1/h",  _real_per_comp("lambda")),
+        MetricSpec("lambda",       "Hazard rate",     "1/d",  _real_per_comp("lambda")),
     ),
 }
 

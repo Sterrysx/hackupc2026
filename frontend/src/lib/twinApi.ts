@@ -55,17 +55,23 @@ export function backendCityName(city: City): string {
 }
 
 /**
- * Tick → simulator day. With `TICKS_PER_DAY = 8` each store tick is 3 sim
- * hours (= 180 sim minutes); the operator picks the wall-clock pace via the
- * speed multiplier in the transport bar (default 1× = real time).
+ * Tick is the simulator's natural unit: **one tick = one day** (the parquet
+ * has one row per day per printer and the RUL head reasons in days). At
+ * `speed = 1` the wall clock advances 1 day/sec; the same tick that bumps
+ * the timeline by a day also burns 1 sim-day off every visible ETA, so
+ * the date readout and the failure countdown stay in lockstep. The
+ * transport bar's speed picker scales both proportionally.
+ *
+ * NO MINUTE / HOUR UNITS BEYOND THIS LINE. Forecasts arrive from the backend
+ * already expressed in days; ETAs decrement by `(tick - snapshotMarkTick)`
+ * sim-days. If you find yourself reaching for `* 60` or `/ 60`, you've
+ * misread the contract — go re-read this comment.
  */
-export const TICKS_PER_DAY = 8;
-export const SIM_DAY_COUNT = 3653; // 2015-01-01 .. 2024-12-31
-export const SIM_MINUTES_PER_TICK = 1440 / TICKS_PER_DAY; // 180 sim min / tick
+export const TICKS_PER_DAY = 1;
+export const SIM_DAY_COUNT = 3653;                     // 2015-01-01 .. 2024-12-31
 
 export function tickToDay(tick: number): number {
-  const day = Math.floor(tick / TICKS_PER_DAY);
-  return ((day % SIM_DAY_COUNT) + SIM_DAY_COUNT) % SIM_DAY_COUNT;
+  return ((tick % SIM_DAY_COUNT) + SIM_DAY_COUNT) % SIM_DAY_COUNT;
 }
 
 
@@ -124,13 +130,13 @@ export async function fetchTwinState(args: {
   city: string;
   printerId: number;
   day: number;
-  horizonMin?: number;
+  horizonDays?: number;
 }): Promise<TwinStatePayload> {
   return getJson<TwinStatePayload>("/twin/state", {
     city: args.city,
     printer_id: args.printerId,
     day: args.day,
-    horizon_min: args.horizonMin ?? 45,
+    horizon_d: args.horizonDays ?? 1,
   });
 }
 

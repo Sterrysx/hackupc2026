@@ -64,15 +64,15 @@ export interface DriverVector {
 /** A predictive forecast for a single component. */
 export interface ComponentForecast {
   id: ComponentId;
-  /** Predicted health index N minutes from now (matches `forecastHorizonMin`). */
+  /** Predicted health index `forecastHorizonDays` from now. */
   predictedHealthIndex: number;
   predictedStatus: OperationalStatus;
   /** Predicted values for the same metrics (same `key`s). */
   predictedMetrics: { key: string; value: number }[];
-  /** Estimated minutes until status crosses into CRITICAL. null = stable. */
-  minutesUntilCritical: number | null;
-  /** Estimated minutes until status reaches FAILED. null = not predicted to fail. */
-  minutesUntilFailure: number | null;
+  /** Estimated days until status crosses into CRITICAL. null = stable. */
+  daysUntilCritical: number | null;
+  /** Estimated days until status reaches FAILED. null = not predicted to fail. */
+  daysUntilFailure: number | null;
   /** Plain-language root cause from the ML model. */
   rationale: string;
   /** 0..1 — how confident the predictor is. */
@@ -90,8 +90,8 @@ export interface SystemSnapshot {
   components: ComponentState[];
   /** Per-component predictive forecast. */
   forecasts: ComponentForecast[];
-  /** Minutes the prediction looks ahead (e.g. 45). */
-  forecastHorizonMin: number;
+  /** Days the prediction looks ahead (e.g. 1.0 = "where will this part be tomorrow"). */
+  forecastHorizonDays: number;
 }
 
 /** A surfaced alert (current OR predictive). */
@@ -107,8 +107,8 @@ export interface Alert {
   /** Tick at which the alert was raised — used for chat citations. */
   raisedAtTick: number;
   raisedAtIso: string;
-  /** Only set for predictive alerts: minutes until the breach happens. */
-  etaMinutes?: number;
+  /** Only set for predictive alerts: days until the breach happens. */
+  etaDays?: number;
   /** Optional: which metric caused the breach. */
   metricKey?: string;
 }

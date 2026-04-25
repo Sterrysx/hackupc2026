@@ -13,7 +13,6 @@ import pandas as pd
 from sdg.schema import COMPONENT_IDS
 
 DAYS_PER_YEAR = 365.25
-HOURS_PER_DAY = 24.0
 
 
 def _components(components_cfg: Mapping) -> Mapping:
@@ -67,19 +66,19 @@ def compute_availability(
     components = _components(components_cfg)
     n_printers = int(events_df["printer_id"].nunique())
     n_days = int(events_df["day"].max() - events_df["day"].min() + 1)
-    total_hours = n_days * HOURS_PER_DAY * n_printers
-    if total_hours <= 0:
+    total_days = n_days * n_printers
+    if total_days <= 0:
         return 1.0
 
-    downtime_hours = 0.0
+    downtime_days = 0.0
     for component_id in COMPONENT_IDS:
         spec = components[component_id]
         n_pm = int(events_df[f"maint_{component_id}"].sum())
         n_cm = int(events_df[f"failure_{component_id}"].sum())
-        downtime_hours += n_pm * float(spec["downtime_preventive_h"])
-        downtime_hours += n_cm * float(spec["downtime_corrective_h"])
+        downtime_days += n_pm * float(spec["downtime_preventive_d"])
+        downtime_days += n_cm * float(spec["downtime_corrective_d"])
 
-    raw = (total_hours - downtime_hours) / total_hours
+    raw = (total_days - downtime_days) / total_days
     return float(min(1.0, max(0.0, raw)))
 
 

@@ -13,15 +13,16 @@ process_constants:
   fires_per_job: 5000000000.0
   layers_per_job: 2800
 
+# All time fields in DAYS. lambda0_per_d = 1 / L_nom_d.
 components:
   C1:
-    L_nom_h: 800.0
-    lambda0_per_h: 0.00125
+    L_nom_d: 33.333333
+    lambda0_per_d: 0.03
     cost_preventive_eur: 250
     cost_corrective_eur: 3500
-    downtime_preventive_h: 1.5
-    downtime_corrective_h: 12.0
-    tau_nom_h: 600.0
+    downtime_preventive_d: 0.0625    # 1.5h
+    downtime_corrective_d: 0.5       # 12h
+    tau_nom_d: 25.0                  # 600h
     b_M: 1.5
     b_L: 1.2
     ext_vars:
@@ -33,13 +34,13 @@ components:
       - {name: phi_R, ref: 0.20, exp: 1.0}
 
   C2:
-    L_nom_h: 18000.0
-    lambda0_per_h: 0.00005555555555555556
+    L_nom_d: 750.0
+    lambda0_per_d: 0.001333333333333333
     cost_preventive_eur: 400
     cost_corrective_eur: 8500
-    downtime_preventive_h: 3.0
-    downtime_corrective_h: 36.0
-    tau_nom_h: 4000.0
+    downtime_preventive_d: 0.125     # 3h
+    downtime_corrective_d: 1.5       # 36h
+    tau_nom_d: 166.6666667           # 4000h
     b_M: 1.8
     b_L: 1.2
     ext_vars:
@@ -51,13 +52,15 @@ components:
       - {name: N_iv, ref: 500000.0, exp: 1.0}
 
   C3:
-    L_nom_h: 3500.0
-    lambda0_per_h: 0.0002857142857142857
+    # Recalibrated: HP TIJ printheads are operator-replaceable consumables
+    # with industrial life ~33-62d (literature). Was 146d.
+    L_nom_d: 50.0
+    lambda0_per_d: 0.02
     cost_preventive_eur: 2500
     cost_corrective_eur: 12000
-    downtime_preventive_h: 2.0
-    downtime_corrective_h: 24.0
-    tau_nom_h: 168.0
+    downtime_preventive_d: 0.0833333 # 2h
+    downtime_corrective_d: 1.0       # 24h
+    tau_nom_d: 7.0                   # 168h
     b_M: 2.0
     b_L: 1.0
     ext_vars:
@@ -71,30 +74,30 @@ components:
       - {name: P_B, ref: 0.0, exp: 1.5, enabled: false}
 
   C4:
-    L_nom_h: 5000.0
-    lambda0_per_h: 0.0002
+    L_nom_d: 208.333333
+    lambda0_per_d: 0.0048
     cost_preventive_eur: 2500
     cost_corrective_eur: 12000
-    downtime_preventive_h: 2.0
-    downtime_corrective_h: 24.0
-    tau_nom_h: 1000.0
+    downtime_preventive_d: 0.0833333 # 2h
+    downtime_corrective_d: 1.0       # 24h
+    tau_nom_d: 41.6666667            # 1000h
     b_M: 1.3
     b_L: 1.0
     ext_vars:
-      - {name: T, ref: 35.0, exp: 2.0}
+      - {name: T, ref: 35.0, exp: 1.5}   # was 2.0 — softened (still strong, less explosive)
     int_vars:
-      - {name: N_f, ref: 50000000000.0, exp: 1.2}
+      - {name: N_f, ref: 50000000000.0, exp: 1.0}   # was 1.2 — softened to bound counter
       - {name: E_d, ref: 3.0, exp: 1.8}
       - {name: f_d, ref: 20.0, exp: 1.0}
 
   C5:
-    L_nom_h: 12000.0
-    lambda0_per_h: 0.00008333333333333333
+    L_nom_d: 500.0
+    lambda0_per_d: 0.002
     cost_preventive_eur: 900
     cost_corrective_eur: 8000
-    downtime_preventive_h: 4.0
-    downtime_corrective_h: 28.0
-    tau_nom_h: 4000.0
+    downtime_preventive_d: 0.1666667 # 4h
+    downtime_corrective_d: 1.166667  # 28h
+    tau_nom_d: 166.6666667           # 4000h
     b_M: 1.4
     b_L: 1.3
     ext_vars:
@@ -102,17 +105,19 @@ components:
       - {name: H, ref: 40.0, exp: 0.3}
     int_vars:
       - {name: T_set, ref: 180.0, exp: 2.0}
-      - {name: Q, ref: 1.0, exp: 2.0}
+      - {name: Q, ref: 1.0, exp: 1.5}    # was 2.0 — softened (cascade C6→C5 less explosive)
       - {name: N_on, ref: 5000.0, exp: 0.8}
 
   C6:
-    L_nom_h: 30000.0
-    lambda0_per_h: 0.000033333333333333335
+    # Recalibrated: BJT insulation works at ~180C, far below ceramic-fiber
+    # rated 1260C. Real-world life dominated by humidity/dust, not T. Was 1250d.
+    L_nom_d: 2500.0
+    lambda0_per_d: 0.0004
     cost_preventive_eur: 1500
     cost_corrective_eur: 7000
-    downtime_preventive_h: 6.0
-    downtime_corrective_h: 20.0
-    tau_nom_h: 8000.0
+    downtime_preventive_d: 0.25      # 6h
+    downtime_corrective_d: 0.833333  # 20h
+    tau_nom_d: 333.3333333           # 8000h
     b_M: 1.2
     b_L: 1.0
     ext_vars:

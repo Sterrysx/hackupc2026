@@ -32,13 +32,13 @@ def override_tau(
     components_cfg: Mapping[str, Any],
     tau_vector: Mapping[str, float],
 ) -> dict[str, Any]:
-    """Return a deep copy of components_cfg with tau_nom_h overridden per component."""
+    """Return a deep copy of components_cfg with tau_nom_d overridden per component."""
     cfg = copy.deepcopy(components_cfg)
     components = cfg["components"]
     for component_id in COMPONENT_IDS:
         if component_id not in tau_vector:
             raise KeyError(f"tau_vector missing component {component_id}")
-        components[component_id]["tau_nom_h"] = float(tau_vector[component_id])
+        components[component_id]["tau_nom_d"] = float(tau_vector[component_id])
     validate_components_config(cfg)
     return cfg
 
@@ -106,10 +106,10 @@ def make_printer_stepper(
     comparable to the batch interface (apart from the agent's actions).
 
     If ``tau_vector`` is supplied the underlying ``components_cfg`` has its
-    ``tau_nom_h`` per component overridden — useful when you want the
-    fallback τ-rule (when the agent passes ``agent_action=None``) to match a
+    ``tau_nom_d`` per component overridden — useful when you want the
+    fallback tau-rule (when the agent passes ``agent_action=None``) to match a
     specific schedule. For the per-tick RL env, ``agent_action`` is always
-    provided so ``tau_vector`` only affects the τ-based feature on the row
+    provided so ``tau_vector`` only affects the tau-based feature on the row
     output (``tau_Ci``), not policy decisions.
     """
     if components_cfg is None or couplings_cfg is None or cities_cfg is None:

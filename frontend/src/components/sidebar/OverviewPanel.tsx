@@ -5,8 +5,7 @@ import { useTwin } from "@/store/twin";
 import { Badge, statusLabel, statusToTone } from "@/components/ui/Badge";
 import { HealthRing } from "@/components/HealthRing";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
-import { formatEta, liveMinutesRemaining } from "@/lib/alerts";
-import { SIM_MINUTES_PER_TICK } from "@/lib/twinApi";
+import { formatEta, liveDaysRemaining } from "@/lib/alerts";
 import type { ComponentForecast, ComponentState } from "@/types/telemetry";
 
 /* ── Stagger config ───────────────────────────────────────────────────── */
@@ -53,7 +52,7 @@ export function OverviewPanel() {
 
   const supporting =
     failed   ? "Immediate inspection recommended." :
-    critical ? `${critical} critical · ${degraded} degraded · forecasting next ${snapshot.forecastHorizonMin} min.` :
+    critical ? `${critical} critical · ${degraded} degraded · forecasting next ${snapshot.forecastHorizonDays} day(s).` :
     degraded ? `${degraded} component${degraded === 1 ? "" : "s"} degraded — schedule maintenance.` :
     combinedAlerts.length > 0 ? `${combinedAlerts.length} predictive watch${combinedAlerts.length === 1 ? "" : "es"} active.` :
     `${healthy} of ${snapshot.components.length} components nominal.`;
@@ -183,7 +182,7 @@ export function OverviewPanel() {
                     </div>
                     <div className="text-[11px] text-[var(--color-fg-muted)] truncate mt-0.5">
                       {a.kind === "predictive" ? "Predicted" : "Now"}
-                      {a.etaMinutes !== undefined && ` · ${formatEta(a.etaMinutes)}`}
+                      {a.etaDays !== undefined && ` · ${formatEta(a.etaDays)}`}
                     </div>
                   </div>
                 </button>
@@ -269,26 +268,26 @@ function DriverRow({ label, value, unit }: { label: string; value: number; unit:
 }
 
 /**
- * Visual scale: matches the backend operational horizon
- * (`Ai_Agent/forecast.py::_OPERATIONAL_HORIZON_MIN` = 30 days). Anything
- * beyond that arrives as ``null`` from the backend ("stable") and renders as
- * an empty bar, so we never need to clamp negative widths in CSS.
+ * Visual scale: maps remaining days onto a 0..1 urgency fill. We saturate the
+ * bar at 30 days (the operational planning window the operator actually
+ * tracks day-to-day). Anything beyond that arrives as ``null`` from the
+ * backend ("stable") and renders as an empty bar.
  */
-const RUL_VISUAL_CAP_MIN = 60 * 24 * 30;
+const RUL_VISUAL_CAP_DAYS = 30;
 
-function urgencyFraction(minutes: number | null): number {
-  if (minutes === null) return 0;
-  if (minutes <= 0) return 1;
-  // 1.0 = imminent (0 min), 0.0 = at the operational horizon. Clamped to
-  // [0, 1] so a stale snapshot with an out-of-range value can't render a
-  // negative-width bar.
-  return Math.max(0, Math.min(1, 1 - minutes / RUL_VISUAL_CAP_MIN));
+function urgencyFraction(days: number | null): number {
+  if (days === null) return 0;
+  if (days <= 0) return 1;
+  // 1.0 = imminent (0 d), 0.0 = at the visual cap. Clamped to [0, 1] so a
+  // stale snapshot with an out-of-range value can't render a negative-width
+  // bar.
+  return Math.max(0, Math.min(1, 1 - days / RUL_VISUAL_CAP_DAYS));
 }
 
-function rulColour(minutes: number | null): string {
-  if (minutes === null) return "var(--color-info)";
-  if (minutes <= 60 * 2)  return "var(--color-crit)";    // < 2h
-  if (minutes <= 60 * 24) return "var(--color-warn)";    // < 24h
+function rulColour(days: number | null): string {
+  if (days === null) return "var(--color-info)";
+  if (days <= 2)  return "var(--color-crit)";    // <  2d
+  if (days <= 7)  return "var(--color-warn)";    // <  7d
   return "var(--color-accent)";
 }
 
@@ -300,8 +299,8 @@ function sortedByUrgency(
   return components
     .map((c) => ({ component: c, forecast: fById.get(c.id) }))
     .sort((a, b) => {
-      const am = a.forecast?.minutesUntilFailure ?? Number.POSITIVE_INFINITY;
-      const bm = b.forecast?.minutesUntilFailure ?? Number.POSITIVE_INFINITY;
+      const am = a.forecast?.daysUntilFailure ?? Number.POSITIVE_INFINITY;
+      const bm = b.forecast?.daysUntilFailure ?? Number.POSITIVE_INFINITY;
       return am - bm;
     });
 }
@@ -319,15 +318,15 @@ function RulBar({
   // fetches instead of staying frozen for a full sim-day.
   const tick = useTwin((s) => s.tick);
   const snapshotMarkTick = useTwin((s) => s.snapshotMarkTick);
-  const minutes = liveMinutesRemaining(
-    forecast?.minutesUntilFailure ?? null,
-    tick, snapshotMarkTick, SIM_MINUTES_PER_TICK,
+  const days = liveDaysRemaining(
+    forecast?.daysUntilFailure ?? null,
+    tick, snapshotMarkTick,
   );
-  const fraction = urgencyFraction(minutes);
-  const colour = rulColour(minutes);
-  const etaLabel = minutes === null
+  const fraction = urgencyFraction(days);
+  const colour = rulColour(days);
+  const etaLabel = days === null
     ? "stable"
-    : `~${formatEta(minutes)}`;
+    : `~${formatEta(days)}`;
   return (
     <li>
       <button

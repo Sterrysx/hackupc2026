@@ -1,26 +1,23 @@
 import { motion } from "framer-motion";
-import { Box, LayoutGrid } from "lucide-react";
+import { Box, LayoutGrid, Activity } from "lucide-react";
 import { useTwin } from "@/store/twin";
 import { cn } from "@/lib/cn";
 
 const OPTIONS: Array<{
-  value: "2d" | "3d";
+  value: "2d" | "3d" | "analytics";
   label: string;
   icon: typeof Box;
 }> = [
-  { value: "2d", label: "Schematic", icon: LayoutGrid },
-  { value: "3d", label: "Digital Twin", icon: Box },
+  { value: "2d",        label: "Schematic",    icon: LayoutGrid },
+  { value: "3d",        label: "Digital Twin", icon: Box },
+  { value: "analytics", label: "Analytics",    icon: Activity },
 ];
 
 /**
- * ViewToggle — global mode switcher between the 2D SVG schematic and the 3D
- * spatial twin. Sits in the top-right corner, just to the left of the
- * SidebarToggle. Uses framer's `layoutId` for the sliding "thumb" so the
- * active option is announced with one continuous motion.
- *
- * Hidden during a component zoom: when a part is focused the user is in a
- * dedicated context — chrome that lets them swap *the entire background*
- * would be jarring. Reappears the moment they zoom back out.
+ * Global mode switcher — three views over the same store: SVG schematic,
+ * 3D spatial twin, and the analytics bento. The active option uses a
+ * shared `layoutId` so the highlight thumb glides between options as one
+ * continuous motion. Hidden during a component zoom (focused work area).
  */
 export function ViewToggle() {
   const viewMode = useTwin((s) => s.viewMode);
