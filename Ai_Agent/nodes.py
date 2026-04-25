@@ -6,15 +6,15 @@ from .config import get_llm
 from .prompts import GATHERER_SYSTEM_PROMPT, SYNTHESIZER_SYSTEM_PROMPT
 from .state import GraphState
 from .tools import query_database, get_db_schema, think
+from .schemas import DiagnosticReport
 
 GATHERER_TOOLS = [think, get_db_schema, query_database]
 SYNTHESIZER_TOOLS = [think]
 
 MAX_VALIDATION_ATTEMPTS = 3
 
-_SEVERITY_RE = re.compile(r"\[(INFO|WARNING|CRITICAL)\]")
-_TIMESTAMP_RE = re.compile(r"timestamp:\s*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
-_RUN_ID_RE = re.compile(r"run_id:\s*\w+")
+_TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+_RUN_ID_RE = re.compile(r"run_id:\s*\w+|run\s+\w+")
 
 
 def gatherer_node(state: GraphState) -> dict:
@@ -34,56 +34,85 @@ def extract_telemetry(state: GraphState) -> dict:
 
 def synthesizer_node(state: GraphState) -> dict:
     llm = get_llm()
+    # Use structured output for the final response
+    llm_with_structured_output = llm.with_structured_output(DiagnosticReport)
     llm_with_tools = llm.bind_tools(SYNTHESIZER_TOOLS)
+    
     telemetry = state.get("retrieved_telemetry", "No telemetry available.")
     if isinstance(telemetry, dict):
         telemetry = json.dumps(telemetry, indent=2)
     system_prompt = SYNTHESIZER_SYSTEM_PROMPT.format(retrieved_telemetry=telemetry)
     messages = [SystemMessage(content=system_prompt)] + list(state["messages"])
 
+    # First, allow the LLM to use the think tool
     while True:
         response = llm_with_tools.invoke(messages)
         messages.append(response)
         tool_calls = getattr(response, "tool_calls", None)
         if not tool_calls:
-            break
+            # If no more tool calls, we need the structured output
+            # We call the LLM again but this time forcing structured output
+            structured_response = llm_with_structured_output.invoke(messages)
+            return {"messages": [structured_response]}
+        
         for tc in tool_calls:
             messages.append(ToolMessage(content="", tool_call_id=tc["id"]))
-
-    return {"messages": [response]}
 
 
 def guardrail_node(state: GraphState) -> dict:
     last_msg = state["messages"][-1]
-    content = last_msg.content if hasattr(last_msg, "content") else ""
+    
+    # In with_structured_output, the response might be the object directly if it's not a tool call
+    # actually langchain's with_structured_output returns the model instance directly in the invoke result
+    # but here it's appended to 'messages', so it might be a message with 'additional_kwargs["parsed"]'
+    # or just the object if it was returned by the node.
+    
+    report = last_msg
+    if not isinstance(report, DiagnosticReport):
+        # If it's not a DiagnosticReport, it might be a dict
+        if isinstance(report, dict):
+            try:
+                report = DiagnosticReport(**report)
+            except:
+                pass
+        elif hasattr(last_msg, "content") and not last_msg.content:
+             # Check for tool_calls parsed data in some langchain versions
+             pass
+
     attempts = state.get("validation_attempts", 0)
-
-    has_severity = bool(_SEVERITY_RE.search(content))
-    has_citation = bool(_TIMESTAMP_RE.search(content)) or bool(_RUN_ID_RE.search(content))
-
+    
     errors = []
-    if not has_severity:
-        errors.append("Missing severity indicator ([INFO], [WARNING], or [CRITICAL])")
-    if not has_citation:
-        errors.append("Missing evidence citation (must include 'timestamp: YYYY-MM-DDTHH:MM:SS' and/or 'run_id: <id>')")
+    if not isinstance(report, DiagnosticReport):
+        errors.append("Output is not in the required structured format (DiagnosticReport).")
+    else:
+        if report.severity_indicator not in ["INFO", "WARNING", "CRITICAL"]:
+            errors.append("severity_indicator must be INFO, WARNING, or CRITICAL.")
+        
+        has_timestamp = bool(_TIMESTAMP_RE.search(report.evidence_citation))
+        has_run_id = bool(_RUN_ID_RE.search(report.evidence_citation.lower()))
+        
+        if not has_timestamp:
+            errors.append("evidence_citation must include a timestamp (YYYY-MM-DDTHH:MM:SS).")
+        if not has_run_id:
+            errors.append("evidence_citation must include a run identifier (e.g., 'run R1').")
 
     if not errors:
-        return {"final_report": content, "validation_attempts": attempts}
+        # Store the report as a dict for serialization in GraphState if needed, 
+        # but final_report expects a dict or object that app.py can handle.
+        return {"final_report": report.model_dump() if isinstance(report, DiagnosticReport) else report, "validation_attempts": attempts}
 
     new_attempts = attempts + 1
     if new_attempts >= MAX_VALIDATION_ATTEMPTS:
-        fallback = (
-            "[CRITICAL]\n\n"
-            f"Validation failed after {MAX_VALIDATION_ATTEMPTS} attempts. "
-            "Please review raw telemetry data manually.\n\n"
-            f"Errors: {'; '.join(errors)}"
-        )
+        fallback = {
+            "severity_indicator": "CRITICAL",
+            "grounded_text": f"Validation failed after {MAX_VALIDATION_ATTEMPTS} attempts.",
+            "evidence_citation": f"Errors: {'; '.join(errors)}"
+        }
         return {"final_report": fallback, "validation_attempts": new_attempts}
 
     correction = HumanMessage(content=(
         f"Report failed validation (attempt {new_attempts}/{MAX_VALIDATION_ATTEMPTS}). "
-        f"Fix: {'; '.join(errors)}. "
-        "Start with a severity tag like [CRITICAL] on its own line, "
-        "then cite specific timestamps and run IDs from the telemetry data."
+        f"Fix the following errors in the structured output: {'; '.join(errors)}. "
+        "Ensure evidence_citation includes both timestamp and run_id."
     ))
     return {"messages": [correction], "validation_attempts": new_attempts}

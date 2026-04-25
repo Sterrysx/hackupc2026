@@ -34,8 +34,9 @@ class AgentRequest(BaseModel):
     run_identifier: Optional[str] = ""
 
 class AgentResponse(BaseModel):
-    final_report: str
-    # You can add more fields if needed, like the updated history
+    grounded_text: str
+    evidence_citation: str
+    severity_indicator: str
 
 class TelemetryData(BaseModel):
     timestamp: str
@@ -130,9 +131,11 @@ async def query_agent(request: AgentRequest):
         # Invoke the graph
         result = agent_graph.invoke(initial_state)
         
-        return AgentResponse(
-            final_report=result.get("final_report", "No report generated.")
-        )
+        final_report = result.get("final_report")
+        if not final_report:
+             raise HTTPException(status_code=500, detail="No report generated.")
+        
+        return final_report
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent workflow failed: {str(e)}")
 

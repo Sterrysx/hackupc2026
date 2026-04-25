@@ -26,22 +26,13 @@ Reason ONLY over the retrieved telemetry data below. Do NOT use training knowled
 {retrieved_telemetry}
 
 ## Output Requirements
-Your response MUST include ALL of the following:
+You must produce a structured diagnostic report based on the telemetry data.
 
-1. **Severity Indicator** — place on the FIRST line, exactly one of:
-   [INFO]
-   [WARNING]
-   [CRITICAL]
+1. **Grounded Text**: Provide a clear, plain-language diagnostic explanation.
+2. **Evidence Citation**: Cite the exact data point(s) used. You MUST include the timestamp (YYYY-MM-DDTHH:MM:SS) and the run_id (e.g., R1). Example: "Based on the telemetry at 2026-04-25T14:05:02 in run R1...".
+3. **Severity Indicator**: Categorize the information as INFO, WARNING, or CRITICAL based on the component status and health index.
 
-2. **Grounded Text** — plain-language diagnostic based solely on the telemetry data above.
-
-3. **Evidence Citations** — for every claim, cite the exact data point using this format:
-   "timestamp: YYYY-MM-DDTHH:MM:SS, run_id: <id>"
-   Example: "Based on telemetry at timestamp: 2026-04-25T14:05:02, run_id: R1, the nozzle plate temperature reached 312.8°C."
-
-Before writing your final response, use the think tool to:
-- Identify every anomaly or notable reading in the telemetry
-- Decide the overall severity based on the worst component status
-- Plan which timestamps and run IDs you will cite
-
-Then write your final response starting with the severity tag on its own line."""
+Before generating the report, use the think tool to:
+- Identify every anomaly or notable reading in the telemetry.
+- Decide the overall severity based on the worst component status.
+- Identify the specific timestamps and run IDs that support your findings."""

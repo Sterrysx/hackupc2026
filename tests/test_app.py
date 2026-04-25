@@ -27,8 +27,14 @@ def test_transcribe_audio(mock_transcribe):
 
 @patch("app.agent_graph.invoke")
 def test_query_agent(mock_invoke):
-    # Mock the agent graph response
-    mock_invoke.return_value = {"final_report": "The machine is in perfect condition."}
+    # Mock the agent graph response with structured data
+    mock_invoke.return_value = {
+        "final_report": {
+            "grounded_text": "The machine is in perfect condition.",
+            "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
+            "severity_indicator": "INFO"
+        }
+    }
     
     payload = {
         "query": "What is the current status?",
@@ -42,18 +48,32 @@ def test_query_agent(mock_invoke):
     response = client.post("/agent/query", json=payload)
     
     assert response.status_code == 200
-    assert response.json() == {"final_report": "The machine is in perfect condition."}
+    assert response.json() == {
+        "grounded_text": "The machine is in perfect condition.",
+        "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
+        "severity_indicator": "INFO"
+    }
     mock_invoke.assert_called_once()
 
 def test_query_agent_minimal_payload():
     with patch("app.agent_graph.invoke") as mock_invoke:
-        mock_invoke.return_value = {"final_report": "Basic report."}
+        mock_invoke.return_value = {
+            "final_report": {
+                "grounded_text": "Basic report.",
+                "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
+                "severity_indicator": "INFO"
+            }
+        }
         
         payload = {"query": "Tell me something."}
         response = client.post("/agent/query", json=payload)
         
         assert response.status_code == 200
-        assert response.json() == {"final_report": "Basic report."}
+        assert response.json() == {
+            "grounded_text": "Basic report.",
+            "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
+            "severity_indicator": "INFO"
+        }
 
 @patch("app.insert_telemetry")
 def test_add_telemetry(mock_insert):

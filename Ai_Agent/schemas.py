@@ -31,6 +31,6 @@ class TelemetryRecord(BaseModel):
 
 
 class DiagnosticReport(BaseModel):
-    grounded_text: str
-    evidence_citations: list[str]
-    severity: str
+    grounded_text: str = Field(description="A clear, plain-language explanation based solely on telemetry.")
+    evidence_citation: str = Field(description="A reference to the specific data point or timestamp used (e.g., 'Based on the telemetry at 14:05:02...'). Must include the run identifier if applicable.")
+    severity_indicator: str = Field(description="A categorization of the information: INFO, WARNING, or CRITICAL.")
