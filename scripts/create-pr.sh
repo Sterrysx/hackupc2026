@@ -15,25 +15,44 @@ die()     { echo -e "${RED}[✗] $*${NC}"; exit 1; }
 # ── Guard: must not be on main ─────────────────────────────────────────────────
 CURRENT_BRANCH=$(git branch --show-current)
 if [ "$CURRENT_BRANCH" = "main" ]; then
-    die "You are on main. Switch to your feature branch first.\n\nRun:  git checkout your-branch-name"
+    die "You are on main. Create a feature branch first.\n\nRun:  make new-branch name=feat/your-feature"
+fi
+
+# ── Auto-stage and commit any uncommitted changes ─────────────────────────────
+HAS_UNCOMMITTED=false
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    HAS_UNCOMMITTED=true
+fi
+HAS_UNTRACKED=false
+if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+    HAS_UNTRACKED=true
+fi
+
+if [ "$HAS_UNCOMMITTED" = "true" ] || [ "$HAS_UNTRACKED" = "true" ]; then
+    info "Uncommitted changes detected:"
+    git status -s
+    echo ""
+    echo -e "${BLUE}Commit message (short, e.g. 'Add login page'):${NC}"
+    read -r COMMIT_MSG
+    if [ -z "$COMMIT_MSG" ]; then
+        die "Empty commit message — aborting."
+    fi
+    git add -A
+    git commit -m "$COMMIT_MSG"
+    success "Committed: $COMMIT_MSG"
+    echo ""
 fi
 
 # ── Guard: must have commits ahead of main ─────────────────────────────────────
 COMMITS_AHEAD=$(git rev-list --count main..HEAD)
 if [ "$COMMITS_AHEAD" -eq 0 ]; then
-    die "No new commits on this branch yet. Make some changes and commit them first."
+    die "No new commits on this branch yet. Make some changes first."
 fi
 
 info "Branch:   ${CURRENT_BRANCH}"
 info "Commits ahead of main: ${COMMITS_AHEAD}"
 
 # ── Push latest commits ────────────────────────────────────────────────────────
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    warn "You have uncommitted changes — they will NOT be included in the PR."
-    warn "Commit them now if you want them included, or press Enter to continue."
-    read -r
-fi
-
 info "Pushing latest commits to remote..."
 git push origin HEAD
 
@@ -47,9 +66,11 @@ if [ -n "$EXISTING_PR" ]; then
 fi
 
 # ── Collect PR details ─────────────────────────────────────────────────────────
+DEFAULT_TITLE=$(git log -1 --pretty=%s)
 echo ""
-echo -e "${BLUE}What did you build? (short title, e.g. 'Add login page')${NC}"
+echo -e "${BLUE}PR title (press Enter to use: \"${DEFAULT_TITLE}\"):${NC}"
 read -r PR_TITLE
+PR_TITLE="${PR_TITLE:-$DEFAULT_TITLE}"
 
 echo ""
 echo -e "${BLUE}Briefly describe what changed (press Enter twice when done):${NC}"
