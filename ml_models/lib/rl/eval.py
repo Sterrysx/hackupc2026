@@ -221,3 +221,216 @@ def per_printer_table_for_constant_tau(
 def load_ppo(model_path: str | Path) -> PPO:
     """Load a saved SB3 PPO model from disk (zip)."""
     return PPO.load(str(model_path))
+
+
+def bootstrap_fleet_ci(
+    per_printer_df: pd.DataFrame,
+    *,
+    metric: str = "annual_cost",
+    n_resamples: int = 10_000,
+    confidence: float = 0.95,
+    rng_seed: int = 0,
+    availability_threshold: float = 0.95,
+) -> dict[str, float]:
+    """Bootstrap CI on a fleet-level metric by resampling printers.
+
+    Test sets at the printer level are tiny (15 printers); the
+    point-estimate of fleet ``annual_cost`` or ``availability`` carries
+    real sampling noise. This function resamples printers with replacement
+    ``n_resamples`` times and returns the empirical CI on:
+
+    - ``metric ∈ {"annual_cost", "availability"}`` directly.
+    - ``"value"`` — the Stage 01/02 scalar objective (uses ``INFEASIBLE_FLOOR``
+      when bootstrap availability < threshold, otherwise the bootstrap mean cost).
+
+    Parameters
+    ----------
+    per_printer_df
+        DataFrame with at least ``annual_cost`` and ``availability`` columns,
+        one row per printer (output of ``evaluate_per_printer_policy``).
+    metric
+        ``"annual_cost"``, ``"availability"``, or ``"value"``.
+    n_resamples
+        Number of bootstrap resamples (10k is plenty for 15-row tables).
+    confidence
+        e.g. 0.95 for a 95 % CI.
+    rng_seed
+        For reproducibility.
+
+    Returns
+    -------
+    dict with keys ``mean``, ``lo``, ``hi``, ``se``, ``n_printers``,
+    ``n_resamples``, ``metric``, ``confidence``.
+    """
+    if metric not in {"annual_cost", "availability", "value"}:
+        raise ValueError(f"unsupported metric: {metric}")
+    if "annual_cost" not in per_printer_df or "availability" not in per_printer_df:
+        raise KeyError("per_printer_df must have annual_cost and availability columns")
+    n = int(len(per_printer_df))
+    if n == 0:
+        raise ValueError("per_printer_df is empty")
+    rng = np.random.default_rng(int(rng_seed))
+    cost_arr = per_printer_df["annual_cost"].to_numpy(dtype=np.float64)
+    avail_arr = per_printer_df["availability"].to_numpy(dtype=np.float64)
+
+    samples = np.empty(int(n_resamples), dtype=np.float64)
+    for i in range(int(n_resamples)):
+        idx = rng.integers(0, n, size=n)
+        c = float(cost_arr[idx].mean())
+        a = float(avail_arr[idx].mean())
+        if metric == "annual_cost":
+            samples[i] = c
+        elif metric == "availability":
+            samples[i] = a
+        else:  # value
+            deficit = max(0.0, float(availability_threshold) - a)
+            samples[i] = (INFEASIBLE_FLOOR + 1e10 * deficit) if deficit > 0 else c
+
+    alpha = (1.0 - float(confidence)) / 2.0
+    lo = float(np.quantile(samples, alpha))
+    hi = float(np.quantile(samples, 1.0 - alpha))
+    return {
+        "mean": float(samples.mean()),
+        "lo": lo,
+        "hi": hi,
+        "se": float(samples.std(ddof=1)) if len(samples) > 1 else 0.0,
+        "n_printers": n,
+        "n_resamples": int(n_resamples),
+        "metric": metric,
+        "confidence": float(confidence),
+    }
+
+
+def kpi_comparison_table_with_ci(
+    *,
+    test_printers: Sequence[int],
+    stage_definitions: Iterable[tuple[str, dict[str, float] | None, str]],
+    per_printer_dfs: Mapping[str, pd.DataFrame],
+    fleet_kpis: Mapping[str, Mapping[str, Any]],
+    n_resamples: int = 10_000,
+    confidence: float = 0.95,
+    rng_seed: int = 0,
+) -> pd.DataFrame:
+    """``kpi_comparison_table`` extended with bootstrap CIs on cost and value.
+
+    Adds ``annual_cost_lo``, ``annual_cost_hi``, ``value_lo``, ``value_hi``
+    columns so claims like "Stage 03 strictly beats Stage 02" can be backed
+    by non-overlapping CIs rather than naked point estimates.
+    """
+    base = kpi_comparison_table(
+        test_printers=test_printers,
+        stage_definitions=stage_definitions,
+        per_printer_dfs=per_printer_dfs,
+        fleet_kpis=fleet_kpis,
+    )
+    cost_lo, cost_hi = [], []
+    value_lo, value_hi = [], []
+    avail_lo, avail_hi = [], []
+    for _, row in base.iterrows():
+        per_df = per_printer_dfs[row["stage"]]
+        ci_cost = bootstrap_fleet_ci(per_df, metric="annual_cost",
+                                     n_resamples=n_resamples, confidence=confidence,
+                                     rng_seed=rng_seed)
+        ci_value = bootstrap_fleet_ci(per_df, metric="value",
+                                      n_resamples=n_resamples, confidence=confidence,
+                                      rng_seed=rng_seed)
+        ci_avail = bootstrap_fleet_ci(per_df, metric="availability",
+                                      n_resamples=n_resamples, confidence=confidence,
+                                      rng_seed=rng_seed)
+        cost_lo.append(ci_cost["lo"]); cost_hi.append(ci_cost["hi"])
+        value_lo.append(ci_value["lo"]); value_hi.append(ci_value["hi"])
+        avail_lo.append(ci_avail["lo"]); avail_hi.append(ci_avail["hi"])
+    base["annual_cost_lo"] = cost_lo
+    base["annual_cost_hi"] = cost_hi
+    base["fleet_value_lo"] = value_lo
+    base["fleet_value_hi"] = value_hi
+    base["fleet_availability_lo"] = avail_lo
+    base["fleet_availability_hi"] = avail_hi
+    return base
+
+
+def evaluate_per_tick_per_printer(
+    model_or_ensemble,
+    *,
+    printer_ids: Sequence[int],
+    dates: list[date] | None = None,
+    components_cfg: Mapping[str, Any] | None = None,
+    couplings_cfg: Mapping[str, Any] | None = None,
+    cities_cfg: Mapping[str, Any] | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Per-printer evaluation for a per-tick policy (or ensemble).
+
+    ``model_or_ensemble`` must implement ``.predict(obs, deterministic=True)``
+    returning ``(action, _)`` — both ``stable_baselines3.PPO`` and the
+    ``EnsemblePolicy`` from ``recurrent_trainer.py`` qualify.
+
+    Returns a per-printer DataFrame matching the schema produced by
+    ``evaluate_per_printer_policy`` (sans constant τ columns since per-tick
+    policies don't emit a fixed τ — they emit one decision per day per
+    component).
+    """
+    from .per_tick_env import MaintenancePerTickEnv
+
+    components_cfg, couplings_cfg, cities_cfg = _ensure_configs(
+        components_cfg, couplings_cfg, cities_cfg
+    )
+    if dates is None:
+        dates = default_dates()
+    rows: list[dict[str, Any]] = []
+    env = MaintenancePerTickEnv(
+        printer_ids=list(printer_ids),
+        components_cfg=components_cfg,
+        couplings_cfg=couplings_cfg,
+        cities_cfg=cities_cfg,
+        dates=dates,
+    )
+    n_pm_per_component: dict[int, dict[str, int]] = {}
+    n_cm_per_component: dict[int, dict[str, int]] = {}
+    for printer_id in printer_ids:
+        obs, _ = env.reset(seed=int(printer_id), options={"printer_id": int(printer_id)})
+        terminated = False
+        truncated = False
+        info: dict[str, Any] = {}
+        n_pm = {c: 0 for c in COMPONENT_IDS}
+        n_cm = {c: 0 for c in COMPONENT_IDS}
+        while not (terminated or truncated):
+            action, _ = model_or_ensemble.predict(obs, deterministic=True)
+            obs, _r, terminated, truncated, info = env.step(action)
+            row = info.get("row", {})
+            for component_id in COMPONENT_IDS:
+                if bool(row.get(f"maint_{component_id}", False)):
+                    n_pm[component_id] += 1
+                if bool(row.get(f"failure_{component_id}", False)):
+                    n_cm[component_id] += 1
+        summary = info.get("episode_summary", {})
+        rows.append(
+            {
+                "printer_id": int(printer_id),
+                "annual_cost": float(summary.get("annual_cost", float("nan"))),
+                "availability": float(summary.get("availability", float("nan"))),
+                "deficit": float(summary.get("deficit", 0.0)),
+                "n_preventive": int(summary.get("n_preventive", 0)),
+                "n_corrective": int(summary.get("n_corrective", 0)),
+                **{f"n_pm_{c}": int(n_pm[c]) for c in COMPONENT_IDS},
+                **{f"n_cm_{c}": int(n_cm[c]) for c in COMPONENT_IDS},
+            }
+        )
+        n_pm_per_component[int(printer_id)] = n_pm
+        n_cm_per_component[int(printer_id)] = n_cm
+    per_df = pd.DataFrame(rows)
+    annual_cost = float(per_df["annual_cost"].mean())
+    availability = float(per_df["availability"].mean())
+    deficit = max(0.0, 0.95 - availability)
+    if deficit > 0.0:
+        value = float(INFEASIBLE_FLOOR + 1e10 * deficit)
+    else:
+        value = float(annual_cost)
+    fleet = {
+        "value": value,
+        "annual_cost": annual_cost,
+        "availability": availability,
+        "deficit": deficit,
+        "horizon_days": int(len(dates)),
+        "n_printers": int(len(per_df)),
+    }
+    return per_df, fleet

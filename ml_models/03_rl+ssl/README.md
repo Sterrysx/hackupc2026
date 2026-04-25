@@ -45,16 +45,20 @@ reward (eval)     = lib.objective.scalar_objective(...)["value"]   (Stage 01/02 
 
 ```
 03_rl+ssl/
-├── 00_setup_and_sanity.ipynb   build env, run 100 random τ, plot reward histogram
-├── 01_train_ppo.ipynb          warm-start from Stage 02 τ + train PPO + log curves
-├── 02_eval_test.ipynb          held-out test eval, re-score Stages 01 & 02 alongside
-├── 03_compare.ipynb            bar / scatter / per-printer τ heatmap + cost delta
+├── 00_setup_and_sanity.ipynb         bandit env wire-check + reward histogram
+├── 01_train_ppo.ipynb                bandit PPO (one-shot τ per printer)
+├── 02_eval_test.ipynb                bandit test eval + comparison vs Stages 01/02
+├── 03_compare.ipynb                  bandit plots (cost delta, τ heatmap)
+├── 04_per_tick_recurrent_ppo.ipynb   per-tick policy + SPR aux loss + multi-seed
+│                                     ensemble + bootstrap-CI comparison
 ├── tests/
-│   └── test_gym_env.py         action↔τ math, env shapes, determinism
-├── models/                     ppo_policy_best.zip, ppo_policy_final.zip
-├── results/                    per_printer_tau_test*.csv, kpi_comparison.csv,
-│                               training_curves.{json,png}, plots
-└── README.md
+│   ├── test_gym_env.py               bandit env tests
+│   └── test_per_tick_env.py          stepper / per-tick / SPR / bootstrap-CI tests
+├── models/                            ppo_policy_best.zip (bandit)
+│   └── per_tick/                      seed_{0,1,2}/{ppo_per_tick_best,final}.zip
+└── results/                           bandit results
+    └── per_tick/                      per-tick training curves + per-printer CSVs +
+                                       kpi_comparison_with_ci.csv + plots
 ```
 
 The actual Python library lives at `ml_models/lib/rl/` (importable as
@@ -67,11 +71,16 @@ a Python package.
 |---|---|
 | `ml_models/lib/rl/encoder_loader.py` | Frozen PatchTST encoder + scaler |
 | `ml_models/lib/rl/gym_env.py` | `MaintenanceBanditEnv` (one-shot bandit) |
+| `ml_models/lib/rl/per_tick_env.py` | `MaintenancePerTickEnv` (per-day binary action) |
 | `ml_models/lib/rl/policy.py` | Warm-start helper, `MlpPolicy` defaults |
-| `ml_models/lib/rl/ppo_trainer.py` | `train_ppo`, validation callback |
-| `ml_models/lib/rl/eval.py` | Test-set evaluation matching Stage 01/02 contract |
-| `ml_models/lib/env_runner.run_with_tau` | Forward simulation per printer |
-| `ml_models/lib/objective.scalar_objective` | Reward source / fleet KPI |
+| `ml_models/lib/rl/ppo_trainer.py` | Bandit `train_ppo`, validation callback |
+| `ml_models/lib/rl/spr.py` | SPR aux loss (BYOL-style cosine, EMA target) |
+| `ml_models/lib/rl/recurrent_trainer.py` | Per-tick `train_per_tick`, multi-seed, ensemble |
+| `ml_models/lib/rl/eval.py` | Test eval, bootstrap CI, per-tick scoring |
+| `ml_models/lib/env_runner.run_with_tau` | Batch forward simulation (constant τ) |
+| `ml_models/lib/env_runner.make_printer_stepper` | Per-tick simulator wrapper |
+| `ml_models/lib/objective.scalar_objective` | Reward source / fleet KPI (bandit) |
+| `sdg.core.simulator.PrinterStepper` | Stateful one-day-at-a-time simulator |
 
 ## Run order
 
@@ -80,11 +89,32 @@ a Python package.
    `02_ssl/results/best_tau_surrogate.yaml`). Stage 03 will warm-start
    from the Stage 02 τ if found, and the test eval re-runs both
    stages on the held-out printers.
+
+   For the strongest SSL embeddings, run
+   `02_ssl/00_generate_policy_runs.ipynb` with **K=60** (default) to
+   produce a τ-diverse pretraining corpus before
+   `02_ssl/01_pretrain.ipynb`. Smaller K is fine for smoke runs.
+
+### Bandit (one-shot τ per printer) — fastest, simplest
+
 2. `00_setup_and_sanity.ipynb` — wire check (random-τ reward histogram).
 3. `01_train_ppo.ipynb` — train PPO, save `models/ppo_policy_best.zip`.
 4. `02_eval_test.ipynb` — score on test printers, build
    `kpi_comparison.csv` and `per_printer_tau_test.csv`.
 5. `03_compare.ipynb` — visualise + headline metrics for the report.
+
+### Per-tick + SPR + multi-seed — strongest policy class
+
+6. `04_per_tick_recurrent_ppo.ipynb` — trains 3 seeds of per-tick PPO
+   with SPR auxiliary loss (joint SSL+RL fine-tuning), ensembles them
+   via majority vote, evaluates on the test split with bootstrap 95 %
+   CIs, and produces `kpi_comparison_with_ci.csv` + plots under
+   `results/per_tick/`.
+
+The per-tick policy class strictly contains the bandit class — the
+bandit is recoverable as the policy "maintain C iff `tau_mant_h ≥ τ_C`".
+So worst case the per-tick run ties Stage 02 / bandit-Stage-03; best
+case it adapts day-by-day to local conditions.
 
 ## Tests
 
