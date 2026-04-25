@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useTwin } from "@/store/twin";
 import { startProactiveWebSocket } from "@/lib/twinNotifications";
 import { SpatialScene } from "@/components/scene/SpatialScene";
@@ -13,9 +13,18 @@ import { ARDataCard } from "@/components/floating/ARDataCard";
 import { SpotlightChat } from "@/components/floating/SpotlightChat";
 import { ViewToggle } from "@/components/floating/ViewToggle";
 import { OpenViewButton } from "@/components/floating/OpenViewButton";
+import LocationSelectorPage from "@/components/location/LocationSelectorPage";
 
 /**
- * "Ethereal Spatial" shell — Phase 3.6.
+ * "Ethereal Spatial" shell — Phase 3.6 + Location Selector.
+ *
+ *   • Top-level surface is gated by `appPhase`:
+ *       - "location-select": LocationSelectorPage (white/black Apple-style
+ *         landing). Once the operator confirms a city and clicks Launch,
+ *         appPhase flips to "main".
+ *       - "main": the existing twin shell (SpatialScene + schematic + chrome).
+ *     The transition is a 400ms opacity cross-fade via AnimatePresence
+ *     (mode="wait") so the two surfaces never overlap.
  *
  *   • Background is a SINGLE source of focus that can switch between two
  *     visualisations via the ViewToggle:
@@ -38,6 +47,7 @@ export default function App() {
   const dashboardOpen = useTwin((s) => s.dashboardOpen);
   const selectedId = useTwin((s) => s.selectedComponentId);
   const viewMode = useTwin((s) => s.viewMode);
+  const appPhase = useTwin((s) => s.appPhase);
 
   useEffect(() => {
     void useTwin.getState().refreshChatApiStatus();
@@ -48,59 +58,81 @@ export default function App() {
     return () => close();
   }, []);
 
+  // The simulation tick only runs while the main shell is live. While the
+  // operator is still on the landing page there's no benefit to advancing
+  // the snapshot — it just burns CPU on a screen that doesn't read it.
   useEffect(() => {
+    if (appPhase !== "main") return;
     const id = setInterval(() => advance(), 1000);
     return () => clearInterval(id);
-  }, [advance]);
+  }, [advance, appPhase]);
 
   const showDashboardPanel = dashboardOpen && !selectedId;
 
   return (
-    <div className="relative h-screen w-screen min-h-0 overflow-hidden bg-[var(--color-bg)]">
-      {/*
-        3D is NOT wrapped in framer initial={{ opacity: 0 }} — on some
-        browsers / framer+AnimatePresence+React 19 combos the WebGL layer
-        never left opacity 0 (reads as a void while the 2D UI over z-index
-        still looked fine). Use a plain div + fixed viewport fill instead.
-        2D keeps the cross-fade.
-      */}
-      <div className="absolute inset-0 min-h-0">
-        <div
-          className={
-            "fixed left-0 top-0 z-0 h-[100dvh] w-full min-w-0 transition-opacity duration-500 " +
-            (viewMode === "3d" ? "opacity-100" : "opacity-0 pointer-events-none")
-          }
+    <AnimatePresence mode="wait">
+      {appPhase === "location-select" ? (
+        <motion.div
+          key="location"
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
-          <SpatialScene />
-        </div>
-
-        <div
-          className={
-            "absolute inset-0 transition-opacity duration-500 " +
-            (viewMode === "2d" ? "opacity-100" : "opacity-0 pointer-events-none")
-          }
+          <LocationSelectorPage />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="twin"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative h-screen w-screen min-h-0 overflow-hidden bg-[var(--color-bg)]"
         >
-          <InteractiveSchematic />
-        </div>
-      </div>
+          {/*
+            3D is NOT wrapped in framer initial={{ opacity: 0 }} — on some
+            browsers / framer+AnimatePresence+React 19 combos the WebGL layer
+            never left opacity 0 (reads as a void while the 2D UI over z-index
+            still looked fine). Use a plain div + fixed viewport fill instead.
+            2D keeps the cross-fade.
+          */}
+          <div className="absolute inset-0 min-h-0">
+            <div
+              className={
+                "fixed left-0 top-0 z-0 h-[100dvh] w-full min-w-0 transition-opacity duration-500 " +
+                (viewMode === "3d" ? "opacity-100" : "opacity-0 pointer-events-none")
+              }
+            >
+              <SpatialScene />
+            </div>
 
-      {/* Floating chrome — view-agnostic. */}
-      <BrandMark />
-      <ViewToggle />
-      <OpenViewButton />
-      <SidebarToggle />
-      <SimControls />
+            <div
+              className={
+                "absolute inset-0 transition-opacity duration-500 " +
+                (viewMode === "2d" ? "opacity-100" : "opacity-0 pointer-events-none")
+              }
+            >
+              <InteractiveSchematic />
+            </div>
+          </div>
 
-      {/* Right-side data surface — exactly one at a time. */}
-      <AnimatePresence mode="wait">
-        {showDashboardPanel && <DashboardPanel key="dashboard" />}
-        {selectedId && <ARDataCard key={`ar-${selectedId}`} id={selectedId} />}
-      </AnimatePresence>
+          {/* Floating chrome — view-agnostic. */}
+          <BrandMark />
+          <ViewToggle />
+          <OpenViewButton />
+          <SidebarToggle />
+          <SimControls />
 
-      {/* Persistent chat surface — FAB + summonable overlay. */}
-      <SpotlightChat />
+          {/* Right-side data surface — exactly one at a time. */}
+          <AnimatePresence mode="wait">
+            {showDashboardPanel && <DashboardPanel key="dashboard" />}
+            {selectedId && <ARDataCard key={`ar-${selectedId}`} id={selectedId} />}
+          </AnimatePresence>
 
-      <CommandPalette />
-    </div>
+          {/* Persistent chat surface — FAB + summonable overlay. */}
+          <SpotlightChat />
+
+          <CommandPalette />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
