@@ -1,0 +1,109 @@
+"""Cost and availability metrics derived from event booleans.
+
+The objective function follows CONTEXT.md §10:
+    minimize  E[per-printer annual cost]
+    subject to availability >= 95%
+"""
+from __future__ import annotations
+
+from typing import Mapping
+
+import pandas as pd
+
+from sdg.schema import COMPONENT_IDS
+
+DAYS_PER_YEAR = 365.25
+HOURS_PER_DAY = 24.0
+
+
+def _components(components_cfg: Mapping) -> Mapping:
+    return components_cfg["components"]
+
+
+def compute_costs(
+    events_df: pd.DataFrame,
+    components_cfg: Mapping,
+) -> dict:
+    """Sum preventive and corrective event costs per component and overall.
+
+    Returns per-printer annual cost so fleets of any size are comparable.
+    """
+    components = _components(components_cfg)
+    n_days = int(events_df["day"].max() - events_df["day"].min() + 1)
+    n_printers = int(events_df["printer_id"].nunique())
+    years = n_days / DAYS_PER_YEAR
+    norm = max(n_printers * years, 1e-9)
+
+    preventive_total = 0.0
+    corrective_total = 0.0
+    n_preventive: dict[str, int] = {}
+    n_corrective: dict[str, int] = {}
+    for component_id in COMPONENT_IDS:
+        spec = components[component_id]
+        n_pm = int(events_df[f"maint_{component_id}"].sum())
+        n_cm = int(events_df[f"failure_{component_id}"].sum())
+        preventive_total += n_pm * float(spec["cost_preventive_eur"])
+        corrective_total += n_cm * float(spec["cost_corrective_eur"])
+        n_preventive[component_id] = n_pm
+        n_corrective[component_id] = n_cm
+
+    return {
+        "annual_cost": (preventive_total + corrective_total) / norm,
+        "preventive_cost": preventive_total / norm,
+        "corrective_cost": corrective_total / norm,
+        "n_preventive_per_component": n_preventive,
+        "n_corrective_per_component": n_corrective,
+        "horizon_days": n_days,
+        "horizon_years": years,
+        "n_printers": n_printers,
+    }
+
+
+def compute_availability(
+    events_df: pd.DataFrame,
+    components_cfg: Mapping,
+) -> float:
+    """Fleet-mean availability over the simulated horizon."""
+    components = _components(components_cfg)
+    n_printers = int(events_df["printer_id"].nunique())
+    n_days = int(events_df["day"].max() - events_df["day"].min() + 1)
+    total_hours = n_days * HOURS_PER_DAY * n_printers
+    if total_hours <= 0:
+        return 1.0
+
+    downtime_hours = 0.0
+    for component_id in COMPONENT_IDS:
+        spec = components[component_id]
+        n_pm = int(events_df[f"maint_{component_id}"].sum())
+        n_cm = int(events_df[f"failure_{component_id}"].sum())
+        downtime_hours += n_pm * float(spec["downtime_preventive_h"])
+        downtime_hours += n_cm * float(spec["downtime_corrective_h"])
+
+    return float((total_hours - downtime_hours) / total_hours)
+
+
+def scalar_objective(
+    events_df: pd.DataFrame,
+    components_cfg: Mapping,
+    *,
+    availability_threshold: float = 0.95,
+    lambda_pen: float = 1_000_000.0,
+) -> dict:
+    """Single-scalar penalised cost ready for Optuna's minimisation.
+
+    The penalty term zeroes out as long as availability >= threshold and
+    grows linearly with the deficit otherwise. Optuna minimises `value`.
+    """
+    costs = compute_costs(events_df, components_cfg)
+    availability = compute_availability(events_df, components_cfg)
+    deficit = max(0.0, availability_threshold - availability)
+    return {
+        "value": costs["annual_cost"] + lambda_pen * deficit,
+        "annual_cost": costs["annual_cost"],
+        "availability": availability,
+        "preventive_cost": costs["preventive_cost"],
+        "corrective_cost": costs["corrective_cost"],
+        "deficit": deficit,
+        "horizon_days": costs["horizon_days"],
+        "n_printers": costs["n_printers"],
+    }

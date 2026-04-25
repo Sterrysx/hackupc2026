@@ -71,3 +71,12 @@ logs/
 tmp/
 temp/
 .cache/
+
+# ── ML artefacts (regeneratable, large) ───────────────────────────────────────
+data/policy_runs/
+ml_models/02_ssl/models/*.pt
+ml_models/02_ssl/models/*.npz
+ml_models/02_ssl/models/*.csv
+ml_models/02_ssl/results/*.json
+ml_models/01_baseline/results/study.db
+.ipynb_checkpoints/
