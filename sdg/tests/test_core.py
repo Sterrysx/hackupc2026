@@ -98,17 +98,19 @@ def test_apply_preventive_does_not_reset_hours_since_failure() -> None:
     assert component.hours_since_failure == 100.0
 
 
-def test_calibration_invariant_for_failure_targets() -> None:
+def test_lambda0_per_d_is_positive_finite() -> None:
+    # lambda0_per_d is empirically calibrated against the simulator so it no
+    # longer matches the analytic 0.9/first_failure_target_d. Just check it
+    # is a sensible positive value and that first_failure_target_d, when set,
+    # is positive too.
     components_cfg, _couplings_cfg, _cities_cfg = load_configs()
     for component_id in COMPONENT_IDS:
         spec = components_cfg["components"][component_id]
+        lambda0 = float(spec["lambda0_per_d"])
+        assert math.isfinite(lambda0) and lambda0 > 0, f"{component_id}: bad lambda0_per_d"
         target = spec.get("first_failure_target_d")
-        if target is None:
-            continue
-        expected = 0.9 / float(target)
-        assert math.isclose(
-            float(spec["lambda0_per_d"]), expected, rel_tol=1e-6
-        ), f"{component_id}: lambda0_per_d != 0.9 / first_failure_target_d"
+        if target is not None:
+            assert float(target) > 0, f"{component_id}: bad first_failure_target_d"
 
 
 def test_schema_includes_new_columns() -> None:

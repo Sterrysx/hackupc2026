@@ -84,6 +84,9 @@ ml_models/02_ssl/results/*.json
 ml_models/01_baseline/ml_models/
 ml_models/02_ssl/data/
 
+# train.sh persisted timings cache (machine-specific, regeneratable)
+.train_timings*.json
+
 # ── UI inspiration / scratch references (not part of the deliverable) ─────────
 ui-inspiration/
 UI_EXAMPLE/

@@ -14,16 +14,21 @@ process_constants:
   fires_per_hour: 500000000.0    # 5e8/h × 4h/day ≈ old 0.4 jobs/day × 5e9 fires/job
   layers_per_hour: 280.0         # 280/h × 4h/day ≈ old 0.4 jobs/day × 2800 layers/job
 
-# All time fields in DAYS. lambda0_per_d is calibrated so that under nominal
-# drivers (f_ext=f_int=f_cross=1) H reaches 0.1 at first_failure_target_d.
-# For components with first_failure_target_d == null, the legacy invariant
-# lambda0_per_d == 1/L_nom_d is preserved.
+# All time fields in DAYS. lambda0_per_d is *empirically calibrated* so that
+# the mean first-failure time observed across the simulated fleet matches
+# first_failure_target_d (= L_nom_d). Per-printer noise comes from alpha:
+# alpha ~ Normal(1.0, alpha_sigma) clipped to [0.5, 2.0]; lambda effective
+# = lambda0_per_d * alpha. With alpha_sigma=0.05, per-printer MTTE
+# distribution ≈ Normal(L_nom_d, 0.05 * L_nom_d). The lambda0 values below
+# bake in the average driver/coupling effect so the empirical mean lands on
+# target — they are *not* the theoretical 0.9/L_nom_d value (driver refs
+# in ext_vars/int_vars push it away from the analytic baseline).
 components:
   C1:
     L_nom_d: 33.333333
-    first_failure_target_d: 22.0
-    alpha_sigma: 0.10
-    lambda0_per_d: 0.040909090909090909   # 0.9 / 22
+    first_failure_target_d: 33.0
+    alpha_sigma: 0.05
+    lambda0_per_d: 0.014097               # empirical pass 2: 0.020947 × 22.2/33
     cost_preventive_eur: 250
     cost_corrective_eur: 3500
     downtime_preventive_d: 0.0625    # 1.5h
@@ -41,9 +46,9 @@ components:
 
   C2:
     L_nom_d: 750.0
-    first_failure_target_d: null
-    alpha_sigma: 0.10
-    lambda0_per_d: 0.001333333333333333
+    first_failure_target_d: 750.0
+    alpha_sigma: 0.05
+    lambda0_per_d: 0.000462                # empirical pass 3: 0.000650 × (633/750)^2 (saturation)
     cost_preventive_eur: 400
     cost_corrective_eur: 8500
     downtime_preventive_d: 0.125     # 3h
@@ -63,9 +68,9 @@ components:
     # Recalibrated: HP TIJ printheads are operator-replaceable consumables
     # with industrial life ~33-62d (literature). Was 146d.
     L_nom_d: 50.0
-    first_failure_target_d: 41.0
-    alpha_sigma: 0.12
-    lambda0_per_d: 0.021951219512195122   # 0.9 / 41
+    first_failure_target_d: 50.0
+    alpha_sigma: 0.05
+    lambda0_per_d: 0.013467                # empirical pass 3: 0.014836 × 45.4/50
     cost_preventive_eur: 2500
     cost_corrective_eur: 12000
     downtime_preventive_d: 0.0833333 # 2h
@@ -85,9 +90,9 @@ components:
 
   C4:
     L_nom_d: 208.333333
-    first_failure_target_d: 115.0
-    alpha_sigma: 0.10
-    lambda0_per_d: 0.007826086956521739   # 0.9 / 115
+    first_failure_target_d: 208.0
+    alpha_sigma: 0.05
+    lambda0_per_d: 0.001515                # empirical pass 3: 0.002300 × (169/208)^2 (saturation)
     cost_preventive_eur: 2500
     cost_corrective_eur: 12000
     downtime_preventive_d: 0.0833333 # 2h
@@ -104,9 +109,9 @@ components:
 
   C5:
     L_nom_d: 500.0
-    first_failure_target_d: null
-    alpha_sigma: 0.10
-    lambda0_per_d: 0.002
+    first_failure_target_d: 500.0
+    alpha_sigma: 0.05
+    lambda0_per_d: 0.009065                # empirical pass 3: 0.007335 × 617.9/500
     cost_preventive_eur: 900
     cost_corrective_eur: 8000
     downtime_preventive_d: 0.1666667 # 4h
@@ -126,9 +131,9 @@ components:
     # Recalibrated: BJT insulation works at ~180C, far below ceramic-fiber
     # rated 1260C. Real-world life dominated by humidity/dust, not T. Was 1250d.
     L_nom_d: 2500.0
-    first_failure_target_d: null
-    alpha_sigma: 0.10
-    lambda0_per_d: 0.0004
+    first_failure_target_d: 2500.0
+    alpha_sigma: 0.05
+    lambda0_per_d: 0.000284                # empirical pass 3: 0.000307 × 2309/2500
     cost_preventive_eur: 1500
     cost_corrective_eur: 7000
     downtime_preventive_d: 0.25      # 6h
