@@ -19,8 +19,9 @@ Non-negotiables:
 - Date range: 2015-01-01 through 2024-12-31, daily, keeping leap days.
 - Days per printer: 3,653.
 - Cities: 15 European cities, 5 climate zones, 3 cities each.
-- Printers: 7 per city, 105 total, ids 0..104.
-- Rows: 105 * 3,653 = 383,565.
+- Printers: 100 total, ids 0..99.
+- City allocation: 10 cities with 7 printers each, 5 cities with 6 printers each.
+- Rows: 100 * 3,653 = 365,300.
 - `day` is `(date - 2015-01-01).days`, per printer, spanning 0..3652.
 
 ## Output

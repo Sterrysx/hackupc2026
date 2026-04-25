@@ -17,8 +17,8 @@ from sdg.schema import table_from_rows
 DEFAULT_OUTPUT_PATH = Path("data/fleet_baseline.parquet")
 START_DATE = "2015-01-01"
 END_DATE = "2024-12-31"
-PRINTERS_PER_CITY = 7
-EXPECTED_PRINTERS = 105
+CITY_PRINTER_COUNTS: tuple[int, ...] = (7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6)
+EXPECTED_PRINTERS = sum(CITY_PRINTER_COUNTS)
 EXPECTED_DAYS = 3653
 EXPECTED_ROWS = EXPECTED_PRINTERS * EXPECTED_DAYS
 
@@ -34,6 +34,7 @@ def main(output_path: str | Path = DEFAULT_OUTPUT_PATH) -> None:
     dates = list(pd.date_range(START_DATE, END_DATE, freq="D").date)
     if len(dates) != EXPECTED_DAYS:
         raise AssertionError(f"expected {EXPECTED_DAYS} days, got {len(dates)}")
+    printer_city_map = build_printer_city_map(cities)
 
     writer: pq.ParquetWriter | None = None
     row_count = 0
@@ -41,7 +42,7 @@ def main(output_path: str | Path = DEFAULT_OUTPUT_PATH) -> None:
         writer = pq.ParquetWriter(output, RAW_SCHEMA, compression="snappy", version="2.6")
         for printer_id in range(EXPECTED_PRINTERS):
             rng = np.random.default_rng(printer_id)
-            city_profile = cities[printer_id // PRINTERS_PER_CITY]
+            city_profile = printer_city_map[printer_id]
             monthly_jobs = float(rng.uniform(8.0, 15.0))
             alpha_values = rng.uniform(0.7, 1.3, size=len(COMPONENT_IDS))
             alphas = dict(zip(COMPONENT_IDS, alpha_values, strict=True))
@@ -102,6 +103,17 @@ def _validate_cities(cities_cfg: dict[str, Any]) -> list[dict[str, Any]]:
     if not set(zones).issubset(set(CLIMATE_CATEGORIES)):
         raise ValueError("cities.yaml contains an unknown climate zone")
     return cities
+
+
+def build_printer_city_map(cities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(cities) != len(CITY_PRINTER_COUNTS):
+        raise ValueError("city count does not match CITY_PRINTER_COUNTS")
+    printer_city_map: list[dict[str, Any]] = []
+    for city, printer_count in zip(cities, CITY_PRINTER_COUNTS, strict=True):
+        printer_city_map.extend([city] * printer_count)
+    if len(printer_city_map) != EXPECTED_PRINTERS:
+        raise AssertionError(f"expected {EXPECTED_PRINTERS} printers, got {len(printer_city_map)}")
+    return printer_city_map
 
 
 if __name__ == "__main__":
