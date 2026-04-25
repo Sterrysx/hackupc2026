@@ -8,7 +8,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from sdg.core.weather import get_drivers
-from sdg.generate import EXPECTED_DAYS, EXPECTED_ROWS, main
+from sdg.generate import CITY_PRINTER_COUNTS, EXPECTED_DAYS, EXPECTED_ROWS, main
 from sdg.labels import compute_rul_columns
 from sdg.schema import COMPONENT_IDS, FINAL_SCHEMA
 
@@ -40,6 +40,12 @@ def test_schema_matches_frozen_schema(generated_path: Path) -> None:
         expected_nullable = field.name.startswith("rul_") or field.name == "rul_system"
         assert field.nullable is expected_nullable
 
+    df = pd.read_parquet(
+        generated_path,
+        columns=[*[f"rul_{component_id}" for component_id in COMPONENT_IDS], "rul_system"],
+    )
+    assert all(str(dtype) == "Int32" for dtype in df.dtypes)
+
 
 def test_calendar_shape_and_leap_days(generated_path: Path) -> None:
     metadata = pq.read_metadata(generated_path)
@@ -54,6 +60,19 @@ def test_calendar_shape_and_leap_days(generated_path: Path) -> None:
     assert date(2016, 2, 29) in dates
     assert date(2020, 2, 29) in dates
     assert date(2024, 2, 29) in dates
+
+
+def test_city_printer_allocation_is_100_printers(generated_path: Path) -> None:
+    df = pd.read_parquet(generated_path, columns=["printer_id", "city"])
+    per_city = (
+        df.drop_duplicates(["printer_id", "city"])
+        .groupby("city", observed=True)["printer_id"]
+        .nunique()
+        .tolist()
+    )
+
+    assert per_city == list(CITY_PRINTER_COUNTS)
+    assert sum(per_city) == 100
 
 
 def test_climate_ingestion_matches_weather_function(generated_path: Path) -> None:

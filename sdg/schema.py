@@ -125,7 +125,8 @@ def table_from_dataframe(df: pd.DataFrame, *, include_rul: bool) -> pa.Table:
     schema = FINAL_SCHEMA if include_rul else RAW_SCHEMA
     coerced = coerce_dataframe(df, include_rul=include_rul)
     table = pa.Table.from_pandas(coerced, schema=schema, preserve_index=False)
-    table = table.replace_schema_metadata(None)
+    if not include_rul:
+        table = table.replace_schema_metadata(None)
     table.validate(full=True)
     return table
 
