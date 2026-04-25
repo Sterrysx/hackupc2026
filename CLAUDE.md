@@ -15,8 +15,8 @@ uv run pytest tests/test_twin_data.py::test_name     # single test
 uv run pytest -m live                                # live e2e — requires GROQ_API_KEY
 make test-e2e                                        # same, via Makefile
 make demo-e2e                                        # narrated 5-act judges' walkthrough
-./train.sh                                           # execute every ML notebook end-to-end
-./train.sh 2                                         # one stage only (0|1|2|3|4)
+ml_models/train.sh                                   # execute every ML notebook end-to-end
+ml_models/train.sh 2                                 # one stage only (0|1|2|3|4)
 uv add <pkg> / uv remove <pkg>                       # dependency changes (commit both files)
 ```
 

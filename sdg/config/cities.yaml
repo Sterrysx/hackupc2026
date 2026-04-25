@@ -1,125 +1,90 @@
 cities:
-  - name: Helsinki
-    lat: 60.17
-    lon: 24.94
-    climate_zone: nordic
-    T_mean_annual: 22.5
-    T_amplitude: 2.4
-    H_mean_annual: 55.0
-    H_amplitude: 8.0
-  - name: Stockholm
-    lat: 59.33
-    lon: 18.07
-    climate_zone: nordic
-    T_mean_annual: 22.8
-    T_amplitude: 2.2
-    H_mean_annual: 53.0
-    H_amplitude: 7.5
-  - name: Oslo
-    lat: 59.91
-    lon: 10.75
-    climate_zone: nordic
-    T_mean_annual: 22.4
-    T_amplitude: 2.3
-    H_mean_annual: 54.0
-    H_amplitude: 8.0
+  - name: singapore
+    lat: 1.29
+    lon: 103.85
+    climate_zone: tropical
+    T_mean_annual: 22.7
+    T_amplitude: 0.1
+    H_mean_annual: 53.1
+    H_amplitude: 2.1
 
-  - name: Warsaw
-    lat: 52.23
-    lon: 21.01
-    climate_zone: continental
-    T_mean_annual: 23.8
-    T_amplitude: 3.0
-    H_mean_annual: 49.0
-    H_amplitude: 8.0
-  - name: Prague
-    lat: 50.08
-    lon: 14.44
-    climate_zone: continental
-    T_mean_annual: 24.0
-    T_amplitude: 2.8
-    H_mean_annual: 47.0
-    H_amplitude: 7.0
-  - name: Vienna
-    lat: 48.21
-    lon: 16.37
-    climate_zone: continental
-    T_mean_annual: 24.2
-    T_amplitude: 2.9
-    H_mean_annual: 46.0
-    H_amplitude: 7.0
+  - name: dubai
+    lat: 25.20
+    lon: 55.27
+    climate_zone: arid
+    T_mean_annual: 23.0
+    T_amplitude: 1.0
+    H_mean_annual: 44.8
+    H_amplitude: 3.2
 
-  - name: London
+  - name: mumbai
+    lat: 19.08
+    lon: 72.88
+    climate_zone: tropical
+    T_mean_annual: 22.9
+    T_amplitude: 0.4
+    H_mean_annual: 50.5
+    H_amplitude: 7.9
+
+  - name: shanghai
+    lat: 31.23
+    lon: 121.47
+    climate_zone: humid_subtropical
+    T_mean_annual: 21.7
+    T_amplitude: 1.2
+    H_mean_annual: 49.8
+    H_amplitude: 3.9
+
+  - name: barcelona
+    lat: 41.39
+    lon: 2.16
+    climate_zone: mediterranean
+    T_mean_annual: 21.7
+    T_amplitude: 0.7
+    H_mean_annual: 47.8
+    H_amplitude: 2.3
+
+  - name: london
     lat: 51.51
     lon: -0.13
-    climate_zone: oceanic
-    T_mean_annual: 23.2
-    T_amplitude: 1.8
-    H_mean_annual: 57.0
-    H_amplitude: 6.0
-  - name: Amsterdam
-    lat: 52.37
-    lon: 4.90
-    climate_zone: oceanic
-    T_mean_annual: 23.3
-    T_amplitude: 1.9
-    H_mean_annual: 56.0
-    H_amplitude: 6.0
-  - name: Paris
-    lat: 48.86
-    lon: 2.35
-    climate_zone: oceanic
-    T_mean_annual: 23.8
-    T_amplitude: 2.2
-    H_mean_annual: 51.0
-    H_amplitude: 6.5
+    climate_zone: temperate
+    T_mean_annual: 21.2
+    T_amplitude: 0.7
+    H_mean_annual: 49.1
+    H_amplitude: 3.0
 
-  - name: Barcelona
-    lat: 41.39
-    lon: 2.17
-    climate_zone: mediterranean
-    T_mean_annual: 25.0
-    T_amplitude: 3.0
-    H_mean_annual: 48.0
-    H_amplitude: 7.0
-  - name: Madrid
-    lat: 40.42
-    lon: -3.70
-    climate_zone: mediterranean
-    T_mean_annual: 25.1
-    T_amplitude: 3.4
-    H_mean_annual: 42.0
-    H_amplitude: 8.0
-  - name: Rome
-    lat: 41.90
-    lon: 12.50
-    climate_zone: mediterranean
-    T_mean_annual: 25.2
-    T_amplitude: 3.1
-    H_mean_annual: 47.0
-    H_amplitude: 7.0
+  - name: moscow
+    lat: 55.75
+    lon: 37.62
+    climate_zone: continental
+    T_mean_annual: 20.1
+    T_amplitude: 2.0
+    H_mean_annual: 49.0
+    H_amplitude: 4.4
 
-  - name: Budapest
-    lat: 47.50
-    lon: 19.04
-    climate_zone: eastern
-    T_mean_annual: 24.4
-    T_amplitude: 3.2
-    H_mean_annual: 46.0
-    H_amplitude: 8.0
-  - name: Bucharest
-    lat: 44.43
-    lon: 26.10
-    climate_zone: eastern
-    T_mean_annual: 24.8
-    T_amplitude: 3.3
-    H_mean_annual: 44.0
-    H_amplitude: 8.5
-  - name: Athens
-    lat: 37.98
-    lon: 23.73
-    climate_zone: eastern
-    T_mean_annual: 25.6
-    T_amplitude: 3.0
-    H_mean_annual: 45.0
-    H_amplitude: 7.0
+  - name: chicago
+    lat: 41.85
+    lon: -87.65
+    climate_zone: continental
+    T_mean_annual: 20.7
+    T_amplitude: 2.0
+    H_mean_annual: 48.6
+    H_amplitude: 4.2
+
+  - name: houston
+    lat: 29.76
+    lon: -95.37
+    climate_zone: subtropical
+    T_mean_annual: 22.2
+    T_amplitude: 1.1
+    H_mean_annual: 50.3
+    H_amplitude: 5.2
+
+  - name: mexico_city
+    lat: 19.43
+    lon: -99.13
+    climate_zone: highland_subtropical
+    T_mean_annual: 21.8
+    T_amplitude: 0.2
+    H_mean_annual: 45.1
+    H_amplitude: 3.6

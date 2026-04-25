@@ -7,10 +7,40 @@ from pathlib import Path
 
 import yaml
 
+# {city_key: {date_iso: (T_fab, H_fab)}} — populated by init_real_lookup()
+_REAL_LOOKUP: dict[str, dict[str, tuple[float, float]]] | None = None
+
+
+def init_real_lookup(lookup: dict[str, dict[str, tuple[float, float]]]) -> None:
+    global _REAL_LOOKUP
+    _REAL_LOOKUP = lookup
+    get_drivers.cache_clear()
+
+
+def clear_real_lookup() -> None:
+    global _REAL_LOOKUP
+    _REAL_LOOKUP = None
+    get_drivers.cache_clear()
+
 
 @lru_cache(maxsize=None)
 def get_drivers(city: str, date: Date) -> dict[str, float]:
-    """Return deterministic indoor workshop weather for one city and day."""
+    """Return indoor workshop weather drivers for one city and day.
+
+    Uses real Open-Meteo-derived T_fab/H_fab when a lookup is loaded;
+    falls back to the synthetic cosine formula from cities.yaml.
+    """
+    if _REAL_LOOKUP is not None:
+        city_data = _REAL_LOOKUP.get(city)
+        if city_data is not None:
+            entry = city_data.get(date.isoformat())
+            if entry is not None:
+                T_fab, H_fab = entry
+                return {
+                    "ambient_temp_c": float(min(30.0, max(20.0, T_fab))),
+                    "humidity_pct": float(min(70.0, max(30.0, H_fab))),
+                }
+
     profile = _city_profiles()[city]
     day_of_year = date.timetuple().tm_yday
     phase = 2.0 * math.pi * (day_of_year - 15) / 365.25

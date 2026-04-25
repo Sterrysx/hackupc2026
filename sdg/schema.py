@@ -8,28 +8,26 @@ import pyarrow as pa
 COMPONENT_IDS: tuple[str, ...] = ("C1", "C2", "C3", "C4", "C5", "C6")
 STATUS_CATEGORIES: tuple[str, ...] = ("OK", "WARNING", "CRITICAL", "FAILED")
 CITY_CATEGORIES: tuple[str, ...] = (
-    "Helsinki",
-    "Stockholm",
-    "Oslo",
-    "Warsaw",
-    "Prague",
-    "Vienna",
-    "London",
-    "Amsterdam",
-    "Paris",
-    "Barcelona",
-    "Madrid",
-    "Rome",
-    "Budapest",
-    "Bucharest",
-    "Athens",
+    "singapore",
+    "dubai",
+    "mumbai",
+    "shanghai",
+    "barcelona",
+    "london",
+    "moscow",
+    "chicago",
+    "houston",
+    "mexico_city",
 )
 CLIMATE_CATEGORIES: tuple[str, ...] = (
-    "nordic",
-    "continental",
-    "oceanic",
+    "tropical",
+    "arid",
+    "humid_subtropical",
     "mediterranean",
-    "eastern",
+    "temperate",
+    "continental",
+    "subtropical",
+    "highland_subtropical",
 )
 
 _DICT = pa.dictionary(pa.int8(), pa.string())
