@@ -46,28 +46,34 @@ def synthesizer_node(state: GraphState) -> dict:
 
     # First, allow the LLM to use the think tool
     while True:
-        response = llm_with_tools.invoke(messages)
+        try:
+            response = llm_with_tools.invoke(messages)
+        except Exception as e:
+            err = str(e)
+            # Some providers may still emit an out-of-schema tool call.
+            # Fallback to direct structured output instead of failing the request.
+            if "tool call validation failed" in err and "not in request.tools" in err:
+                structured_response = llm_with_structured_output.invoke(messages)
+                return {"final_report": structured_response}
+            raise
         messages.append(response)
         tool_calls = getattr(response, "tool_calls", None)
         if not tool_calls:
             # If no more tool calls, we need the structured output
             # We call the LLM again but this time forcing structured output
             structured_response = llm_with_structured_output.invoke(messages)
-            return {"messages": [structured_response]}
+            return {"final_report": structured_response}
         
         for tc in tool_calls:
             messages.append(ToolMessage(content="", tool_call_id=tc["id"]))
 
 
 def guardrail_node(state: GraphState) -> dict:
-    last_msg = state["messages"][-1]
-    
-    # In with_structured_output, the response might be the object directly if it's not a tool call
-    # actually langchain's with_structured_output returns the model instance directly in the invoke result
-    # but here it's appended to 'messages', so it might be a message with 'additional_kwargs["parsed"]'
-    # or just the object if it was returned by the node.
-    
-    report = last_msg
+    report = state.get("final_report")
+    if not report and state.get("messages"):
+        # Backward-compat: support old state shapes that placed structured output in messages.
+        report = state["messages"][-1]
+
     if not isinstance(report, DiagnosticReport):
         # If it's not a DiagnosticReport, it might be a dict
         if isinstance(report, dict):
@@ -75,7 +81,7 @@ def guardrail_node(state: GraphState) -> dict:
                 report = DiagnosticReport(**report)
             except:
                 pass
-        elif hasattr(last_msg, "content") and not last_msg.content:
+        elif hasattr(report, "content") and not report.content:
              # Check for tool_calls parsed data in some langchain versions
              pass
 
@@ -121,4 +127,5 @@ def guardrail_node(state: GraphState) -> dict:
         f"Fix the following errors in the structured output: {'; '.join(errors)}. "
         "Ensure evidence_citation includes both timestamp and run_id."
     ))
-    return {"messages": [correction], "validation_attempts": new_attempts}
+    # Clear final_report so routing loops back to synthesizer instead of ending.
+    return {"messages": [correction], "validation_attempts": new_attempts, "final_report": ""}

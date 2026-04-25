@@ -10,7 +10,9 @@ client = TestClient(app)
 def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert isinstance(body.get("agent_ready"), bool)
 
 @patch("app.transcriber.transcribe")
 def test_transcribe_audio(mock_transcribe):

@@ -25,7 +25,14 @@ export function twinApiUrl(path: string): string {
 export async function probeTwinApiHealth(): Promise<boolean> {
   try {
     const r = await fetch(twinApiUrl("/health"), { method: "GET" });
-    return r.ok;
+    if (!r.ok) return false;
+    try {
+      const j = (await r.json()) as { agent_ready?: unknown };
+      if (typeof j.agent_ready === "boolean") return j.agent_ready;
+      return true;
+    } catch {
+      return true;
+    }
   } catch {
     return false;
   }

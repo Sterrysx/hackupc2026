@@ -52,11 +52,18 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
+        stale: List[WebSocket] = []
         for connection in self.active_connections:
-            await connection.send_json(message)
+            try:
+                await connection.send_json(message)
+            except Exception:
+                stale.append(connection)
+        for connection in stale:
+            self.disconnect(connection)
 
 
 manager = ConnectionManager()
@@ -299,7 +306,11 @@ async def query_agent(request: AgentRequest):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    # The API can be up while the LLM backend is not configured.
+    return {
+        "status": "ok",
+        "agent_ready": bool(os.getenv("GROQ_API_KEY")),
+    }
 
 if __name__ == "__main__":
     import uvicorn
