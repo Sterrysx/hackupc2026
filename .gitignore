@@ -71,3 +71,15 @@ logs/
 tmp/
 temp/
 .cache/
+
+# ── UI inspiration / scratch references (not part of the deliverable) ─────────
+ui-inspiration/
+UI_EXAMPLE/
+00_POC/
+
+# ── Frontend tooling extras ───────────────────────────────────────────────────
+.vite/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+coverage/
