@@ -16,8 +16,8 @@ import pandas as pd
 from sdg.core.degradation import validate_components_config
 from sdg.core.simulator import PrinterStepper, run_printer
 from sdg.generate import (
-    END_DATE,
-    START_DATE,
+    REAL_END as END_DATE,
+    REAL_START as START_DATE,
     build_printer_city_map,
     load_configs,
 )
