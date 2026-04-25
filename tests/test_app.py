@@ -1,4 +1,6 @@
 import pytest
+import os
+import tempfile
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from app import app
@@ -96,3 +98,23 @@ def test_add_telemetry(mock_insert):
     assert response.status_code == 200
     assert response.json() == {"id": 42, "message": "Telemetry data added successfully."}
     mock_insert.assert_called_once()
+
+@patch("app.speaker.generate_speech")
+def test_tts_speak(mock_generate):
+    # Mock the returned path to a dummy file
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+        tmp.write(b"dummy mp3 content")
+        tmp_path = tmp.name
+    
+    mock_generate.return_value = tmp_path
+    
+    payload = {"text": "Hello test", "voice": "en-US-AndrewNeural"}
+    response = client.post("/tts/speak", json=payload)
+    
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/mpeg"
+    assert response.content == b"dummy mp3 content"
+    
+    # Cleanup
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)

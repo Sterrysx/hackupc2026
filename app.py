@@ -6,7 +6,11 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
+from fastapi.responses import FileResponse
+import base64
+
 from stt.transcriber import SpeechToText
+from tts.speaker import TextToSpeech
 from Ai_Agent.graph import build_graph
 from Ai_Agent.db import insert_telemetry, init_db
 
@@ -14,6 +18,7 @@ app = FastAPI(title="Digital Twin AI API")
 
 # Initialize components
 transcriber = SpeechToText()
+speaker = TextToSpeech()
 agent_graph = build_graph()
 
 # Initialize DB
@@ -23,6 +28,10 @@ init_db()
 
 class TranscribeResponse(BaseModel):
     text: str
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: Optional[str] = None
 
 class Message(BaseModel):
     role: str # "user" or "assistant"
@@ -54,6 +63,20 @@ class TelemetryResponse(BaseModel):
     message: str
 
 # --- Endpoints ---
+
+@app.post("/tts/speak")
+async def speak_text(request: TTSRequest):
+    """
+    Endpoint to convert text to speech and return an MP3 file.
+    """
+    try:
+        if request.voice:
+            speaker.voice = request.voice
+        
+        path = await speaker.generate_speech(request.text)
+        return FileResponse(path, media_type="audio/mpeg", filename="speech.mp3")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
 
 @app.post("/telemetry", response_model=TelemetryResponse)
 async def add_telemetry(data: TelemetryData):
