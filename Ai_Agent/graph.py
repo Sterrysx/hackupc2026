@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.memory import MemorySaver
 
 from .state import GraphState
 from .nodes import (
@@ -51,4 +52,4 @@ def build_graph():
         "synthesizer": "synthesizer",
     })
 
-    return graph.compile()
+    return graph.compile(checkpointer=MemorySaver())

@@ -17,10 +17,17 @@ def main():
 
     result = graph.invoke(initial_state)
 
+    report = result.get("final_report")
+
     print("\n" + "=" * 60)
     print("DIAGNOSTIC REPORT")
     print("=" * 60)
-    print(result.get("final_report", "No report generated."))
+    if isinstance(report, dict):
+        print(f"SEVERITY: {report.get('severity_indicator', 'N/A')}")
+        print(f"\nGROUNDED TEXT:\n{report.get('grounded_text', 'N/A')}")
+        print(f"\nEVIDENCE CITATION:\n{report.get('evidence_citation', 'N/A')}")
+    else:
+        print(report or "No report generated.")
 
 
 if __name__ == "__main__":
