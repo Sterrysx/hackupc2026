@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge, severityToTone, severityLabel } from "@/components/ui/Badge";
 import { ChatThinking } from "@/components/ui/Skeleton";
 import { MicButton } from "@/components/floating/MicButton";
+import { AgentReasoningTrace } from "@/components/floating/AgentReasoningTrace";
 import type { ChatMessage, ComponentId, RagCitation } from "@/types/telemetry";
 
 const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -338,17 +339,20 @@ function Message({
         >
           {message.text}
         </div>
-        {message.citations && message.citations.length > 0 && (
+        {((message.citations && message.citations.length > 0) || message.severity) && (
           <div className="flex flex-wrap gap-1">
             {message.severity && (
               <Badge tone={severityToTone(message.severity)} size="xs">
                 {severityLabel(message.severity)}
               </Badge>
             )}
-            {message.citations.map((c, i) => (
+            {message.citations?.map((c, i) => (
               <CitationChip key={`${c.componentId}-${c.tick}-${i}`} citation={c} onHover={onCiteHover} />
             ))}
           </div>
+        )}
+        {!isUser && message.reasoningTrace && message.reasoningTrace.length > 0 && (
+          <AgentReasoningTrace steps={message.reasoningTrace} />
         )}
       </div>
     </motion.div>

@@ -31,19 +31,27 @@ export async function probeTwinApiHealth(): Promise<boolean> {
   }
 }
 
-export interface AgentChatTurn {
-  role: "user" | "assistant";
+/** Response shape of `POST /agent/query` — matches `AgentResponse` in `app.py`. */
+export interface ReasoningStep {
+  kind: string;
+  label: string;
   content: string;
+}
+
+export interface AgentResponse {
+  grounded_text: string;
+  evidence_citation: string;
+  severity_indicator: string;
+  recommended_actions: string[];
+  priority_level: string;
+  /** Ordered steps: tools, model text, retrieval bundle, validation — for UI transparency. */
+  reasoning_trace: ReasoningStep[];
 }
 
 export interface AgentQueryBody {
   query: string;
-  chat_history: AgentChatTurn[];
+  thread_id: string;
   run_identifier?: string;
-}
-
-export interface AgentQueryResponse {
-  final_report: string;
 }
 
 export class AgentApiError extends Error {
@@ -56,20 +64,39 @@ export class AgentApiError extends Error {
   }
 }
 
-export async function queryAgent(body: AgentQueryBody): Promise<AgentQueryResponse> {
+export async function queryAgent(body: AgentQueryBody): Promise<AgentResponse> {
   const url = twinApiUrl("/agent/query");
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query: body.query,
-      chat_history: body.chat_history,
+      thread_id: body.thread_id,
       run_identifier: body.run_identifier ?? "",
     }),
   });
 
   if (!res.ok) throw await readApiError(res);
-  return (await res.json()) as AgentQueryResponse;
+  return (await res.json()) as AgentResponse;
+}
+
+/**
+ * WebSocket base must mirror `twinApiUrl` (dev: same host + `/api` proxy; prod: `VITE_TWIN_API_URL` host).
+ */
+export function twinWebSocketUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const base = getTwinApiBase();
+  if (typeof window === "undefined") {
+    return base ? `ws://${new URL(base).host}${p}` : p;
+  }
+  if (!base) {
+    const { protocol, host } = window.location;
+    const wsProto = protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProto}//${host}/api${p}`;
+  }
+  const u = new URL(base);
+  const wsProto = u.protocol === "https:" ? "wss:" : "ws:";
+  return `${wsProto}//${u.host}${p}`;
 }
 
 /**

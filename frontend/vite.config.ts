@@ -18,6 +18,7 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        ws: true,
         rewrite: (p) => {
           const rest = p.replace(/^\/api/, '')
           return rest || '/'
@@ -31,6 +32,7 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        ws: true,
         rewrite: (p) => {
           const rest = p.replace(/^\/api/, '')
           return rest || '/'

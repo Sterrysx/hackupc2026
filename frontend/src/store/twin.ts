@@ -11,6 +11,7 @@
 import { create } from "zustand";
 import type {
   Alert,
+  AlertSeverity,
   ChatMessage,
   ComponentId,
   SystemSnapshot,
@@ -18,11 +19,14 @@ import type {
 import { snapshotAtTick } from "@/lib/mockData";
 import { deriveAlerts } from "@/lib/alerts";
 import { probeTwinApiHealth, queryAgent } from "@/lib/agentApi";
+import { getOrCreateAgentThreadId } from "@/lib/agentThread";
+import { resolveComponentForAgent, tryParseAgentReport } from "@/lib/componentMap";
 import {
   answer,
   makeAssistantFromAgentReport,
   makeAssistantMessage,
   makeUserMessage,
+  makeWatchdogAssistantMessage,
 } from "@/lib/rag";
 
 /** Latest `sendUserMessage` id — drop stale responses if the user sends again while in flight. */
@@ -63,6 +67,11 @@ interface TwinState {
   isThinking: boolean;
   /** Si el backend FastAPI responde en `/health` (proxy `/api` o URL absoluta). */
   chatApiStatus: "unknown" | "live" | "offline";
+  /**
+   * Watchdog / historian alerts pushed over `WebSocket` (`/ws/notifications`) —
+   * merged (first) in the overview alert strip.
+   */
+  backendPulseAlerts: Alert[];
 
   /* Actions */
   advance: () => void;
@@ -80,6 +89,7 @@ interface TwinState {
   setCameraOpen: (open: boolean) => void;
   sendUserMessage: (text: string) => void;
   refreshChatApiStatus: () => Promise<void>;
+  ingestProactiveNotification: (payload: Record<string, unknown>) => void;
 }
 
 const INITIAL_TICK = 1200; // start a few hours in so degradation is visible
@@ -97,13 +107,20 @@ function stableAlertKey(a: Alert): string {
   return a.id.replace(/-(\d+)$/, "");
 }
 
+function sevFromAgentString(raw: string): AlertSeverity {
+  const u = raw.toUpperCase();
+  if (u === "CRITICAL" || u === "WARNING" || u === "INFO") return u;
+  if (u.includes("CRIT")) return "CRITICAL";
+  if (u.includes("WARN")) return "WARNING";
+  return "CRITICAL";
+}
+
 const initial = (() => {
   const { snapshot, alerts } = buildState(INITIAL_TICK, new Set());
   const seedMessage: ChatMessage = {
     id: "seed-1",
     role: "assistant",
     text: "Aether co-pilot online. I'm watching every component live and projecting 45 minutes ahead. Ask me anything — try \"What's the highest-risk component?\" or hit ⌘K.",
-    severity: "INFO",
     createdAt: new Date().toISOString(),
   };
   return { snapshot, alerts, newAlertIds: [] as string[], seedMessage };
@@ -130,6 +147,7 @@ export const useTwin = create<TwinState>((set, get) => ({
   messages: [initial.seedMessage],
   isThinking: false,
   chatApiStatus: "unknown",
+  backendPulseAlerts: [],
 
   refreshChatApiStatus: async () => {
     const ok = await probeTwinApiHealth();
@@ -178,6 +196,7 @@ export const useTwin = create<TwinState>((set, get) => ({
       alerts: next.alerts,
       newAlertIds: [],
       alertHistory: [],
+      backendPulseAlerts: [],
     });
   },
 
@@ -192,6 +211,39 @@ export const useTwin = create<TwinState>((set, get) => ({
   setViewMode: (m) => set({ viewMode: m, cameraOpen: m === "3d" ? get().cameraOpen : false }),
   setCameraOpen: (open) => set({ cameraOpen: open }),
 
+  ingestProactiveNotification: (payload) => {
+    if (payload.type !== "PROACTIVE_ALERT") return;
+    const component = typeof payload.component === "string" ? payload.component : "unknown";
+    const status = typeof payload.status === "string" ? payload.status : "ALERT";
+    const parsed = tryParseAgentReport(payload.report);
+    if (!parsed.ok) return;
+
+    const snap = get().snapshot;
+    const { id, label } = resolveComponentForAgent(component, snap, null);
+    const msg = makeWatchdogAssistantMessage(
+      parsed.report,
+      label,
+      snap.tick,
+      id,
+      `Watchdog · ${label} (${status})`,
+    );
+    const pulse: Alert = {
+      id: `proactive-ws-${Date.now()}-${id}`,
+      componentId: id,
+      componentLabel: label,
+      severity: sevFromAgentString(parsed.report.severity_indicator),
+      kind: "current",
+      title: `Watchdog: ${label} ${status}`,
+      detail: parsed.report.grounded_text.slice(0, 220),
+      raisedAtTick: snap.tick,
+      raisedAtIso: new Date().toISOString(),
+    };
+    set((s) => ({
+      messages: [...s.messages, msg],
+      backendPulseAlerts: [pulse, ...s.backendPulseAlerts].slice(0, 20),
+    }));
+  },
+
   sendUserMessage: (text) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -199,9 +251,6 @@ export const useTwin = create<TwinState>((set, get) => ({
     const sendId = ++latestChatSendId;
     const prior = get().messages;
     const userMsg = makeUserMessage(trimmed);
-    const chat_history = prior
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
 
     set({ messages: [...prior, userMsg], isThinking: true });
 
@@ -219,17 +268,30 @@ export const useTwin = create<TwinState>((set, get) => ({
       : "";
     const apiQuery = `${contextLine}${trimmed}`;
     const run_identifier = `twin-${snap.tick}-${snap.timestamp}${focused ? `-focus-${focused.id}` : ""}`;
+    const thread_id = getOrCreateAgentThreadId();
+    const { id: evId, label: evLabel } = resolveComponentForAgent(
+      focused ? focused.id : "recoater_blade",
+      snap,
+      focused ? selectedId : null,
+    );
 
     void (async () => {
       try {
-        const { final_report } = await queryAgent({
+        const res = await queryAgent({
           query: apiQuery,
-          chat_history,
+          thread_id,
           run_identifier,
         });
         if (sendId !== latestChatSendId) return;
         set((s) => ({
-          messages: [...s.messages, makeAssistantFromAgentReport(final_report)],
+          messages: [
+            ...s.messages,
+            makeAssistantFromAgentReport(res, {
+              tick: snap.tick,
+              evidenceComponent: evId,
+              componentLabel: evLabel,
+            }),
+          ],
           isThinking: false,
           chatApiStatus: "live",
         }));

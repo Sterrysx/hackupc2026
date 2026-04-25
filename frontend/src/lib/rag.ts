@@ -10,9 +10,12 @@
  */
 
 import { formatEta } from "@/lib/alerts";
+import type { AgentResponse } from "@/lib/agentApi";
 import type {
+  AgentReasoningStep,
   AlertSeverity,
   ChatMessage,
+  ComponentId,
   ComponentState,
   RagCitation,
   SystemSnapshot,
@@ -274,16 +277,83 @@ export function makeAssistantMessage(reply: RagReply): ChatMessage {
   };
 }
 
-/** Assistant message from the real agent (`final_report`) — no structured citations. */
-export function makeAssistantFromAgentReport(report: string): ChatMessage {
-  const text = report.trim() || "No report generated.";
+function severityFromAgentIndicator(raw: string): AlertSeverity {
+  const u = raw.toUpperCase();
+  if (u === "CRITICAL" || u === "WARNING" || u === "INFO") return u;
+  if (u.includes("CRIT")) return "CRITICAL";
+  if (u.includes("WARN")) return "WARNING";
+  return "INFO";
+}
+
+export interface AgentReportUiContext {
+  /** Current tick for telemetry citation chip. */
+  tick: number;
+  /** Component to anchor the evidence row (operator focus or best match). */
+  evidenceComponent: ComponentId;
+  componentLabel: string;
+}
+
+function formatAgentResponseBody(r: AgentResponse): string {
+  const lines = [r.grounded_text?.trim() || ""];
+  if (r.evidence_citation?.trim()) {
+    lines.push("", `Evidence: ${r.evidence_citation.trim()}`);
+  }
+  if (r.recommended_actions?.length) {
+    lines.push("", "Recommended actions:", ...r.recommended_actions.map((a) => `• ${a}`));
+  }
+  if (r.priority_level?.trim()) {
+    lines.push("", `Priority: ${r.priority_level.trim()}`);
+  }
+  const text = lines.join("\n").trim();
+  return text || "No report generated.";
+}
+
+/** Assistant message from the real agent (`/agent/query` → `AgentResponse`). */
+export function makeAssistantFromAgentReport(
+  report: AgentResponse,
+  ctx: AgentReportUiContext,
+): ChatMessage {
+  const sev = severityFromAgentIndicator(report.severity_indicator);
+  const text = formatAgentResponseBody(report);
+  const citations: RagCitation[] = [
+    {
+      componentId: ctx.evidenceComponent,
+      componentLabel: ctx.componentLabel,
+      tick: ctx.tick,
+      timestamp: tickToHHMMSS(ctx.tick),
+    },
+  ];
+  const steps: AgentReasoningStep[] = (report.reasoning_trace ?? []).map((s) => ({
+    kind: s.kind,
+    label: s.label,
+    content: s.content,
+  }));
   return {
     id: `m-${Math.random().toString(36).slice(2, 10)}`,
     role: "assistant",
     text,
-    severity: "INFO",
+    citations,
+    severity: sev,
+    reasoningTrace: steps.length > 0 ? steps : undefined,
     createdAt: new Date().toISOString(),
   };
+}
+
+/** Proactive watchdog or non-interactive push using the same shape as the graph output. */
+export function makeWatchdogAssistantMessage(
+  report: AgentResponse,
+  componentLabel: string,
+  tick: number,
+  evidenceComponent: ComponentId,
+  headline?: string,
+): ChatMessage {
+  const prefix = headline ? `${headline}\n\n` : "";
+  const body = makeAssistantFromAgentReport(report, {
+    tick,
+    evidenceComponent,
+    componentLabel,
+  });
+  return { ...body, text: `${prefix}${body.text}` };
 }
 
 export function makeUserMessage(text: string): ChatMessage {

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { ComponentRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import type { Camera } from "three";
 import { Vector3 } from "three";
 import { useTwin } from "@/store/twin";
 import type { ComponentId } from "@/types/telemetry";
@@ -42,7 +43,7 @@ const FOCUS: Partial<Record<ComponentId, { position: Vector3; lookAt: Vector3 }>
 };
 
 function applyPose(
-  camera: ReturnType<typeof useThree>["camera"],
+  camera: Camera,
   controls: ComponentRef<typeof OrbitControls>,
   position: Vector3,
   lookAt: Vector3,

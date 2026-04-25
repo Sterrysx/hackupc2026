@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useTwin } from "@/store/twin";
+import { startProactiveWebSocket } from "@/lib/twinNotifications";
 import { SpatialScene } from "@/components/scene/SpatialScene";
 import { InteractiveSchematic } from "@/components/schematic/InteractiveSchematic";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -12,8 +13,6 @@ import { ARDataCard } from "@/components/floating/ARDataCard";
 import { SpotlightChat } from "@/components/floating/SpotlightChat";
 import { ViewToggle } from "@/components/floating/ViewToggle";
 import { OpenViewButton } from "@/components/floating/OpenViewButton";
-
-const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /**
  * "Ethereal Spatial" shell — Phase 3.6.
@@ -42,6 +41,11 @@ export default function App() {
 
   useEffect(() => {
     void useTwin.getState().refreshChatApiStatus();
+  }, []);
+
+  useEffect(() => {
+    const close = startProactiveWebSocket();
+    return () => close();
   }, []);
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { useTwin } from "@/store/twin";
@@ -34,7 +35,8 @@ const SUBSYSTEM_ORDER: ComponentState["subsystem"][] = ["recoating", "printhead"
  *  - Environment (collapsed by default — small footprint)
  */
 export function OverviewPanel() {
-  const { snapshot, alerts, selectComponent, highlightComponentId, highlightComponent } = useTwin();
+  const { snapshot, alerts, backendPulseAlerts, selectComponent, highlightComponentId, highlightComponent } = useTwin();
+  const combinedAlerts = useMemo(() => [...backendPulseAlerts, ...alerts], [backendPulseAlerts, alerts]);
 
   const failed   = snapshot.components.filter((c) => c.status === "FAILED").length;
   const critical = snapshot.components.filter((c) => c.status === "CRITICAL").length;
@@ -45,14 +47,14 @@ export function OverviewPanel() {
     failed   ? `${failed} component${failed === 1 ? "" : "s"} offline` :
     critical ? "Attention needed" :
     degraded ? "All systems running" :
-    alerts.length > 0 ? "All systems running" :
+    combinedAlerts.length > 0 ? "All systems running" :
     "All systems healthy";
 
   const supporting =
     failed   ? "Immediate inspection recommended." :
     critical ? `${critical} critical · ${degraded} degraded · forecasting next ${snapshot.forecastHorizonMin} min.` :
     degraded ? `${degraded} component${degraded === 1 ? "" : "s"} degraded — schedule maintenance.` :
-    alerts.length > 0 ? `${alerts.length} predictive watch${alerts.length === 1 ? "" : "es"} active.` :
+    combinedAlerts.length > 0 ? `${combinedAlerts.length} predictive watch${combinedAlerts.length === 1 ? "" : "es"} active.` :
     `${healthy} of ${snapshot.components.length} components nominal.`;
 
   const grouped = SUBSYSTEM_ORDER.map((sub) => ({
@@ -60,7 +62,7 @@ export function OverviewPanel() {
     items: snapshot.components.filter((c) => c.subsystem === sub),
   }));
 
-  const topAlerts = alerts.slice(0, 4);
+  const topAlerts = combinedAlerts.slice(0, 4);
 
   return (
     <motion.div

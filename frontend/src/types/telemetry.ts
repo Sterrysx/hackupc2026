@@ -127,12 +127,21 @@ export interface RagCitation {
   timestamp: string;
 }
 
+/** One step in the backend LangGraph / tool trace (`POST /agent/query` → `reasoning_trace`). */
+export interface AgentReasoningStep {
+  kind: string;
+  label: string;
+  content: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system";
   text: string;
   citations?: RagCitation[];
   severity?: AlertSeverity;
+  /** LangGraph + tool activity when the reply comes from the real agent API. */
+  reasoningTrace?: AgentReasoningStep[];
   /** Wall-clock time the message was created (for UI display). */
   createdAt: string;
 }

@@ -22,6 +22,7 @@ from stt.transcriber import SpeechToText
 from tts.speaker import TextToSpeech
 from Ai_Agent.graph import build_graph
 from Ai_Agent.db import insert_telemetry, init_db
+from Ai_Agent.trace import build_reasoning_trace
 
 app = FastAPI(title="Digital Twin AI API")
 
@@ -86,12 +87,20 @@ class AgentRequest(BaseModel):
     thread_id: Optional[str] = "default-thread"
     run_identifier: Optional[str] = ""
 
+class ReasoningStep(BaseModel):
+    """A single line in the LangGraph / tool trace (for UI transparency)."""
+    kind: str
+    label: str
+    content: str
+
+
 class AgentResponse(BaseModel):
     grounded_text: str
     evidence_citation: str
     severity_indicator: str
     recommended_actions: List[str]
     priority_level: str
+    reasoning_trace: List[ReasoningStep] = []
 
 class TelemetryData(BaseModel):
     timestamp: str
@@ -133,14 +142,22 @@ async def analyze_and_notify(data: TelemetryData):
         
         result = agent_graph.invoke(initial_state, config=config)
         report = result.get("final_report")
-        
+        trace = build_reasoning_trace(result)
+
         if report:
-            await manager.broadcast({
-                "type": "PROACTIVE_ALERT",
-                "component": data.component,
-                "status": data.status,
-                "report": report
-            })
+            if isinstance(report, dict):
+                payload: dict = {**report, "reasoning_trace": trace}
+            else:
+                p = report.model_dump() if hasattr(report, "model_dump") else {}
+                payload = {**p, "reasoning_trace": trace}
+            await manager.broadcast(
+                {
+                    "type": "PROACTIVE_ALERT",
+                    "component": data.component,
+                    "status": data.status,
+                    "report": payload,
+                }
+            )
     except Exception as e:
         print(f"Watchdog analysis failed: {e}")
 
@@ -258,12 +275,25 @@ async def query_agent(request: AgentRequest):
 
         # Invoke the graph with thread configuration
         result = agent_graph.invoke(initial_state, config=config)
-        
+
         final_report = result.get("final_report")
         if not final_report:
-             raise HTTPException(status_code=500, detail="No report generated.")
-        
-        return final_report
+            raise HTTPException(status_code=500, detail="No report generated.")
+
+        if isinstance(final_report, dict):
+            data = final_report
+        else:
+            data = final_report.model_dump() if hasattr(final_report, "model_dump") else {}
+
+        trace = build_reasoning_trace(result)
+        return AgentResponse(
+            grounded_text=data.get("grounded_text", "") or "",
+            evidence_citation=data.get("evidence_citation", "") or "",
+            severity_indicator=str(data.get("severity_indicator", "INFO") or "INFO"),
+            recommended_actions=list(data.get("recommended_actions", []) or []),
+            priority_level=str(data.get("priority_level", "LOW") or "LOW"),
+            reasoning_trace=[ReasoningStep(**s) for s in trace],
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent workflow failed: {str(e)}")
 
