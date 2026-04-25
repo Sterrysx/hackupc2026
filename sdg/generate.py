@@ -17,6 +17,7 @@ from sdg.schema import table_from_rows
 from sdg.weather.real_weather import build_and_save as build_weather, load_lookup
 
 TRAIN_DIR = Path("data/train")
+VALIDATION_DIR = Path("data/validation")
 DEFAULT_OUTPUT_PATH = Path("data/fleet_baseline.parquet")
 
 REAL_START = "2016-01-01"
@@ -106,21 +107,28 @@ def main(
 
 
 def generate_all() -> None:
-    """Build weather parquets then generate both fleet datasets."""
+    """Build weather parquets then generate both fleet datasets.
+
+    Layout: real-weather period (2016-2025) lands in ``data/train/`` and is
+    used for ML training. Projected period (2026-2035) lands in
+    ``data/validation/`` so it's kept out of the training corpus and is
+    available as a forward-looking holdout / what-if dataset.
+    """
     TRAIN_DIR.mkdir(parents=True, exist_ok=True)
+    VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
 
     print("=== Step 1: build weather parquets ===")
-    build_weather(TRAIN_DIR)
+    build_weather(TRAIN_DIR, validation_dir=VALIDATION_DIR)
 
     real_wp = TRAIN_DIR / "weather_real.parquet"
-    proj_wp = TRAIN_DIR / "weather_projected.parquet"
+    proj_wp = VALIDATION_DIR / "weather_projected.parquet"
 
-    print("\n=== Step 2: fleet 2016-2025 (real weather) ===")
+    print("\n=== Step 2: fleet 2016-2025 (real weather)  ->  data/train/ ===")
     out_real = TRAIN_DIR / "fleet_2016_2025.parquet"
     main(out_real, REAL_START, REAL_END, real_wp)
 
-    print("\n=== Step 3: fleet 2026-2035 (projected weather) ===")
-    out_proj = TRAIN_DIR / "fleet_2026_2035.parquet"
+    print("\n=== Step 3: fleet 2026-2035 (projected weather)  ->  data/validation/ ===")
+    out_proj = VALIDATION_DIR / "fleet_2026_2035.parquet"
     main(out_proj, PROJ_START, PROJ_END, proj_wp)
 
     # Keep fleet_baseline.parquet pointing at the real 2016-2025 dataset for API compatibility

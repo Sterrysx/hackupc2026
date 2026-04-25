@@ -1,8 +1,8 @@
 """Build weather parquets from cached Open-Meteo JSON files.
 
 Outputs:
-  data/train/weather_real.parquet       2016-2025 fab conditions (T_fab, H_fab, P_fab)
-  data/train/weather_projected.parquet  2026-2035 (cycled from real, leap days clamped)
+  data/train/weather_real.parquet            2016-2025 fab conditions (T_fab, H_fab, P_fab)
+  data/validation/weather_projected.parquet  2026-2035 (cycled from real, leap days clamped)
 """
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from sdg.weather.transform import apply_transfer_functions
 ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = ROOT / "data" / "raw"
 TRAIN_DIR = ROOT / "data" / "train"
+VALIDATION_DIR = ROOT / "data" / "validation"
 CLIMATE_CFG_PATH = ROOT / "sdg" / "config" / "cities_climate.yaml"
 
 
@@ -107,14 +108,17 @@ def _save(df: pd.DataFrame, path: Path) -> None:
     print(f"  saved {label}  ({abs_path.stat().st_size // 1024} KB, {len(df)} rows)")
 
 
-def build_and_save(train_dir: Path = TRAIN_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_and_save(
+    train_dir: Path = TRAIN_DIR,
+    validation_dir: Path = VALIDATION_DIR,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     print("Building real weather (2016-2025)...")
     real_df = build_real_weather()
     _save(real_df, train_dir / "weather_real.parquet")
 
     print("Building projected weather (2026-2035)...")
     proj_df = build_projected_weather(real_df)
-    _save(proj_df, train_dir / "weather_projected.parquet")
+    _save(proj_df, validation_dir / "weather_projected.parquet")
 
     return real_df, proj_df
 

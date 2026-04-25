@@ -15,7 +15,7 @@ action     τ = (τ_C1, τ_C2, τ_C3, τ_C4, τ_C5, τ_C6)   maintenance interva
 | `01_baseline/` | No ML — Optuna over τ calling the SDG simulator directly | ✅ implemented |
 | `02_ssl/` | PatchTST self-supervised pretrain → frozen-encoder RUL head → surrogate-driven τ search | ✅ implemented |
 | `03_rl+ssl/` | PPO + frozen Stage 02 encoder → per-printer/per-tick policies | ✅ implemented |
-| `04/results/` | Final comparison report across Stages 01/02/03 | ✅ implemented |
+| `04_models/results/` | Final comparison report across Stages 01/02/03 | ✅ implemented |
 
 ## Data splits (printer-level)
 
@@ -62,7 +62,7 @@ uv run jupyter lab ml_models/03_rl+ssl/03_compare.ipynb
 uv run jupyter lab ml_models/03_rl+ssl/04_per_tick_recurrent_ppo.ipynb
 
 # Stage 04 results comparison
-uv run jupyter lab ml_models/04/results/compare_01_02_03.ipynb
+uv run jupyter lab ml_models/04_models/results/compare_01_02_03.ipynb
 
 # Tests (lib code only; notebooks are not exercised in CI)
 uv run pytest sdg/tests ml_models/01_baseline/tests ml_models/02_ssl/tests ml_models/03_rl+ssl/tests

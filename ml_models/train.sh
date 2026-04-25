@@ -59,7 +59,7 @@ STAGE_3_NOTEBOOKS=(
 )
 
 STAGE_4_NOTEBOOKS=(
-  "ml_models/04/results/compare_01_02_03.ipynb"
+  "ml_models/04_models/results/compare_01_02_03.ipynb"
 )
 
 # Hardcoded fallbacks used when no cache exists (calibrated for Ryzen 9 9900X
@@ -80,7 +80,7 @@ default_eta_seconds() {
       "ml_models/03_rl+ssl/02_eval_test.ipynb")                echo 900    ;;
       "ml_models/03_rl+ssl/03_compare.ipynb")                  echo 60     ;;
       "ml_models/03_rl+ssl/04_per_tick_recurrent_ppo.ipynb")   echo 5400   ;;
-      "ml_models/04/results/compare_01_02_03.ipynb")           echo 60     ;;
+      "ml_models/04_models/results/compare_01_02_03.ipynb")           echo 60     ;;
       *)                                                       echo 300    ;;
     esac
   else
@@ -96,7 +96,7 @@ default_eta_seconds() {
       "ml_models/03_rl+ssl/02_eval_test.ipynb")                echo 1500   ;;
       "ml_models/03_rl+ssl/03_compare.ipynb")                  echo 60     ;;
       "ml_models/03_rl+ssl/04_per_tick_recurrent_ppo.ipynb")   echo 19800  ;;
-      "ml_models/04/results/compare_01_02_03.ipynb")           echo 60     ;;
+      "ml_models/04_models/results/compare_01_02_03.ipynb")           echo 60     ;;
       *)                                                       echo 600    ;;
     esac
   fi
@@ -109,6 +109,11 @@ Usage:
   ./train.sh all              Run all stages
   ./train.sh 0|1|2|3|4        Run a single stage
   ./train.sh from N           Run stage N through 4 (resume after a crash)
+  ./train.sh delete           Wipe ALL generated training artifacts (SSL
+                              corpus, encoders, PPO policies, study.db,
+                              EDA report, Stage 04 results, timings cache)
+                              and re-run all stages from scratch
+  ./train.sh delete-only      Same wipe as `delete`, but exit without re-running
   ./train.sh --fast           Halve hyperparameters for a fast first-pass run
                               (sets FAST_MODE=1 in the notebook env)
   ./train.sh --n-parallel N   Number of parallel workers for Optuna and the
@@ -242,6 +247,71 @@ stage_eta_seconds() {
     total=$((total + eta))
   done < <(stage_notebooks "$stage")
   printf '%s' "$total"
+}
+
+delete_artifacts() {
+  local dry="${1:-0}"
+  printf '\n%s' "$BOLD"
+  line '#'
+  if (( dry == 1 )); then
+    printf '%sDelete mode (dry-run)%s%s — would wipe these training artifacts\n' "$YELLOW" "$RESET" "$BOLD"
+  else
+    printf '%sDelete mode%s%s — wiping all training artifacts\n' "$RED" "$RESET" "$BOLD"
+  fi
+  line '#'
+  printf '%s' "$RESET"
+
+  local -a paths=(
+    # Stage 00 EDA outputs
+    "ml_models/00_eda/REPORT.md"
+    "ml_models/00_eda/figures"
+    # Stage 01 baseline (Optuna study cache + best τ)
+    "ml_models/01_baseline/results/study.db"
+    "ml_models/01_baseline/results/best_tau.yaml"
+    # Stage 02 SSL corpus, encoders, RUL head, surrogate τ
+    "ml_models/02_ssl/data/policy_runs"
+    "ml_models/02_ssl/models"
+    "ml_models/02_ssl/results"
+    # Stage 03 PPO policies + per-printer τ tables + plots
+    "ml_models/03_rl+ssl/models"
+    "ml_models/03_rl+ssl/results"
+    # Stage 04 final report + figures + KPI tables
+    "ml_models/04_models/results/REPORT.md"
+    "ml_models/04_models/results/figures"
+    # Persisted ETA caches (regenerated on next successful run)
+    ".train_timings.json"
+    ".train_timings.fast.json"
+  )
+
+  local p removed=0 kept=0
+  for p in "${paths[@]}"; do
+    if [[ -e "$p" ]]; then
+      printf '%s   - %s%s\n' "$DIM" "$p" "$RESET"
+      if (( dry == 0 )); then
+        rm -rf -- "$p"
+      fi
+      removed=$((removed + 1))
+    else
+      kept=$((kept + 1))
+    fi
+  done
+
+  # Stage 04 also drops loose .csv files at the top of its results dir
+  while IFS= read -r -d '' csv; do
+    printf '%s   - %s%s\n' "$DIM" "$csv" "$RESET"
+    if (( dry == 0 )); then
+      rm -f -- "$csv"
+    fi
+    removed=$((removed + 1))
+  done < <(find ml_models/04_models/results -maxdepth 1 -name '*.csv' -print0 2>/dev/null)
+
+  if (( dry == 1 )); then
+    printf '%s   would remove %d path(s); %d already absent%s\n' \
+      "$YELLOW" "$removed" "$kept" "$RESET"
+  else
+    printf '%s   ✓ removed %d path(s); %d already absent%s\n' \
+      "$GREEN" "$removed" "$kept" "$RESET"
+  fi
 }
 
 hardware_fingerprint() {
@@ -456,6 +526,7 @@ main() {
 
   local target="${positional[0]:-all}"
   local from_stage=""
+  local do_delete=0
 
   if [[ "$target" == "from" ]]; then
     if (( ${#positional[@]} < 2 )); then
@@ -477,6 +548,11 @@ main() {
     2|02)       stages=(2) ;;
     3|03)       stages=(3) ;;
     4|04)       stages=(4) ;;
+    delete)     stages=(0 1 2 3 4); do_delete=1 ;;
+    delete-only)
+      delete_artifacts "$DRY_RUN"
+      exit 0
+      ;;
     from)
       case "$from_stage" in
         0|00) stages=(0 1 2 3 4) ;;
@@ -493,6 +569,13 @@ main() {
   TARGET_LABEL="$target"
   if [[ "$target" == "from" ]]; then
     TARGET_LABEL="from $from_stage"
+  fi
+
+  # Delete mode: wipe artifacts before computing ETAs/banner so the run looks
+  # like a fresh first-time invocation. Honors --dry-run (prints what would
+  # be removed without touching disk).
+  if (( do_delete == 1 )); then
+    delete_artifacts "$DRY_RUN"
   fi
 
   local total_eta=0 total_notebooks=0 stage
