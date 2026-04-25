@@ -12,6 +12,10 @@ class QueryDatabaseInput(BaseModel):
         default=None,
         description="Optional component filter: 'recoater_blade', 'nozzle_plate', or 'heating_element'",
     )
+    status: Optional[str] = Field(
+        default=None,
+        description="Optional state filter: 'FUNCTIONAL', 'DEGRADED', 'CRITICAL', or 'FAILED'",
+    )
 
 
 class TelemetryRecord(BaseModel):

@@ -32,6 +32,7 @@ DB_SCHEMA = {
         "run_identifier":  "Required — run ID to query (e.g. 'R1')",
         "timestamp_range": "Optional — time range filter 'HH:MM:SS-HH:MM:SS'",
         "component":       "Optional — filter by component name",
+        "status":          "Optional — filter by component status (FUNCTIONAL | DEGRADED | CRITICAL | FAILED)",
     },
 }
 
@@ -61,10 +62,11 @@ def query_database(
     run_identifier: str,
     timestamp_range: str | None = None,
     component: str | None = None,
+    status: str | None = None,
 ) -> str:
     """Query the Phase 2 historian SQLite database for machine telemetry data.
     Returns timestamped telemetry records for the specified run,
-    optionally filtered by time range and component."""
+    optionally filtered by time range, component, and status."""
     sql = """
         SELECT timestamp, run_id, component, health_index, status,
                temperature, pressure, fan_speed, metrics
@@ -76,6 +78,10 @@ def query_database(
     if component:
         sql += " AND component = ?"
         params.append(component)
+
+    if status:
+        sql += " AND status = ?"
+        params.append(status.upper())
 
     if timestamp_range and "-" in timestamp_range:
         parts = timestamp_range.split("-", 1)
@@ -97,8 +103,9 @@ def query_database(
                 "run_identifier": run_identifier,
                 "timestamp_range": timestamp_range,
                 "component": component,
+                "status": status,
             },
-            "hint": "Check that run_identifier exists, component spelling is correct, "
+            "hint": "Check that run_identifier exists, component/status spelling is correct, "
                     "and timestamp_range uses HH:MM:SS-HH:MM:SS format.",
         })
 
@@ -109,9 +116,10 @@ def query_database(
                 "run_identifier": run_identifier,
                 "timestamp_range": timestamp_range,
                 "component": component,
+                "status": status,
             },
             "hint": f"Run '{run_identifier}' may not exist or no records match the filters. "
-                    "Call get_db_schema to verify available run IDs and component names.",
+                    "Call get_db_schema to verify available run IDs, component names, and status codes.",
         })
 
     records = []
