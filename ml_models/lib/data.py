@@ -7,9 +7,10 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
+from ml_models import PROJECT_ROOT
 from sdg.generate import EXPECTED_PRINTERS
 
-DEFAULT_FLEET_PATH = Path("data/fleet_baseline.parquet")
+DEFAULT_FLEET_PATH = PROJECT_ROOT / "data" / "fleet_baseline.parquet"
 TRAIN_PRINTERS: tuple[int, ...] = tuple(range(0, 70))
 VAL_PRINTERS: tuple[int, ...] = tuple(range(70, 85))
 TEST_PRINTERS: tuple[int, ...] = tuple(range(85, 100))

@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from ml_models.lib.objective import (
+    INFEASIBLE_FLOOR,
     compute_availability,
     compute_costs,
     scalar_objective,
@@ -66,26 +67,81 @@ def test_single_corrective_event_charges_corrective_cost_and_downtime() -> None:
     assert availability == pytest.approx(expected_availability)
 
 
-def test_scalar_objective_penalises_only_when_below_threshold() -> None:
+def test_scalar_objective_returns_cost_when_feasible() -> None:
     components_cfg, _, _ = load_configs()
     df = _empty_events_df(n_printers=1, n_days=10)
 
-    no_penalty = scalar_objective(df, components_cfg, availability_threshold=0.95)
-    assert no_penalty["deficit"] == pytest.approx(0.0)
-    assert no_penalty["value"] == pytest.approx(no_penalty["annual_cost"])
+    score = scalar_objective(df, components_cfg, availability_threshold=0.95)
+    assert score["deficit"] == pytest.approx(0.0)
+    assert score["value"] == pytest.approx(score["annual_cost"])
+    assert score["value"] < INFEASIBLE_FLOOR
 
+
+def test_scalar_objective_jumps_above_floor_when_infeasible() -> None:
+    components_cfg, _, _ = load_configs()
+    df = _empty_events_df(n_printers=1, n_days=10)
     df.loc[df["day"] == 0, "failure_C2"] = True
+
     spec = components_cfg["components"]["C2"]
     n_days = 10
     forced_availability = (n_days * 24 - float(spec["downtime_corrective_h"])) / (n_days * 24)
     assert forced_availability < 0.95
 
-    penalised = scalar_objective(
-        df, components_cfg, availability_threshold=0.95, lambda_pen=1_000_000.0
-    )
+    penalised = scalar_objective(df, components_cfg, availability_threshold=0.95)
     assert penalised["availability"] == pytest.approx(forced_availability)
     assert penalised["deficit"] > 0.0
+    assert penalised["value"] >= INFEASIBLE_FLOOR
     assert penalised["value"] > penalised["annual_cost"]
+
+
+def test_availability_is_clamped_to_zero_when_downtime_exceeds_horizon() -> None:
+    components_cfg, _, _ = load_configs()
+    # Force every day to be a corrective on every component over 1 printer × 10 days.
+    df = _empty_events_df(n_printers=1, n_days=10)
+    for component_id in COMPONENT_IDS:
+        df[f"failure_{component_id}"] = True
+
+    availability = compute_availability(df, components_cfg)
+    assert availability == pytest.approx(0.0)
+    assert 0.0 <= availability <= 1.0
+
+
+def test_infeasible_trial_value_dominates_any_feasible_value() -> None:
+    components_cfg, _, _ = load_configs()
+    feasible = _empty_events_df(n_printers=1, n_days=365)
+    feasible.loc[feasible["day"] == 100, "failure_C3"] = True  # high cost, but tiny downtime
+
+    infeasible = _empty_events_df(n_printers=1, n_days=10)
+    infeasible.loc[infeasible["day"] == 0, "failure_C2"] = True  # cheap but huge availability hit
+
+    feasible_score = scalar_objective(feasible, components_cfg)
+    infeasible_score = scalar_objective(infeasible, components_cfg)
+
+    assert feasible_score["availability"] >= 0.95
+    assert infeasible_score["availability"] < 0.95
+    assert feasible_score["value"] < infeasible_score["value"]
+    assert infeasible_score["value"] >= INFEASIBLE_FLOOR
+
+
+def test_run_with_tau_returns_dataframe_with_required_event_columns() -> None:
+    """Smoke test that the no-Arrow-roundtrip return path keeps cost columns intact."""
+    from datetime import date, timedelta
+
+    from ml_models.lib.env_runner import run_with_tau
+
+    components_cfg, couplings_cfg, cities_cfg = load_configs()
+    short_dates = [date(2015, 1, 1) + timedelta(days=d) for d in range(20)]
+    tau = {component_id: float(components_cfg["components"][component_id]["tau_nom_h"])
+           for component_id in COMPONENT_IDS}
+    df = run_with_tau(
+        tau, printer_ids=[0], dates=short_dates,
+        components_cfg=components_cfg, couplings_cfg=couplings_cfg, cities_cfg=cities_cfg,
+    )
+    assert isinstance(df, pd.DataFrame)
+    assert {"printer_id", "day"}.issubset(df.columns)
+    for component_id in COMPONENT_IDS:
+        assert f"maint_{component_id}" in df.columns
+        assert f"failure_{component_id}" in df.columns
 
 
 def test_per_printer_normalisation_is_independent_of_fleet_size() -> None:

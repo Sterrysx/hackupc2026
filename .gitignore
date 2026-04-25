@@ -73,10 +73,13 @@ temp/
 .cache/
 
 # ── ML artefacts (regeneratable, large) ───────────────────────────────────────
-data/policy_runs/
+**/data/policy_runs/
 ml_models/02_ssl/models/*.pt
 ml_models/02_ssl/models/*.npz
 ml_models/02_ssl/models/*.csv
 ml_models/02_ssl/results/*.json
-ml_models/01_baseline/results/study.db
+**/ml_models/01_baseline/results/study.db
 .ipynb_checkpoints/
+# defensive: catch the path-doubling Jupyter footgun if it ever resurfaces
+ml_models/01_baseline/ml_models/
+ml_models/02_ssl/data/

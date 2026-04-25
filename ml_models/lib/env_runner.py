@@ -21,7 +21,7 @@ from sdg.generate import (
     build_printer_city_map,
     load_configs,
 )
-from sdg.schema import COMPONENT_IDS, table_from_rows
+from sdg.schema import COMPONENT_IDS
 
 
 def default_dates() -> list[date]:
@@ -85,5 +85,7 @@ def run_with_tau(
             )
         )
 
-    table = table_from_rows(rows, include_rul=False)
-    return table.to_pandas()
+    # Skip the Arrow schema round-trip here; trial loops only read a handful of
+    # columns and consumers that need a validated parquet (e.g. policy_runs
+    # generation) call sdg.schema.table_from_dataframe themselves.
+    return pd.DataFrame.from_records(rows)

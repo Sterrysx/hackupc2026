@@ -79,7 +79,14 @@ def compute_availability(
         downtime_hours += n_pm * float(spec["downtime_preventive_h"])
         downtime_hours += n_cm * float(spec["downtime_corrective_h"])
 
-    return float((total_hours - downtime_hours) / total_hours)
+    raw = (total_hours - downtime_hours) / total_hours
+    return float(min(1.0, max(0.0, raw)))
+
+
+# Any infeasible trial returns a value above this floor; any feasible trial
+# returns a value below it. Real per-printer annual costs are 1e5..1e7 €,
+# so 1e9 keeps the two regimes strictly separated regardless of cost shape.
+INFEASIBLE_FLOOR: float = 1e9
 
 
 def scalar_objective(
@@ -87,18 +94,25 @@ def scalar_objective(
     components_cfg: Mapping,
     *,
     availability_threshold: float = 0.95,
-    lambda_pen: float = 1_000_000.0,
+    lambda_pen: float = 1e10,
 ) -> dict:
-    """Single-scalar penalised cost ready for Optuna's minimisation.
+    """Single-scalar objective ready for Optuna's minimisation.
 
-    The penalty term zeroes out as long as availability >= threshold and
-    grows linearly with the deficit otherwise. Optuna minimises `value`.
+    Hard constraint: any trial below `availability_threshold` is rebased above
+    `INFEASIBLE_FLOOR` so it cannot beat any feasible trial. The deficit-scaled
+    penalty term still gives TPE a gradient back toward feasibility.
     """
     costs = compute_costs(events_df, components_cfg)
     availability = compute_availability(events_df, components_cfg)
     deficit = max(0.0, availability_threshold - availability)
+
+    if deficit > 0.0:
+        value = INFEASIBLE_FLOOR + lambda_pen * deficit
+    else:
+        value = costs["annual_cost"]
+
     return {
-        "value": costs["annual_cost"] + lambda_pen * deficit,
+        "value": value,
         "annual_cost": costs["annual_cost"],
         "availability": availability,
         "preventive_cost": costs["preventive_cost"],
