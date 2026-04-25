@@ -1,0 +1,123 @@
+process_constants:
+  T_fab: 25.0
+  T_set: 180.0
+  T_max: 180.0
+  v: 150.0
+  f_d: 20.0
+  E_d: 3.0
+  layer_thickness_um: 50.0
+  P_B: 0.0
+  c_p0: 50.0
+  Q0: 1.0
+  phi_R: 0.20
+  fires_per_job: 5000000000.0
+  layers_per_job: 2800
+
+components:
+  C1:
+    L_nom_h: 800.0
+    lambda0_per_h: 0.00125
+    cost_preventive_eur: 250
+    cost_corrective_eur: 3500
+    downtime_preventive_h: 1.5
+    downtime_corrective_h: 12.0
+    tau_nom_h: 600.0
+    b_M: 1.5
+    b_L: 1.2
+    ext_vars:
+      - {name: T, ref: 25.0, exp: 0.3}
+      - {name: H, ref: 40.0, exp: 1.5}
+    int_vars:
+      - {name: v, ref: 150.0, exp: 1.2}
+      - {name: N_c, ref: 30000.0, exp: 0.8}
+      - {name: phi_R, ref: 0.20, exp: 1.0}
+
+  C2:
+    L_nom_h: 18000.0
+    lambda0_per_h: 0.00005555555555555556
+    cost_preventive_eur: 400
+    cost_corrective_eur: 8500
+    downtime_preventive_h: 3.0
+    downtime_corrective_h: 36.0
+    tau_nom_h: 4000.0
+    b_M: 1.8
+    b_L: 1.2
+    ext_vars:
+      - {name: T, ref: 25.0, exp: 0.5}
+      - {name: H, ref: 40.0, exp: 0.8}
+      - {name: c_p, ref: 50.0, exp: 1.5}
+    int_vars:
+      - {name: v, ref: 150.0, exp: 1.0}
+      - {name: N_iv, ref: 500000.0, exp: 1.0}
+
+  C3:
+    L_nom_h: 3500.0
+    lambda0_per_h: 0.0002857142857142857
+    cost_preventive_eur: 2500
+    cost_corrective_eur: 12000
+    downtime_preventive_h: 2.0
+    downtime_corrective_h: 24.0
+    tau_nom_h: 168.0
+    b_M: 2.0
+    b_L: 1.0
+    ext_vars:
+      - {name: T, ref: 35.0, exp: 1.2}
+      - {name: H, ref: 40.0, exp: 0.6}
+      - {name: c_p, ref: 50.0, exp: 1.3}
+    int_vars:
+      - {name: N_f, ref: 50000000000.0, exp: 1.0}
+      # P_B is a regulated deviation with a nominal value of 0 kPa, so the
+      # literal ratio P_B / 0 is undefined. The term is disabled in Act 1.
+      - {name: P_B, ref: 0.0, exp: 1.5, enabled: false}
+
+  C4:
+    L_nom_h: 5000.0
+    lambda0_per_h: 0.0002
+    cost_preventive_eur: 2500
+    cost_corrective_eur: 12000
+    downtime_preventive_h: 2.0
+    downtime_corrective_h: 24.0
+    tau_nom_h: 1000.0
+    b_M: 1.3
+    b_L: 1.0
+    ext_vars:
+      - {name: T, ref: 35.0, exp: 2.0}
+    int_vars:
+      - {name: N_f, ref: 50000000000.0, exp: 1.2}
+      - {name: E_d, ref: 3.0, exp: 1.8}
+      - {name: f_d, ref: 20.0, exp: 1.0}
+
+  C5:
+    L_nom_h: 12000.0
+    lambda0_per_h: 0.00008333333333333333
+    cost_preventive_eur: 900
+    cost_corrective_eur: 8000
+    downtime_preventive_h: 4.0
+    downtime_corrective_h: 28.0
+    tau_nom_h: 4000.0
+    b_M: 1.4
+    b_L: 1.3
+    ext_vars:
+      - {name: T_fab, ref: 25.0, exp: 0.5}
+      - {name: H, ref: 40.0, exp: 0.3}
+    int_vars:
+      - {name: T_set, ref: 180.0, exp: 2.0}
+      - {name: Q, ref: 1.0, exp: 2.0}
+      - {name: N_on, ref: 5000.0, exp: 0.8}
+
+  C6:
+    L_nom_h: 30000.0
+    lambda0_per_h: 0.000033333333333333335
+    cost_preventive_eur: 1500
+    cost_corrective_eur: 7000
+    downtime_preventive_h: 6.0
+    downtime_corrective_h: 20.0
+    tau_nom_h: 8000.0
+    b_M: 1.2
+    b_L: 1.0
+    ext_vars:
+      - {name: T_max, ref: 180.0, exp: 1.5}
+      - {name: T_fab, ref: 25.0, exp: 0.4}
+      - {name: H, ref: 40.0, exp: 0.8}
+    int_vars:
+      - {name: N_TC, ref: 10000.0, exp: 1.0}

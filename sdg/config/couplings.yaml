@@ -1,0 +1,9 @@
+critical_threshold: 0.4
+pair_product_cap: 2.5
+matrix:
+  C1: {C2: 1.4, C3: 2.0}
+  C2: {C1: 1.4}
+  C3: {C4: 1.4}
+  C4: {C3: 1.5}
+  C5: {C6: 1.6}
+  C6: {C5: 1.7}
