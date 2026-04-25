@@ -42,11 +42,15 @@ interface TwinState {
   selectedComponentId: ComponentId | null;
   highlightComponentId: ComponentId | null;
   commandPaletteOpen: boolean;
+  /** SpotlightChat overlay (⌘K / FAB). */
   chatOpen: boolean;
-  /** Top-level UI mode: dashboard panels visible, or immersive (panels hidden). */
-  mode: "dashboard" | "immersive";
-  /** Whether the floating Aether chat bubble is expanded into a panel. */
-  bubbleOpen: boolean;
+  /**
+   * Operator's preference for the right-hand telemetry panel.
+   * The panel is shown iff `dashboardOpen && !selectedComponentId` — i.e. it
+   * auto-hides during a component zoom and is restored on zoom-out, so the
+   * user keeps full agency without us inventing a separate "mode" enum.
+   */
+  dashboardOpen: boolean;
 
   messages: ChatMessage[];
   isThinking: boolean;
@@ -63,8 +67,8 @@ interface TwinState {
   highlightComponent: (id: ComponentId | null) => void;
   setCommandPaletteOpen: (o: boolean) => void;
   setChatOpen: (o: boolean) => void;
-  setMode: (m: "dashboard" | "immersive") => void;
-  setBubbleOpen: (o: boolean) => void;
+  setDashboardOpen: (o: boolean) => void;
+  toggleDashboard: () => void;
   sendUserMessage: (text: string) => void;
   refreshChatApiStatus: () => Promise<void>;
 }
@@ -110,8 +114,7 @@ export const useTwin = create<TwinState>((set, get) => ({
   highlightComponentId: null,
   commandPaletteOpen: false,
   chatOpen: false,
-  mode: "dashboard",
-  bubbleOpen: false,
+  dashboardOpen: true,
 
   messages: [initial.seedMessage],
   isThinking: false,
@@ -172,9 +175,9 @@ export const useTwin = create<TwinState>((set, get) => ({
   selectComponent: (id) => set({ selectedComponentId: id }),
   highlightComponent: (id) => set({ highlightComponentId: id }),
   setCommandPaletteOpen: (o) => set({ commandPaletteOpen: o }),
-  setMode: (m) => set({ mode: m }),
-  setBubbleOpen: (o) => set({ bubbleOpen: o }),
   setChatOpen: (o) => set({ chatOpen: o }),
+  setDashboardOpen: (o) => set({ dashboardOpen: o }),
+  toggleDashboard: () => set((s) => ({ dashboardOpen: !s.dashboardOpen })),
 
   sendUserMessage: (text) => {
     const trimmed = text.trim();
@@ -190,12 +193,24 @@ export const useTwin = create<TwinState>((set, get) => ({
     set({ messages: [...prior, userMsg], isThinking: true });
 
     const snap = get().snapshot;
-    const run_identifier = `twin-${snap.tick}-${snap.timestamp}`;
+    const selectedId = get().selectedComponentId;
+    const focused = selectedId ? snap.components.find((c) => c.id === selectedId) : null;
+    const focusedForecast = focused ? snap.forecasts.find((f) => f.id === focused.id) : null;
+
+    // Tag the query with spatial focus so the agent answers about *this* part by default.
+    // We send the augmented query to the API but keep the user's chat bubble untouched.
+    const contextLine = focused
+      ? `[Operator focus → component "${focused.label}" (id=${focused.id}, status=${focused.status}, health=${(focused.healthIndex * 100).toFixed(0)}%${
+          focusedForecast ? `, predicted_health=${(focusedForecast.predictedHealthIndex * 100).toFixed(0)}%` : ""
+        }). Prefer answers about this part unless the user asks otherwise.]\n\n`
+      : "";
+    const apiQuery = `${contextLine}${trimmed}`;
+    const run_identifier = `twin-${snap.tick}-${snap.timestamp}${focused ? `-focus-${focused.id}` : ""}`;
 
     void (async () => {
       try {
         const { final_report } = await queryAgent({
-          query: trimmed,
+          query: apiQuery,
           chat_history,
           run_identifier,
         });

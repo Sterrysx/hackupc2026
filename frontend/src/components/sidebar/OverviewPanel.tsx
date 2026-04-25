@@ -69,7 +69,7 @@ export function OverviewPanel() {
       initial="hidden"
       animate="visible"
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
-      className="flex flex-col gap-9 px-6 py-7"
+      className="flex flex-col gap-12 px-7 py-9"
     >
       {/* Hero */}
       <motion.section variants={itemVariants}>
@@ -92,10 +92,10 @@ export function OverviewPanel() {
             tap to focus
           </span>
         </header>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           {grouped.map(({ sub, items }) => (
             <div key={sub} className="flex flex-col">
-              <div className="text-[9.5px] uppercase tracking-[0.18em] text-[var(--color-fg-faint)] mt-3 mb-1.5 px-1">
+              <div className="text-[9.5px] uppercase tracking-[0.18em] text-[var(--color-fg-faint)] mt-5 mb-2 px-1">
                 {prettySub(sub)}
               </div>
               {items.map((c) => (
@@ -167,7 +167,7 @@ export function OverviewPanel() {
         <h2 className="text-[10px] uppercase tracking-[0.20em] text-[var(--color-fg-faint)] mb-3">
           Environment
         </h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+        <dl className="grid grid-cols-2 gap-x-5 gap-y-3.5">
           <DriverRow label="Ambient" value={snapshot.drivers.ambientTempC} unit="°C" />
           <DriverRow label="Humidity" value={snapshot.drivers.humidityPct} unit="%" />
           <DriverRow label="Contamination" value={snapshot.drivers.contaminationPct} unit="%" />
@@ -196,7 +196,7 @@ function CompactTile({
       type="button"
       onClick={onClick}
       whileTap={{ scale: 0.99 }}
-      className={`group relative w-full text-left rounded-2xl px-3 py-3 transition-colors duration-300
+      className={`group relative w-full text-left rounded-2xl px-3.5 py-4 transition-colors duration-300
         hover:bg-white/[0.04]
         ${highlighted ? "bg-[oklch(0.32_0.005_240/0.55)]" : ""}`}
     >

@@ -26,7 +26,8 @@ export function CommandPalette() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      // ⌘K is reserved for the SpotlightChat — palette is on ⌘⇧K.
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCommandPaletteOpen(!commandPaletteOpen);
       }
@@ -42,6 +43,12 @@ export function CommandPalette() {
     selectComponent(id);
     highlightComponent(id);
     setTimeout(() => highlightComponent(null), 1600);
+    close();
+  };
+
+  const askAether = (q: string) => {
+    setChatOpen(true);
+    sendUserMessage(q);
     close();
   };
 
@@ -97,15 +104,7 @@ export function CommandPalette() {
                     "When should I schedule maintenance?",
                     "Show me the forecast for the next hour",
                   ].map((q) => (
-                    <Item
-                      key={q}
-                      value={`ask ${q}`}
-                      onSelect={() => {
-                        setChatOpen(true);
-                        sendUserMessage(q);
-                        close();
-                      }}
-                    >
+                    <Item key={q} value={`ask ${q}`} onSelect={() => askAether(q)}>
                       <MessageSquare size={14} className="text-[var(--color-fg-muted)]" />
                       <span className="flex-1">{q}</span>
                     </Item>
@@ -135,6 +134,7 @@ export function CommandPalette() {
               <div className="px-5 py-2.5 flex items-center justify-between text-[10.5px] text-[var(--color-fg-faint)] font-mono">
                 <span>↑↓ navigate</span>
                 <span>↵ run</span>
+                <span>⌘⇧K palette · ⌘K chat</span>
                 <span>esc close</span>
               </div>
             </Command>

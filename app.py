@@ -106,28 +106,32 @@ async def add_telemetry(data: TelemetryData):
 @app.post("/stt/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(file: UploadFile = File(...)):
     """
-    Endpoint to transcribe an uploaded audio file using Faster Whisper.
-    """
-    if not file.content_type.startswith("audio/"):
-        # Some clients might not set content_type correctly, but it's a good check if they do.
-        pass
+    Transcribe an uploaded audio file using Faster Whisper.
 
+    Browser MediaRecorder uploads usually arrive as `audio/webm;codecs=opus`
+    or `audio/ogg;codecs=opus`. We do not enforce the MIME because curl /
+    test clients sometimes omit it; we DO normalise the temp-file extension
+    so PyAV / ffmpeg can demux it correctly.
+    """
+    tmp_path = None
     try:
-        # Save uploaded file to a temporary location
-        suffix = os.path.splitext(file.filename)[1]
+        filename = file.filename or "upload.webm"
+        suffix = os.path.splitext(filename)[1] or ".webm"
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
             tmp_path = tmp_file.name
 
-        # Transcribe
         text = transcriber.transcribe(tmp_path)
-        
-        # Cleanup
-        os.unlink(tmp_path)
-        
         return TranscribeResponse(text=text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 @app.post("/agent/query", response_model=AgentResponse)
 async def query_agent(request: AgentRequest):

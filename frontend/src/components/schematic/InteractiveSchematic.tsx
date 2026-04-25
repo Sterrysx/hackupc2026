@@ -386,6 +386,20 @@ export function InteractiveSchematic() {
   const snapshot = useTwin((s) => s.snapshot);
   const selectedId = useTwin((s) => s.selectedComponentId);
   const setSelected = useTwin((s) => s.selectComponent);
+  const toggleDashboard = useTwin((s) => s.toggleDashboard);
+
+  // Background tap behaviour:
+  //   • If a part is zoomed in → first tap zooms back out (preserves the
+  //     user's dashboard preference for when they return to overview).
+  //   • If we're already in overview → tap-to-clear UI: hide / show the
+  //     telemetry panel, mirroring Apple's spatial-app gesture.
+  const onCanvasClick = () => {
+    if (selectedId) {
+      setSelected(null);
+    } else {
+      toggleDashboard();
+    }
+  };
 
   const statusMap = useMemo<Record<ComponentId, OperationalStatus>>(() => {
     const m = {} as Record<ComponentId, OperationalStatus>;
@@ -440,7 +454,7 @@ export function InteractiveSchematic() {
         viewBox={`0 0 ${VB_W} ${VB_H}`}
         preserveAspectRatio="xMidYMid meet"
         className="w-full h-full select-none"
-        onClick={() => setSelected(null)}
+        onClick={onCanvasClick}
         role="img"
         aria-label="HP Metal Jet S100 schematic"
       >

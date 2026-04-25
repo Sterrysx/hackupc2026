@@ -68,17 +68,35 @@ export async function queryAgent(body: AgentQueryBody): Promise<AgentQueryRespon
     }),
   });
 
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const j = (await res.json()) as { detail?: unknown };
-      if (typeof j.detail === "string") detail = j.detail;
-      else if (Array.isArray(j.detail)) detail = JSON.stringify(j.detail);
-    } catch {
-      /* ignore */
-    }
-    throw new AgentApiError(detail || `HTTP ${res.status}`, res.status);
-  }
-
+  if (!res.ok) throw await readApiError(res);
   return (await res.json()) as AgentQueryResponse;
+}
+
+/**
+ * Uploads a recorded audio Blob/File to `POST /stt/transcribe` (Faster Whisper)
+ * and returns the transcribed text. Sent as multipart/form-data — *do not* set
+ * the Content-Type header manually, the browser must compute the boundary.
+ */
+export async function transcribeAudio(file: File): Promise<string> {
+  const url = twinApiUrl("/stt/transcribe");
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+
+  const res = await fetch(url, { method: "POST", body: fd });
+  if (!res.ok) throw await readApiError(res);
+
+  const j = (await res.json()) as { text?: string };
+  return (j.text ?? "").trim();
+}
+
+async function readApiError(res: Response): Promise<AgentApiError> {
+  let detail = res.statusText;
+  try {
+    const j = (await res.json()) as { detail?: unknown };
+    if (typeof j.detail === "string") detail = j.detail;
+    else if (Array.isArray(j.detail)) detail = JSON.stringify(j.detail);
+  } catch {
+    /* body wasn't JSON; keep statusText */
+  }
+  return new AgentApiError(detail || `HTTP ${res.status}`, res.status);
 }

@@ -1,10 +1,12 @@
+import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, MessageSquare } from "lucide-react";
+import { ArrowLeft, Send, Sparkles } from "lucide-react";
 import { useTwin } from "@/store/twin";
 import { Badge, statusLabel, statusToTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { HealthRing } from "@/components/HealthRing";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { MicButton } from "@/components/floating/MicButton";
 import { formatEta } from "@/lib/alerts";
 import type { ComponentMetric } from "@/types/telemetry";
 
@@ -35,6 +37,10 @@ export function ComponentFocus({ id }: { id: string }) {
   const snapshot = useTwin((s) => s.snapshot);
   const selectComponent = useTwin((s) => s.selectComponent);
   const sendUserMessage = useTwin((s) => s.sendUserMessage);
+  const setChatOpen = useTwin((s) => s.setChatOpen);
+  const isThinking = useTwin((s) => s.isThinking);
+
+  const [draft, setDraft] = useState("");
 
   const c = snapshot.components.find((x) => x.id === id);
   const f = snapshot.forecasts.find((x) => x.id === id);
@@ -42,6 +48,26 @@ export function ComponentFocus({ id }: { id: string }) {
 
   const tone = statusToTone(c.status);
   const onBack = () => selectComponent(null);
+
+  const askContextual = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setDraft("");
+    setChatOpen(true);
+    // sendUserMessage reads selectedComponentId from the store and tags the
+    // payload with the focused component, so the agent answers about THIS part.
+    sendUserMessage(trimmed);
+  };
+
+  // Voice input: append transcript to the contextual draft so the user can
+  // review the question before submitting it to the agent.
+  const handleTranscript = useCallback((text: string) => {
+    setDraft((d) => {
+      const t = text.trim();
+      if (!t) return d;
+      return d.trim() ? `${d.trim()} ${t}` : t;
+    });
+  }, []);
 
   return (
     <motion.div
@@ -128,18 +154,34 @@ export function ComponentFocus({ id }: { id: string }) {
         </p>
       </motion.section>
 
-      {/* CTA */}
-      <motion.div variants={itemVariants}>
-        <Button
-          variant="primary"
-          className="w-full h-10"
-          onClick={() => {
-            sendUserMessage(`Tell me about the ${c.label}`);
+      {/* Contextual chat composer — opens Spotlight overlay with this part already in context. */}
+      <motion.div variants={itemVariants} className="flex flex-col gap-2">
+        <form
+          className="flex items-center gap-1.5 bg-white/[0.05] hover:bg-white/[0.07] focus-within:bg-white/[0.10] rounded-full pl-3.5 pr-1.5 py-1.5 transition-colors"
+          onSubmit={(e) => {
+            e.preventDefault();
+            askContextual(draft);
           }}
         >
-          <MessageSquare size={13} />
-          Ask Aether about this
-        </Button>
+          <Sparkles size={12} className="text-[var(--color-accent)] flex-shrink-0" />
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={`Ask Aether about the ${c.label}…`}
+            className="flex-1 bg-transparent outline-none text-[12.5px] text-[var(--color-fg)] placeholder:text-[var(--color-fg-faint)]"
+          />
+          <MicButton size="sm" onTranscript={handleTranscript} hint={`Speak about the ${c.label}…`} />
+          <Button
+            type="submit"
+            variant="primary"
+            size="icon"
+            className="h-7 w-7"
+            disabled={!draft.trim() || isThinking}
+            title="Send (opens Aether)"
+          >
+            <Send size={11} />
+          </Button>
+        </form>
       </motion.div>
     </motion.div>
   );

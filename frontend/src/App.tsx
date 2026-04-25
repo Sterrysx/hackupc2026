@@ -4,76 +4,73 @@ import { useTwin } from "@/store/twin";
 import { InteractiveSchematic } from "@/components/schematic/InteractiveSchematic";
 import { CommandPalette } from "@/components/CommandPalette";
 import { BrandMark } from "@/components/floating/BrandMark";
-import { ModeToggle } from "@/components/floating/ModeToggle";
+import { SidebarToggle } from "@/components/floating/SidebarToggle";
 import { SimControls } from "@/components/floating/SimControls";
 import { DashboardPanel } from "@/components/floating/DashboardPanel";
 import { ARDataCard } from "@/components/floating/ARDataCard";
-import { AetherBubble } from "@/components/floating/AetherBubble";
+import { SpotlightChat } from "@/components/floating/SpotlightChat";
 
 /**
  * "Ethereal Spatial" shell.
  *
- *   • Schematic is the entire 100vw × 100vh background — never constrained.
- *   • Floating glass overlays sit ABOVE it with margins from every edge.
- *   • Selecting a part:
- *       1. DashboardPanel (if visible) exits   (~0.32s)
- *       2. Schematic spring-zooms              (~0.8s)
- *       3. ARDataCard fades in spatially       (~0.42s, sequenced via mode="wait")
- *   • Reverse on Esc / back / re-click.
- *   • Mode toggle:
- *       - Dashboard → DashboardPanel visible (overview + embedded chat)
- *       - Immersive → DashboardPanel hidden, only schematic + chat bubble.
- *   • Aether chat bubble is a FAB at bottom-right whenever the dashboard
- *     widget isn't shown — so chat is always one click away.
+ *   • Schematic = full-bleed background. Tapping the empty canvas:
+ *       - while zoomed in  → zooms out (clears selection)
+ *       - while in overview → toggles the right-hand telemetry panel
+ *         (Apple-style "tap to clear UI")
+ *
+ *   • Right-hand surface — exactly one of these can be visible at a time:
+ *       - DashboardPanel  →  `dashboardOpen && !selectedComponentId`
+ *       - ARDataCard      →  `selectedComponentId !== null`
+ *     `AnimatePresence mode="wait"` sequences the cross-fade so one fully
+ *     exits before the next enters.
+ *
+ *   • Auto-hide on zoom is enforced purely by deriving visibility from
+ *     `selectedComponentId`. Zooming out restores the user's previous
+ *     dashboard preference automatically.
+ *
+ *   • SidebarToggle (top-right) is the explicit, glassmorphic control. It
+ *     stays low-opacity until hovered.
+ *
+ *   • SpotlightChat (FAB + ⌘K overlay) is the only persistent chat surface.
+ *
+ *   • CommandPalette is on ⌘⇧K (⌘K is owned by SpotlightChat).
  */
 export default function App() {
   const advance = useTwin((s) => s.advance);
-  const mode = useTwin((s) => s.mode);
+  const dashboardOpen = useTwin((s) => s.dashboardOpen);
   const selectedId = useTwin((s) => s.selectedComponentId);
-  const setBubbleOpen = useTwin((s) => s.setBubbleOpen);
-  // Comprueba /health al cargar (proxy /api en dev → uvicorn :8000).
+
   useEffect(() => {
     void useTwin.getState().refreshChatApiStatus();
   }, []);
 
-  // Tick the simulator once per second.
   useEffect(() => {
     const id = setInterval(() => advance(), 1000);
     return () => clearInterval(id);
   }, [advance]);
 
-  const showDashboardPanel = mode === "dashboard" && !selectedId;
-  const showBubble = !showDashboardPanel; // bubble fills in whenever the widget is gone
-
-  // If the user opens the dashboard widget while the chat bubble is expanded,
-  // close the bubble — its chat is now embedded in the widget.
-  useEffect(() => {
-    if (showDashboardPanel) setBubbleOpen(false);
-  }, [showDashboardPanel, setBubbleOpen]);
+  const showDashboardPanel = dashboardOpen && !selectedId;
 
   return (
     <div className="h-screen w-screen relative overflow-hidden bg-[var(--color-bg)]">
-      {/* Full-bleed schematic background */}
+      {/* Full-bleed schematic background (also handles tap-to-clear gestures). */}
       <div className="absolute inset-0">
         <InteractiveSchematic />
       </div>
 
-      {/* Floating chrome (always visible) */}
+      {/* Floating chrome */}
       <BrandMark />
-      <ModeToggle />
+      <SidebarToggle />
       <SimControls />
 
-      {/* Right-side data surface — DashboardPanel and ARDataCard never both visible.
-          mode="wait" sequences the cross-fade: one exits fully before the next enters. */}
+      {/* Right-side data surface — exactly one at a time. */}
       <AnimatePresence mode="wait">
         {showDashboardPanel && <DashboardPanel key="dashboard" />}
         {selectedId && <ARDataCard key={`ar-${selectedId}`} id={selectedId} />}
       </AnimatePresence>
 
-      {/* Floating chat (FAB + expandable panel) — present whenever dashboard widget isn't. */}
-      <AnimatePresence>
-        {showBubble && <AetherBubble key="bubble" />}
-      </AnimatePresence>
+      {/* Persistent chat surface — FAB + summonable overlay. */}
+      <SpotlightChat />
 
       <CommandPalette />
     </div>

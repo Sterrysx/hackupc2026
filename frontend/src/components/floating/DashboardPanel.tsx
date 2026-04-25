@@ -1,24 +1,23 @@
 import { motion } from "framer-motion";
 import { OverviewPanel } from "@/components/sidebar/OverviewPanel";
-import { EmbeddedChat } from "@/components/sidebar/EmbeddedChat";
-
-const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /**
- * The main floating dashboard widget — visible when:
- *   mode === "dashboard"  AND  no component is selected.
+ * Floating dashboard widget — visible iff:
+ *   `dashboardOpen && !selectedComponentId`
  *
- * Glass pane hovering over the schematic. Top section is the live overview
- * (status hero, components list, alerts, environment); bottom section is the
- * Aether chat. Top/bottom margins of 24px so it never touches the edges.
+ * The panel is strictly at-a-glance telemetry + alerts; chat lives in the
+ * Spotlight overlay. Slides in/out with a heavy spring so it lands like a
+ * native macOS sidebar instead of a CSS modal.
  */
+const PANEL_SPRING = { type: "spring" as const, stiffness: 220, damping: 30, mass: 0.9 };
+
 export function DashboardPanel() {
   return (
     <motion.aside
-      initial={{ opacity: 0, scale: 0.96, x: 12 }}
-      animate={{ opacity: 1, scale: 1, x: 0 }}
-      exit={{ opacity: 0, scale: 0.95, x: 8 }}
-      transition={{ duration: 0.32, ease: APPLE_EASE }}
+      initial={{ opacity: 0, x: 36 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 36 }}
+      transition={PANEL_SPRING}
       className="
         fixed top-6 right-6 bottom-6 z-20
         w-[400px] xl:w-[440px]
@@ -28,9 +27,6 @@ export function DashboardPanel() {
     >
       <div className="flex-1 min-h-0 overflow-y-auto">
         <OverviewPanel />
-      </div>
-      <div className="h-[42%] min-h-[260px] max-h-[440px] flex flex-col flex-shrink-0">
-        <EmbeddedChat />
       </div>
     </motion.aside>
   );
