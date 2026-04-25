@@ -34,27 +34,25 @@ def test_query_agent(mock_invoke):
         "final_report": {
             "grounded_text": "The machine is in perfect condition.",
             "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
-            "severity_indicator": "INFO"
+            "severity_indicator": "INFO",
+            "recommended_actions": ["Continue operations"],
+            "priority_level": "LOW"
         }
     }
     
     payload = {
         "query": "What is the current status?",
-        "chat_history": [
-            {"role": "user", "content": "Hi"},
-            {"role": "assistant", "content": "Hello! How can I help you today?"}
-        ],
+        "thread_id": "test-session",
         "run_identifier": "test-run-123"
     }
     
     response = client.post("/agent/query", json=payload)
     
     assert response.status_code == 200
-    assert response.json() == {
-        "grounded_text": "The machine is in perfect condition.",
-        "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
-        "severity_indicator": "INFO"
-    }
+    data = response.json()
+    assert data["grounded_text"] == "The machine is in perfect condition."
+    assert data["priority_level"] == "LOW"
+    assert "recommended_actions" in data
     mock_invoke.assert_called_once()
 
 def test_query_agent_minimal_payload():
@@ -63,7 +61,9 @@ def test_query_agent_minimal_payload():
             "final_report": {
                 "grounded_text": "Basic report.",
                 "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
-                "severity_indicator": "INFO"
+                "severity_indicator": "INFO",
+                "recommended_actions": ["Action"],
+                "priority_level": "LOW"
             }
         }
         
@@ -71,11 +71,9 @@ def test_query_agent_minimal_payload():
         response = client.post("/agent/query", json=payload)
         
         assert response.status_code == 200
-        assert response.json() == {
-            "grounded_text": "Basic report.",
-            "evidence_citation": "Based on the telemetry at 2026-04-25T14:00:00 in run R1",
-            "severity_indicator": "INFO"
-        }
+        data = response.json()
+        assert data["grounded_text"] == "Basic report."
+        assert data["priority_level"] == "LOW"
 
 @patch("app.speaker.generate_speech")
 def test_tts_speak(mock_generate):

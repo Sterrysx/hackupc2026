@@ -88,6 +88,12 @@ def guardrail_node(state: GraphState) -> dict:
         if report.severity_indicator not in ["INFO", "WARNING", "CRITICAL"]:
             errors.append("severity_indicator must be INFO, WARNING, or CRITICAL.")
         
+        if report.priority_level not in ["LOW", "MEDIUM", "HIGH"]:
+            errors.append("priority_level must be LOW, MEDIUM, or HIGH.")
+            
+        if not report.recommended_actions or len(report.recommended_actions) < 1:
+            errors.append("At least one recommended_action must be provided.")
+        
         has_timestamp = bool(_TIMESTAMP_RE.search(report.evidence_citation))
         has_run_id = bool(_RUN_ID_RE.search(report.evidence_citation.lower()))
         

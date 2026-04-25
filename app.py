@@ -56,13 +56,15 @@ class Message(BaseModel):
 
 class AgentRequest(BaseModel):
     query: str
-    chat_history: Optional[List[Message]] = []
+    thread_id: Optional[str] = "default-thread"
     run_identifier: Optional[str] = ""
 
 class AgentResponse(BaseModel):
     grounded_text: str
     evidence_citation: str
     severity_indicator: str
+    recommended_actions: List[str]
+    priority_level: str
 
 class TelemetryData(BaseModel):
     timestamp: str
@@ -87,8 +89,12 @@ async def analyze_and_notify(data: TelemetryData):
         query = (
             f"ALERT: Component '{data.component}' reported status '{data.status}' "
             f"(Health: {data.health_index}) in run {data.run_id}. "
-            "Please provide an immediate diagnostic report."
+            "Please provide an immediate diagnostic report, including root cause and recommended actions."
         )
+        
+        # Use a unique thread ID for each autonomous alert to avoid context pollution,
+        # or use a fixed one like "watchdog-alerts" to keep a history of alerts.
+        config = {"configurable": {"thread_id": f"alert-{data.run_id}-{data.component}"}}
         
         initial_state = {
             "messages": [HumanMessage(content=query)],
@@ -98,7 +104,7 @@ async def analyze_and_notify(data: TelemetryData):
             "validation_attempts": 0,
         }
         
-        result = agent_graph.invoke(initial_state)
+        result = agent_graph.invoke(initial_state, config=config)
         report = result.get("final_report")
         
         if report:
@@ -193,31 +199,21 @@ async def transcribe_audio(file: UploadFile = File(...)):
 @app.post("/agent/query", response_model=AgentResponse)
 async def query_agent(request: AgentRequest):
     """
-    Endpoint to trigger the AI Agent workflow.
+    Endpoint to trigger the AI Agent workflow with persistent memory.
     """
     try:
-        # Convert Pydantic messages to LangChain messages if history is provided
-        messages = []
-        if request.chat_history:
-            for msg in request.chat_history:
-                if msg.role == "user":
-                    messages.append(HumanMessage(content=msg.content))
-                else:
-                    messages.append(AIMessage(content=msg.content))
+        config = {"configurable": {"thread_id": request.thread_id}}
         
-        # Add the current query
-        messages.append(HumanMessage(content=request.query))
-
         initial_state = {
-            "messages": messages,
+            "messages": [HumanMessage(content=request.query)],
             "run_identifier": request.run_identifier or "",
             "retrieved_telemetry": "",
             "final_report": "",
             "validation_attempts": 0,
         }
 
-        # Invoke the graph
-        result = agent_graph.invoke(initial_state)
+        # Invoke the graph with thread configuration
+        result = agent_graph.invoke(initial_state, config=config)
         
         final_report = result.get("final_report")
         if not final_report:

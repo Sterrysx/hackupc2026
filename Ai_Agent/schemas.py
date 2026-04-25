@@ -31,6 +31,8 @@ class TelemetryRecord(BaseModel):
 
 
 class DiagnosticReport(BaseModel):
-    grounded_text: str = Field(description="A clear, plain-language explanation based solely on telemetry.")
+    grounded_text: str = Field(description="A clear, plain-language explanation based solely on telemetry. If multiple runs or timeframes are analyzed, explain the root cause and chain of events.")
     evidence_citation: str = Field(description="A reference to the specific data point or timestamp used (e.g., 'Based on the telemetry at 14:05:02...'). Must include the run identifier if applicable.")
     severity_indicator: str = Field(description="A categorization of the information: INFO, WARNING, or CRITICAL.")
+    recommended_actions: list[str] = Field(default_factory=list, description="Specific, actionable steps the operator should take based on the diagnosis.")
+    priority_level: str = Field(description="Priority of the recommended actions: LOW, MEDIUM, HIGH.")
