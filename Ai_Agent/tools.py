@@ -7,36 +7,6 @@ from .db import get_connection, init_db
 
 init_db()
 
-DB_SCHEMA = {
-    "description": "Phase 2 historian SQLite database for HP Metal Jet S100 Digital Twin telemetry",
-    "table": "telemetry",
-    "columns": {
-        "id":           "INTEGER PRIMARY KEY — auto-increment row ID",
-        "timestamp":    "TEXT — ISO-8601 datetime (YYYY-MM-DDTHH:MM:SS)",
-        "run_id":       "TEXT — simulation run identifier (e.g. 'R1', 'R2')",
-        "component":    "TEXT — recoater_blade | nozzle_plate | heating_element",
-        "health_index": "REAL — component health [0.0–1.0], 1.0 = perfect",
-        "status":       "TEXT — FUNCTIONAL | DEGRADED | CRITICAL | FAILED",
-        "temperature":  "REAL — component temperature in Celsius",
-        "pressure":     "REAL — operating pressure in bar",
-        "fan_speed":    "REAL — cooling fan RPM",
-        "metrics":      "TEXT — JSON object with component-specific fields (see component_metrics)",
-    },
-    "component_metrics": {
-        "recoater_blade":  {"thickness_mm": "blade thickness (mm)", "wear_rate": "wear per cycle"},
-        "nozzle_plate":    {"clog_percentage": "% nozzles clogged", "droplet_volume_pl": "droplet volume (pl)"},
-        "heating_element": {"resistance_ohm": "resistance (Ω)", "power_draw_w": "power draw (W)"},
-    },
-    "available_runs": ["R1", "R2"],
-    "query_parameters": {
-        "run_identifier":  "Required — run ID to query (e.g. 'R1')",
-        "timestamp_range": "Optional — time range filter 'HH:MM:SS-HH:MM:SS'",
-        "component":       "Optional — filter by component name",
-        "status":          "Optional — filter by component status (FUNCTIONAL | DEGRADED | CRITICAL | FAILED)",
-    },
-}
-
-
 class ThinkInput(BaseModel):
     thought: str
 
@@ -50,11 +20,16 @@ def think(thought: str) -> str:
 
 
 @tool
-def get_db_schema() -> str:
-    """Return the schema of the Phase 2 historian SQLite database.
-    Call this first to understand the table structure, column types, available
-    run IDs, and component metric definitions before querying with query_database."""
-    return json.dumps(DB_SCHEMA, indent=2)
+def get_existing_runs() -> str:
+    """Return a list of all existing run identifiers (run_ids) in the historian database.
+    Call this first to know which simulation runs are available for analysis."""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute("SELECT DISTINCT run_id FROM telemetry ORDER BY run_id").fetchall()
+            runs = [row["run_id"] for row in rows]
+            return json.dumps({"available_runs": runs}, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": "Failed to fetch runs", "detail": str(exc)})
 
 
 @tool(args_schema=QueryDatabaseInput)
@@ -119,7 +94,7 @@ def query_database(
                 "status": status,
             },
             "hint": f"Run '{run_identifier}' may not exist or no records match the filters. "
-                    "Call get_db_schema to verify available run IDs, component names, and status codes.",
+                    "Call get_existing_runs to verify available run IDs.",
         })
 
     records = []

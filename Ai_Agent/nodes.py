@@ -5,10 +5,10 @@ from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from .config import get_llm
 from .prompts import GATHERER_SYSTEM_PROMPT, SYNTHESIZER_SYSTEM_PROMPT
 from .state import GraphState
-from .tools import query_database, get_db_schema, think
+from .tools import query_database, get_existing_runs, think
 from .schemas import DiagnosticReport
 
-GATHERER_TOOLS = [think, get_db_schema, query_database]
+GATHERER_TOOLS = [think, get_existing_runs, query_database]
 SYNTHESIZER_TOOLS = [think]
 
 MAX_VALIDATION_ATTEMPTS = 3

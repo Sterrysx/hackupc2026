@@ -1,6 +1,6 @@
 import json
 import pytest
-from Ai_Agent.tools import query_database, get_db_schema, think
+from Ai_Agent.tools import query_database, get_existing_runs, think
 
 
 def _call(run_identifier, timestamp_range=None, component=None):
@@ -58,24 +58,10 @@ def test_timestamp_range_filter():
     assert all("14:00" in r["timestamp"] for r in result)
 
 
-def test_get_db_schema_returns_run_ids():
-    schema = json.loads(get_db_schema.invoke({}))
-    assert "R1" in schema["available_runs"]
-    assert "R2" in schema["available_runs"]
-
-
-def test_get_db_schema_lists_components():
-    schema = json.loads(get_db_schema.invoke({}))
-    components = schema["component_metrics"].keys()
-    assert "nozzle_plate" in components
-    assert "recoater_blade" in components
-    assert "heating_element" in components
-
-
-def test_get_db_schema_describes_query_params():
-    schema = json.loads(get_db_schema.invoke({}))
-    assert "run_identifier" in schema["query_parameters"]
-    assert "component" in schema["query_parameters"]
+def test_get_existing_runs_returns_run_ids():
+    result = json.loads(get_existing_runs.invoke({}))
+    assert "R1" in result["available_runs"]
+    assert "R2" in result["available_runs"]
 
 
 def test_think_returns_empty_string():
