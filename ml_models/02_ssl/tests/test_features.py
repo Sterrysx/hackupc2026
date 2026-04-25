@@ -62,6 +62,46 @@ def test_build_feature_matrix_returns_full_column_list() -> None:
     assert len(df) == 4
 
 
+def test_project_root_resolves_independently_of_cwd(tmp_path, monkeypatch) -> None:
+    """Regression for the `Path('ml_models/...')` doubling bug.
+
+    Previously notebook cells used relative paths that resolved against
+    Jupyter's cwd. After the fix everything uses ``ml_models.PROJECT_ROOT``
+    derived from ``__file__``, which must be cwd-invariant.
+    """
+    from ml_models import PROJECT_ROOT
+    from ml_models.lib.data import DEFAULT_FLEET_PATH as canonical
+
+    monkeypatch.chdir(tmp_path)
+    # PROJECT_ROOT is computed from the package's __file__, so it should not
+    # care about the new cwd.
+    assert (PROJECT_ROOT / "pyproject.toml").exists(), (
+        "PROJECT_ROOT must point at the repo root regardless of cwd"
+    )
+    expected_models_dir = PROJECT_ROOT / "ml_models" / "02_ssl" / "models"
+    # PROJECT_ROOT / 'ml_models/02_ssl/models' must NOT be
+    # PROJECT_ROOT / 'ml_models/02_ssl/ml_models/02_ssl/models'
+    assert "ml_models/02_ssl/ml_models" not in expected_models_dir.as_posix()
+    # The DEFAULT_FLEET_PATH constant should point at the canonical location.
+    assert canonical.as_posix().endswith("data/fleet_baseline.parquet")
+
+
+def test_stratified_printer_split_balances_climates() -> None:
+    """Each split should contain at least one printer from every climate zone."""
+    from ml_models.lib.data import stratified_printer_split
+    from sdg.generate import build_printer_city_map, load_configs
+    from sdg.schema import CLIMATE_CATEGORIES
+
+    splits = stratified_printer_split(seed=0)
+    assert sum(len(v) for v in splits.values()) == 100
+    _, _, cities_cfg = load_configs()
+    printer_city_map = build_printer_city_map(list(cities_cfg["cities"]))
+    for split_name, ids in splits.items():
+        zones = {printer_city_map[pid]["climate_zone"] for pid in ids}
+        missing = set(CLIMATE_CATEGORIES) - zones
+        assert not missing, f"{split_name} missing climate zones: {missing}"
+
+
 def test_features_align_with_real_parquet_schema_when_available() -> None:
     if not DEFAULT_FLEET_PATH.exists():
         pytest.skip("fleet_baseline.parquet not generated yet")

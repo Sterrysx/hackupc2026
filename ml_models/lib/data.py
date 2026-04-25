@@ -48,6 +48,60 @@ def filter_printers(df: pd.DataFrame, printer_ids: Iterable[int]) -> pd.DataFram
     return df.loc[df["printer_id"].isin(ids)].reset_index(drop=True)
 
 
+def stratified_printer_split(
+    seed: int = 0,
+    train_frac: float = 0.70,
+    val_frac: float = 0.15,
+) -> dict[str, tuple[int, ...]]:
+    """Climate-stratified printer split (opt-in alternative to ``printer_split``).
+
+    The default ``printer_split`` partitions printers by ID range, which on the
+    current ``CITY_PRINTER_COUNTS`` layout is climate-imbalanced — train sees
+    only nordic / continental / oceanic / mediterranean (Barcelona only), while
+    test gets all-eastern. That breaks SSL generalisation on test.
+
+    This helper distributes printers from each climate zone proportionally
+    across train / val / test, so every split sees every climate. Returns the
+    same shape as :func:`printer_split` and is a drop-in replacement once a
+    fresh SSL encoder is trained against it.
+
+    Note: the existing trained SSL encoder under
+    ``ml_models/02_ssl/models/ssl_encoder.pt`` was fitted on the legacy
+    ``printer_split``. Calling this helper changes which printers feed
+    SSL pretraining, so retraining is required before the surrogate /
+    Stage 03 evals are valid.
+    """
+    from sdg.generate import build_printer_city_map, load_configs
+
+    _, _, cities_cfg = load_configs()
+    printer_city_map = build_printer_city_map(list(cities_cfg["cities"]))
+    by_zone: dict[str, list[int]] = {}
+    for printer_id, profile in enumerate(printer_city_map):
+        by_zone.setdefault(profile["climate_zone"], []).append(printer_id)
+
+    rng = np.random.default_rng(seed)
+    train: list[int] = []
+    val: list[int] = []
+    test: list[int] = []
+    for zone, ids in sorted(by_zone.items()):
+        ids = list(ids)
+        rng.shuffle(ids)
+        n = len(ids)
+        n_train = int(round(n * train_frac))
+        n_val = int(round(n * val_frac))
+        # remainder goes to test
+        train.extend(ids[:n_train])
+        val.extend(ids[n_train : n_train + n_val])
+        test.extend(ids[n_train + n_val :])
+    if len(train) + len(val) + len(test) != EXPECTED_PRINTERS:
+        raise AssertionError("stratified split must cover all 100 printers")
+    return {
+        "train": tuple(sorted(train)),
+        "val": tuple(sorted(val)),
+        "test": tuple(sorted(test)),
+    }
+
+
 def to_panel_tensor(
     df: pd.DataFrame,
     feature_cols: list[str],

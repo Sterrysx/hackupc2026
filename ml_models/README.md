@@ -13,7 +13,7 @@ action     τ = (τ_C1, τ_C2, τ_C3, τ_C4, τ_C5, τ_C6)   maintenance interva
 |-------|--------|--------|
 | `01_baseline/` | No ML — Optuna over τ calling the SDG simulator directly | ✅ implemented |
 | `02_ssl/` | PatchTST self-supervised pretrain → frozen-encoder RUL head → surrogate-driven τ search | ✅ implemented |
-| `03_rl+ssl/` | RL policy on top of the SSL encoder | ⏳ scaffold only (deferred) |
+| `03_rl+ssl/` | PPO + frozen Stage 02 encoder → per-printer τ policy | ✅ implemented |
 
 ## Data splits (printer-level)
 
@@ -46,8 +46,14 @@ uv run jupyter lab ml_models/02_ssl/01_pretrain.ipynb
 uv run jupyter lab ml_models/02_ssl/02_finetune_rul.ipynb
 uv run jupyter lab ml_models/02_ssl/03_surrogate_search.ipynb
 
+# Stage 03 RL+SSL (uses Stage 02 encoder; CPU is fine, GPU helps PPO updates)
+uv run jupyter lab ml_models/03_rl+ssl/00_setup_and_sanity.ipynb
+uv run jupyter lab ml_models/03_rl+ssl/01_train_ppo.ipynb
+uv run jupyter lab ml_models/03_rl+ssl/02_eval_test.ipynb
+uv run jupyter lab ml_models/03_rl+ssl/03_compare.ipynb
+
 # Tests (lib code only; notebooks are not exercised in CI)
-uv run pytest sdg/tests ml_models/01_baseline/tests ml_models/02_ssl/tests
+uv run pytest sdg/tests ml_models/01_baseline/tests ml_models/02_ssl/tests ml_models/03_rl+ssl/tests
 ```
 
 ## GPU configuration (2× RTX 3090)
@@ -87,6 +93,10 @@ digits or `+`, so all imports are clean):
 - `lib/features.py` — feature engineering (calendar sin/cos, log1p counters,
   health/τ/L/lambda channels) used by the Transformer.
 - `lib/plotting.py` — shared matplotlib helpers.
+- `lib/rl/` — Stage 03 RL building blocks (frozen-encoder loader,
+  `MaintenanceBanditEnv`, PPO trainer, eval helpers). Lives here rather than
+  inside `03_rl+ssl/` because the stage folder name has `+` and can't be a
+  Python package.
 
 ## Numbering note on `03_rl+ssl/`
 
