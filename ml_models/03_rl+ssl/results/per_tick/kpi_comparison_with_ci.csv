@@ -1,0 +1,4 @@
+stage,policy_class,description,fleet_value,fleet_annual_cost,fleet_availability,fleet_deficit,feasible_printer_pct,infeasible_floor_breached,n_test_printers,annual_cost_lo,annual_cost_hi,fleet_value_lo,fleet_value_hi,fleet_availability_lo,fleet_availability_hi
+stage_01,constant τ,Optuna over constant τ,10500000000.0,4748685.940323022,0.0,0.95,0.0,True,15,4519059.20784287,4991110.212582124,10500000000.0,10500000000.0,0.0,0.0
+stage_02,constant τ,SSL+RUL surrogate over constant τ,10500000000.0,4507037.68683274,0.0,0.95,0.0,True,15,4295753.40174172,4733947.066298249,10500000000.0,10500000000.0,0.0,0.0
+stage_03_per_tick,per-printer τ,"PPO + SPR + ensemble, per-day decisions",6099556680.962374,2755087.8490281967,0.4400443319037625,0.5099556680962374,0.0,True,15,2641167.860491377,2882011.140843143,5835721020.774402,6393721294.522006,0.41062787054779937,0.46642789792255984

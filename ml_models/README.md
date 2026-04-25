@@ -1,4 +1,4 @@
-# `ml_models/` — three-stage maintenance-policy ladder
+# `ml_models/` — maintenance-policy modelling ladder
 
 This directory implements a progressive ladder of approaches to the optimisation
 problem stated in [`CONTEXT.md`](../CONTEXT.md) §10:
@@ -11,9 +11,11 @@ action     τ = (τ_C1, τ_C2, τ_C3, τ_C4, τ_C5, τ_C6)   maintenance interva
 
 | Stage | Method | Status |
 |-------|--------|--------|
+| `00_eda/` | Exploratory data analysis over the SDG fleet baseline | ✅ implemented |
 | `01_baseline/` | No ML — Optuna over τ calling the SDG simulator directly | ✅ implemented |
 | `02_ssl/` | PatchTST self-supervised pretrain → frozen-encoder RUL head → surrogate-driven τ search | ✅ implemented |
-| `03_rl+ssl/` | PPO + frozen Stage 02 encoder → per-printer τ policy | ✅ implemented |
+| `03_rl+ssl/` | PPO + frozen Stage 02 encoder → per-printer/per-tick policies | ✅ implemented |
+| `04/results/` | Final comparison report across Stages 01/02/03 | ✅ implemented |
 
 ## Data splits (printer-level)
 
@@ -37,6 +39,12 @@ Always execute via `uv run` so the project's pinned environment is used:
 # core deps + ML deps
 uv sync
 
+# Run everything end-to-end: 00, 01, 02, 03, then 04
+./train.sh
+
+# Stage 00 EDA
+uv run jupyter lab ml_models/00_eda/eda_fleet_baseline.ipynb
+
 # Stage 01 baseline (pure simulator + Optuna; CPU-only is fine)
 uv run jupyter lab ml_models/01_baseline/search.ipynb
 
@@ -51,6 +59,10 @@ uv run jupyter lab ml_models/03_rl+ssl/00_setup_and_sanity.ipynb
 uv run jupyter lab ml_models/03_rl+ssl/01_train_ppo.ipynb
 uv run jupyter lab ml_models/03_rl+ssl/02_eval_test.ipynb
 uv run jupyter lab ml_models/03_rl+ssl/03_compare.ipynb
+uv run jupyter lab ml_models/03_rl+ssl/04_per_tick_recurrent_ppo.ipynb
+
+# Stage 04 results comparison
+uv run jupyter lab ml_models/04/results/compare_01_02_03.ipynb
 
 # Tests (lib code only; notebooks are not exercised in CI)
 uv run pytest sdg/tests ml_models/01_baseline/tests ml_models/02_ssl/tests ml_models/03_rl+ssl/tests

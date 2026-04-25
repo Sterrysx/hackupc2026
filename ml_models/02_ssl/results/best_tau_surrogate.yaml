@@ -1,0 +1,11 @@
+tau_nom_h:
+  C1: 50.0401256648205
+  C2: 540.5696937855336
+  C3: 473.87428737328895
+  C4: 1836.2170607142916
+  C5: 2462.544206639712
+  C6: 19920.895587196745
+validated_on: test printers (id 85..99)
+surrogate_annual_cost: 84507.28426842293
+real_annual_cost_eur_per_printer_year: 4507037.68683274
+real_availability: 0.0
