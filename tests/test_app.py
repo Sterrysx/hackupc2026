@@ -54,3 +54,25 @@ def test_query_agent_minimal_payload():
         
         assert response.status_code == 200
         assert response.json() == {"final_report": "Basic report."}
+
+@patch("app.insert_telemetry")
+def test_add_telemetry(mock_insert):
+    mock_insert.return_value = 42
+    
+    payload = {
+        "timestamp": "2026-04-25T17:00:00",
+        "run_id": "R3",
+        "component": "test_component",
+        "health_index": 0.9,
+        "status": "FUNCTIONAL",
+        "temperature": 40.0,
+        "pressure": 1.0,
+        "fan_speed": 2500,
+        "metrics": {"some_key": "some_value"}
+    }
+    
+    response = client.post("/telemetry", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json() == {"id": 42, "message": "Telemetry data added successfully."}
+    mock_insert.assert_called_once()

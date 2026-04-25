@@ -8,12 +8,16 @@ from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 from stt.transcriber import SpeechToText
 from Ai_Agent.graph import build_graph
+from Ai_Agent.db import insert_telemetry, init_db
 
 app = FastAPI(title="Digital Twin AI API")
 
 # Initialize components
 transcriber = SpeechToText()
 agent_graph = build_graph()
+
+# Initialize DB
+init_db()
 
 # --- Pydantic Schemas ---
 
@@ -33,7 +37,43 @@ class AgentResponse(BaseModel):
     final_report: str
     # You can add more fields if needed, like the updated history
 
+class TelemetryData(BaseModel):
+    timestamp: str
+    run_id: str
+    component: str
+    health_index: float
+    status: str
+    temperature: float
+    pressure: float
+    fan_speed: float
+    metrics: dict
+
+class TelemetryResponse(BaseModel):
+    id: int
+    message: str
+
 # --- Endpoints ---
+
+@app.post("/telemetry", response_model=TelemetryResponse)
+async def add_telemetry(data: TelemetryData):
+    """
+    Endpoint to add new telemetry data to the historian database.
+    """
+    try:
+        last_id = insert_telemetry(
+            timestamp=data.timestamp,
+            run_id=data.run_id,
+            component=data.component,
+            health_index=data.health_index,
+            status=data.status,
+            temperature=data.temperature,
+            pressure=data.pressure,
+            fan_speed=data.fan_speed,
+            metrics=data.metrics
+        )
+        return TelemetryResponse(id=last_id, message="Telemetry data added successfully.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add telemetry: {str(e)}")
 
 @app.post("/stt/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(file: UploadFile = File(...)):

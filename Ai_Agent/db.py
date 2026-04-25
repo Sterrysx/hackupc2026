@@ -48,3 +48,29 @@ def init_db() -> None:
         conn.execute(CREATE_TABLE_SQL)
         if conn.execute("SELECT COUNT(*) FROM telemetry").fetchone()[0] == 0:
             conn.executemany(_INSERT_SQL, _SEED_ROWS)
+
+
+def insert_telemetry(
+    timestamp: str,
+    run_id: str,
+    component: str,
+    health_index: float,
+    status: str,
+    temperature: float,
+    pressure: float,
+    fan_speed: float,
+    metrics: dict
+) -> int:
+    with get_connection() as conn:
+        cursor = conn.execute(_INSERT_SQL, (
+            timestamp,
+            run_id,
+            component,
+            health_index,
+            status,
+            temperature,
+            pressure,
+            fan_speed,
+            json.dumps(metrics)
+        ))
+        return cursor.lastrowid
