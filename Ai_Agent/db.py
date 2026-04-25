@@ -1,8 +1,11 @@
 import json
+import logging
 import sqlite3
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "data" / "historian.db"
+
+_logger = logging.getLogger(__name__)
 
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS telemetry (
@@ -19,7 +22,12 @@ CREATE TABLE IF NOT EXISTS telemetry (
 )
 """
 
-_SEED_ROWS = [
+# Fallback rows used only when the Stage 1 parquet isn't available (fresh
+# checkout before `uv run python -m sdg.generate`, CI image without the
+# dataset, etc.). The real seed path lives in ``Ai_Agent.historian_seed``
+# and pulls every value from ``data/fleet_baseline.parquet`` so the agent
+# is always grounded in real simulator output.
+_FALLBACK_SEED_ROWS = [
     ("2026-04-25T14:00:00", "R1", "recoater_blade",  0.85, "FUNCTIONAL", 45.2,  1.01, 2800, json.dumps({"thickness_mm": 2.1,  "wear_rate": 0.002})),
     ("2026-04-25T14:05:02", "R1", "nozzle_plate",    0.32, "CRITICAL",   312.8, 1.45, 1200, json.dumps({"clog_percentage": 68.5, "droplet_volume_pl": 3.2})),
     ("2026-04-25T14:05:02", "R1", "heating_element", 0.55, "DEGRADED",   298.0, 1.02, 2400, json.dumps({"resistance_ohm": 15.8, "power_draw_w": 1450})),
@@ -47,7 +55,28 @@ def init_db() -> None:
     with get_connection() as conn:
         conn.execute(CREATE_TABLE_SQL)
         if conn.execute("SELECT COUNT(*) FROM telemetry").fetchone()[0] == 0:
-            conn.executemany(_INSERT_SQL, _SEED_ROWS)
+            rows = _load_parquet_seed_rows() or _FALLBACK_SEED_ROWS
+            conn.executemany(_INSERT_SQL, rows)
+
+
+def _load_parquet_seed_rows() -> list[tuple] | None:
+    """Return simulator-derived seed rows, or ``None`` if the parquet is
+    unavailable. Failing silently is deliberate: the static fallback keeps
+    offline installs, CI without the dataset, and fresh clones bootable.
+    The warning log makes the fallback visible when it happens in a real
+    deployment."""
+    try:
+        from Ai_Agent.historian_seed import build_seed_rows
+        return build_seed_rows()
+    except Exception as exc:
+        _logger.warning(
+            "Could not build historian seed from fleet_baseline.parquet (%s). "
+            "Falling back to static seeds — the agent will still run, but "
+            "grounding will be against fixture rows instead of real simulator "
+            "output. Run `uv run python -m sdg.generate` to fix.",
+            exc,
+        )
+        return None
 
 
 def insert_telemetry(
