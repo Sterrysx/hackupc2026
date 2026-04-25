@@ -2,7 +2,7 @@ import os
 import shutil
 import tempfile
 from typing import List, Optional
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
@@ -15,6 +15,23 @@ from Ai_Agent.graph import build_graph
 from Ai_Agent.db import insert_telemetry, init_db
 
 app = FastAPI(title="Digital Twin AI API")
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_json(message)
+
+manager = ConnectionManager()
 
 # Initialize components
 transcriber = SpeechToText()
@@ -62,7 +79,49 @@ class TelemetryResponse(BaseModel):
     id: int
     message: str
 
+async def analyze_and_notify(data: TelemetryData):
+    """
+    Background task to analyze a critical telemetry reading and notify all connected clients.
+    """
+    try:
+        query = (
+            f"ALERT: Component '{data.component}' reported status '{data.status}' "
+            f"(Health: {data.health_index}) in run {data.run_id}. "
+            "Please provide an immediate diagnostic report."
+        )
+        
+        initial_state = {
+            "messages": [HumanMessage(content=query)],
+            "run_identifier": data.run_id,
+            "retrieved_telemetry": "",
+            "final_report": "",
+            "validation_attempts": 0,
+        }
+        
+        result = agent_graph.invoke(initial_state)
+        report = result.get("final_report")
+        
+        if report:
+            await manager.broadcast({
+                "type": "PROACTIVE_ALERT",
+                "component": data.component,
+                "status": data.status,
+                "report": report
+            })
+    except Exception as e:
+        print(f"Watchdog analysis failed: {e}")
+
 # --- Endpoints ---
+
+@app.websocket("/ws/notifications")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection open
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 @app.post("/tts/speak")
 async def speak_text(request: TTSRequest):
@@ -79,9 +138,10 @@ async def speak_text(request: TTSRequest):
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
 
 @app.post("/telemetry", response_model=TelemetryResponse)
-async def add_telemetry(data: TelemetryData):
+async def add_telemetry(data: TelemetryData, background_tasks: BackgroundTasks):
     """
     Endpoint to add new telemetry data to the historian database.
+    Triggers a proactive AI alert if status is CRITICAL or FAILED.
     """
     try:
         last_id = insert_telemetry(
@@ -95,6 +155,11 @@ async def add_telemetry(data: TelemetryData):
             fan_speed=data.fan_speed,
             metrics=data.metrics
         )
+        
+        # Proactive Monitoring (Watchdog)
+        if data.status.upper() in ["CRITICAL", "FAILED"]:
+            background_tasks.add_task(analyze_and_notify, data)
+            
         return TelemetryResponse(id=last_id, message="Telemetry data added successfully.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add telemetry: {str(e)}")

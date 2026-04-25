@@ -77,28 +77,6 @@ def test_query_agent_minimal_payload():
             "severity_indicator": "INFO"
         }
 
-@patch("app.insert_telemetry")
-def test_add_telemetry(mock_insert):
-    mock_insert.return_value = 42
-    
-    payload = {
-        "timestamp": "2026-04-25T17:00:00",
-        "run_id": "R3",
-        "component": "test_component",
-        "health_index": 0.9,
-        "status": "FUNCTIONAL",
-        "temperature": 40.0,
-        "pressure": 1.0,
-        "fan_speed": 2500,
-        "metrics": {"some_key": "some_value"}
-    }
-    
-    response = client.post("/telemetry", json=payload)
-    
-    assert response.status_code == 200
-    assert response.json() == {"id": 42, "message": "Telemetry data added successfully."}
-    mock_insert.assert_called_once()
-
 @patch("app.speaker.generate_speech")
 def test_tts_speak(mock_generate):
     # Mock the returned path to a dummy file
@@ -118,3 +96,34 @@ def test_tts_speak(mock_generate):
     # Cleanup
     if os.path.exists(tmp_path):
         os.unlink(tmp_path)
+
+def test_websocket_connection():
+    with client.websocket_connect("/ws/notifications") as websocket:
+        # Connection should be accepted
+        pass
+
+@patch("app.insert_telemetry")
+@patch("app.analyze_and_notify")
+def test_add_telemetry_triggers_watchdog(mock_analyze, mock_insert):
+    mock_insert.return_value = 42
+    
+    payload = {
+        "timestamp": "2026-04-25T17:00:00",
+        "run_id": "R3",
+        "component": "test_component",
+        "health_index": 0.1,
+        "status": "FAILED",
+        "temperature": 140.0,
+        "pressure": 1.0,
+        "fan_speed": 0,
+        "metrics": {"error": "motor_stall"}
+    }
+    
+    # We use TestClient which handles background tasks synchronously for testing
+    response = client.post("/telemetry", json=payload)
+    
+    assert response.status_code == 200
+    assert response.json() == {"id": 42, "message": "Telemetry data added successfully."}
+    
+    # Verify that the background task was added/triggered
+    mock_analyze.assert_called_once()
