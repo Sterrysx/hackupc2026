@@ -159,14 +159,20 @@ export function LifetimeTelemetryTile({ className }: { className?: string }) {
 /*  Canvas — pure SVG, no chart lib, exact match to the schematic           */
 /* ───────────────────────────────────────────────────────────────────────── */
 
-const PAD_LEFT = 92;       // label gutter on the left
-const PAD_RIGHT = 16;
-const HEADER_H = 22;       // year ribbon
-const DRIVERS_H = 110;     // 3 stacked driver lines
-const ROW_H = 16;          // status grid row height
-const ROW_GAP = 2;
+// Layout constants — tuned for a `row-span-4` bento tile (~640 px tall).
+// Driver area gets nearly 50 % more vertical room so each of the three
+// traces breathes; the per-component status rows are taller so the bands
+// read as separate channels rather than a striped block.
+const PAD_LEFT = 100;      // label gutter on the left
+const PAD_RIGHT = 20;
+const HEADER_H = 30;       // year ribbon
+const DRIVERS_H = 168;     // 3 stacked driver lines
+const DRIVERS_GAP = 22;    // breathing room between drivers band and status grid
+const ROW_H = 24;          // status grid row height
+const ROW_GAP = 4;
 const GRID_H = COMPONENT_ROWS.length * (ROW_H + ROW_GAP);
-const TOTAL_H = HEADER_H + DRIVERS_H + 14 + GRID_H + 18;
+const FOOTER_PAD = 26;     // bottom buffer below the status grid
+const TOTAL_H = HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H + FOOTER_PAD;
 
 function TimelineCanvas({
   frame,
@@ -259,14 +265,14 @@ function TimelineCanvas({
           <g key={t.label}>
             <line
               x1={t.x} x2={t.x}
-              y1={HEADER_H - 4} y2={HEADER_H + DRIVERS_H + GRID_H + 14}
+              y1={HEADER_H - 4} y2={HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H}
               stroke="rgba(255,255,255,0.04)"
               strokeWidth={1}
             />
             <text
               x={t.x + 3}
-              y={HEADER_H - 6}
-              fontSize={9.5}
+              y={HEADER_H - 8}
+              fontSize={10.5}
               fill={t.isProjection ? "var(--color-warn)" : "var(--color-fg-faint)"}
               fontFamily="inherit"
             >
@@ -278,7 +284,7 @@ function TimelineCanvas({
           x={projectionStartX}
           y={HEADER_H - 4}
           width={Math.max(0, PAD_LEFT + innerW - projectionStartX)}
-          height={DRIVERS_H + GRID_H + 18}
+          height={DRIVERS_H + DRIVERS_GAP + GRID_H + 4}
           fill="url(#projHatch)"
           opacity={0.9}
         />
@@ -302,13 +308,13 @@ function TimelineCanvas({
       </g>
 
       {/* Status grid */}
-      <g transform={`translate(0, ${HEADER_H + DRIVERS_H + 14})`}>
+      <g transform={`translate(0, ${HEADER_H + DRIVERS_H + DRIVERS_GAP})`}>
         {COMPONENT_ROWS.map((c, i) => (
           <text
             key={c.sid}
-            x={PAD_LEFT - 8}
-            y={i * (ROW_H + ROW_GAP) + ROW_H * 0.7}
-            fontSize={10}
+            x={PAD_LEFT - 10}
+            y={i * (ROW_H + ROW_GAP) + ROW_H * 0.68}
+            fontSize={11}
             textAnchor="end"
             fill="var(--color-fg-muted)"
             fontFamily="inherit"
@@ -344,16 +350,16 @@ function TimelineCanvas({
         <line
           x1={cursorX} x2={cursorX}
           y1={HEADER_H - 4}
-          y2={HEADER_H + DRIVERS_H + 14 + GRID_H}
+          y2={HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H}
           stroke="var(--color-fg)"
           strokeWidth={1}
           strokeOpacity={0.9}
         />
-        <circle cx={cursorX} cy={HEADER_H + DRIVERS_H + 14 + GRID_H + 2} r={3} fill="var(--color-fg)" />
+        <circle cx={cursorX} cy={HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H + 4} r={3.5} fill="var(--color-fg)" />
         <text
-          x={cursorX + 5}
-          y={HEADER_H + DRIVERS_H + 14 + GRID_H + 14}
-          fontSize={9.5}
+          x={cursorX + 7}
+          y={HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H + 18}
+          fontSize={10.5}
           fill="var(--color-fg)"
           fontFamily="inherit"
         >
@@ -374,13 +380,13 @@ function DriverRow({
   return (
     <g transform={`translate(0, ${y})`}>
       <text
-        x={PAD_LEFT - 8} y={DRIVERS_H / 6}
-        fontSize={10} textAnchor="end" fill="var(--color-fg-muted)"
+        x={PAD_LEFT - 10} y={DRIVERS_H / 6}
+        fontSize={11} textAnchor="end" fill="var(--color-fg-muted)"
         fontFamily="inherit"
       >
         {label}
       </text>
-      <path d={pathD} stroke={color} strokeWidth={1.25} fill="none" opacity={0.85} />
+      <path d={pathD} stroke={color} strokeWidth={1.5} fill="none" opacity={0.9} />
     </g>
   );
 }
@@ -393,13 +399,13 @@ function driverLine(
   vMax: number,
   yOffset: number,
 ): string {
-  const h = DRIVERS_H / 3 - 6;
+  const h = DRIVERS_H / 3 - 10;
   const span = vMax - vMin || 1;
   let d = "";
   for (let i = 0; i < values.length; i += 1) {
     const x = PAD_LEFT + days[i] * dayW;
     const norm = (values[i] - vMin) / span;
-    const y = yOffset + 3 + (1 - Math.max(0, Math.min(1, norm))) * h;
+    const y = yOffset + 5 + (1 - Math.max(0, Math.min(1, norm))) * h;
     d += (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1) + " ";
   }
   return d;

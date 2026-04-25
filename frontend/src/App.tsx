@@ -7,7 +7,9 @@ import { InteractiveSchematic } from "@/components/schematic/InteractiveSchemati
 import { CommandPalette } from "@/components/CommandPalette";
 import { BrandMark } from "@/components/floating/BrandMark";
 import { SidebarToggle } from "@/components/floating/SidebarToggle";
-import { SimControls } from "@/components/floating/SimControls";
+import { PredictiveScrubber } from "@/components/floating/PredictiveScrubber";
+import { TemporalStateBadge, PredictiveTint } from "@/components/floating/TemporalStateBadge";
+import { ExecutePrintButton } from "@/components/floating/ExecutePrintButton";
 import { DashboardPanel } from "@/components/floating/DashboardPanel";
 import { ARDataCard } from "@/components/floating/ARDataCard";
 import { SpotlightChat } from "@/components/floating/SpotlightChat";
@@ -135,12 +137,18 @@ export default function App() {
             {inAnalytics && <AnalyticsView key="analytics" />}
           </AnimatePresence>
 
+          {/* Predictive-mode tint — sits BELOW the floating chrome (z-5) so it
+              washes the scene without hazing the controls. Pointer-events off. */}
+          <PredictiveTint />
+
           {/* Floating chrome — view-agnostic. */}
           <BrandMark />
           <ViewToggle />
           <OpenViewButton />
           <SidebarToggle />
-          <SimControls />
+          <TemporalStateBadge />
+          <ExecutePrintButton />
+          <PredictiveScrubber />
 
           {/* Right-side data surface — hidden in analytics mode. */}
           <AnimatePresence mode="wait">

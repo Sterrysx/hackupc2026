@@ -11,6 +11,34 @@ const BACKEND_TO_ID: Record<string, ComponentId> = {
 };
 
 /**
+ * 3D model groups two physical parts under one clickable assembly. The 2D
+ * schematic exposes all six individually. The detail popup shows BOTH parts
+ * of the assembly side-by-side regardless of which one was clicked, so the
+ * mental model stays consistent across views (clicking either half of the
+ * recoater opens "blade + motor", etc.).
+ */
+const GROUP_PAIRS: Array<readonly [ComponentId, ComponentId]> = [
+  ["recoater_blade", "recoater_motor"],
+  ["nozzle_plate", "thermal_resistor"],
+  ["heating_element", "insulation_panel"],
+];
+
+/**
+ * Returns the two ComponentIds that share a physical 3D assembly with the
+ * given id, ordered with the *anchor* (the id that names the 3D group) first.
+ * Result is always length 2.
+ */
+export function groupPairFor(id: ComponentId): readonly [ComponentId, ComponentId] {
+  for (const pair of GROUP_PAIRS) {
+    if (pair[0] === id || pair[1] === id) return pair;
+  }
+  // Defensive — every ComponentId belongs to exactly one pair, but if a
+  // future addition skips this map we fall back to a self-pair so the popup
+  // still renders something sensible.
+  return [id, id];
+}
+
+/**
  * Resolves a backend component string to a live snapshot component for labels & citations.
  */
 export function resolveComponentForAgent(

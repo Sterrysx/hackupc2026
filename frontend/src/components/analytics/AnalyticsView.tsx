@@ -66,8 +66,10 @@ export function AnalyticsView() {
         {/* Bento grid — 6 cols × auto rows. Each tile spans by intent. */}
         <div className="grid grid-cols-6 auto-rows-[160px] gap-4">
           {/* HERO: HP page-12 schematic — driver traces + status grid +
-              year ribbon + scrubbable cursor. Full bento width. */}
-          <LifetimeTelemetryTile className="col-span-6 row-span-3" />
+              year ribbon + scrubbable cursor. Full bento width, taller
+              than the surrounding tiles so the three driver traces and
+              six component bands have real breathing room. */}
+          <LifetimeTelemetryTile className="col-span-6 row-span-4" />
 
           <DegradationForecastTile
             className="col-span-6 md:col-span-4 row-span-2"

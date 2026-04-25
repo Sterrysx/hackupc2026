@@ -104,6 +104,32 @@ interface TwinState {
   /** When true while focused in 3D, user can orbit/pan freely. */
   cameraOpen: boolean;
 
+  /**
+   * Predictive forecast scrubber state.
+   *
+   * `forecastHorizonDays === 0` means the UI is in **Live Mode** — the
+   * snapshot reflects right-now telemetry. Any value > 0 puts the UI in
+   * **Predictive Mode**: the dashboard reads simulated future state at
+   * `now + forecastHorizonDays` (clamped to `forecastHorizonMax`).
+   *
+   * `forecastPlaying` drives an auto-advance loop in the scrubber
+   * component (it owns the rAF, not the store) — when true the scrubber
+   * walks `forecastHorizonDays` forward at `forecastSpeed` × default-rate
+   * until it hits the right edge.
+   */
+  forecastHorizonDays: number;
+  forecastHorizonMax: number;
+  forecastPlaying: boolean;
+  forecastSpeed: number;
+
+  /**
+   * Mock "Execute Print" — purely cosmetic right now. While true, the 3D
+   * recoater translates back and forth and a warm point light pulses
+   * inside the build chamber. The store flips back to false on its own
+   * after `PRINT_ANIMATION_MS`.
+   */
+  executingPrint: boolean;
+
   messages: ChatMessage[];
   isThinking: boolean;
   /** Si el backend FastAPI responde en `/health` (proxy `/api` o URL absoluta). */
@@ -139,6 +165,11 @@ interface TwinState {
   toggleDashboard: () => void;
   setViewMode: (m: "2d" | "3d" | "analytics") => void;
   setCameraOpen: (open: boolean) => void;
+  setForecastHorizon: (days: number) => void;
+  setForecastPlaying: (playing: boolean) => void;
+  setForecastSpeed: (speed: number) => void;
+  resetToLive: () => void;
+  executePrint: () => void;
   sendUserMessage: (text: string) => void;
   refreshChatApiStatus: () => Promise<void>;
   ingestProactiveNotification: (payload: Record<string, unknown>) => void;
@@ -148,6 +179,11 @@ interface TwinState {
 // runtime so the simulator has had a chance to build up real degradation
 // before the operator looks at it.
 const INITIAL_TICK = 150;
+
+/** Width of the predictive horizon, in days. Caps how far the scrubber goes. */
+const FORECAST_HORIZON_MAX_DAYS = 30;
+/** Total ms the mock "Execute Print" animation runs end-to-end. */
+const PRINT_ANIMATION_MS = 5000;
 
 function buildState(tick: number, prevAlertIds: Set<string>) {
   const snapshot = snapshotAtTick(tick);
@@ -206,6 +242,12 @@ export const useTwin = create<TwinState>((set, get) => ({
   dashboardOpen: true,
   viewMode: "3d",
   cameraOpen: false,
+
+  forecastHorizonDays: 0,
+  forecastHorizonMax: FORECAST_HORIZON_MAX_DAYS,
+  forecastPlaying: false,
+  forecastSpeed: 1,
+  executingPrint: false,
 
   messages: [initial.seedMessage],
   isThinking: false,
@@ -407,6 +449,31 @@ export const useTwin = create<TwinState>((set, get) => ({
   toggleDashboard: () => set((s) => ({ dashboardOpen: !s.dashboardOpen })),
   setViewMode: (m) => set({ viewMode: m, cameraOpen: m === "3d" ? get().cameraOpen : false }),
   setCameraOpen: (open) => set({ cameraOpen: open }),
+
+  setForecastHorizon: (days) => {
+    const clamped = Math.max(0, Math.min(get().forecastHorizonMax, days));
+    // Stop auto-play the moment the operator drags the thumb back to 0.
+    const stillPlaying = clamped > 0 ? get().forecastPlaying : false;
+    set({ forecastHorizonDays: clamped, forecastPlaying: stillPlaying });
+  },
+  setForecastPlaying: (playing) => {
+    // Pressing play from Live mode should kick the scrubber off zero so
+    // the auto-advance loop has somewhere to walk to. The actual ramp is
+    // owned by the scrubber's rAF (decoupled from the store's tick loop).
+    if (playing && get().forecastHorizonDays === 0) {
+      set({ forecastPlaying: true, forecastHorizonDays: 0.001 });
+      return;
+    }
+    set({ forecastPlaying: playing });
+  },
+  setForecastSpeed: (speed) => set({ forecastSpeed: speed }),
+  resetToLive: () => set({ forecastHorizonDays: 0, forecastPlaying: false }),
+
+  executePrint: () => {
+    if (get().executingPrint) return; // re-entry guard
+    set({ executingPrint: true });
+    setTimeout(() => set({ executingPrint: false }), PRINT_ANIMATION_MS);
+  },
 
   ingestProactiveNotification: (payload) => {
     if (payload.type !== "PROACTIVE_ALERT") return;

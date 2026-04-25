@@ -1,9 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { Outlines, RoundedBox, Text, useCursor } from "@react-three/drei";
+import { Outlines, RoundedBox, useCursor, useTexture } from "@react-three/drei";
 import {
   Color,
+  SRGBColorSpace,
   type Group,
   type LineBasicMaterial,
   type LineSegments,
@@ -12,6 +13,7 @@ import {
   Mesh as MeshValue,
   type MeshPhysicalMaterial,
   type MeshStandardMaterial,
+  type PointLight,
   type RectAreaLight,
 } from "three";
 // RectAreaLight requires its uniforms LUT initialised once at module load —
@@ -57,6 +59,24 @@ const PULSE_SPEED = 2.4;
 
 const DOOR_OPEN_ANGLE = -1.95;
 const SHELL_DIM_OPACITY = 0.2;
+
+/* ── Mock "Execute Print" animation constants ───────────────────────────── */
+
+/**
+ * Z-axis travel of the recoater roller during the spreading animation (m).
+ * Stays well inside the powder-bed half-depth (1.32 m / 2 = 0.66 m) so the
+ * roller's body — itself ~1.55 m long, sitting on top of a 1.6 m chamber —
+ * never punches through the chassis side walls during the sweep.
+ */
+const PRINT_RECOATER_TRAVEL = 0.32;
+/** Period of one full back-and-forth sweep (s). */
+const PRINT_RECOATER_PERIOD = 1.4;
+/** Smooth ease-in/out scaler so the recoater doesn't snap to its travel envelope. */
+const PRINT_ENVELOPE_SMOOTH = 0.20;
+/** Peak intensity of the warm chamber point light during fusing. */
+const PRINT_LIGHT_PEAK = 38;
+/** Period of the laser/fusing pulse (s). Slightly faster than the sweep so they read as independent systems. */
+const PRINT_LIGHT_PERIOD = 0.75;
 
 /* ── Status palette ─────────────────────────────────────────────────────── */
 
@@ -597,25 +617,52 @@ function HingedDoor({
         </RoundedBox>
 
         {/*
-          === HP brand logo (lowercase "hp") ===
-          drei <Text> renders an SDF mesh — crisp at every zoom level. We
-          tilt the parent group ~7° on the Z axis to fake an italic feel
-          without bundling a dedicated italic font.
+          === HP brand logo ===
+          Renders the official HP corporate mark from
+          `frontend/public/hp-logo.png` (the canonical asset shipped with
+          the challenge brief). We use a flat textured plane rather than
+          rebuilding the mark procedurally so colour and proportions stay
+          faithful to HP's brand guidelines.
         */}
-        <group position={[W / 2, 0.0, D / 2 + 0.012]} rotation={[0, 0, -0.13]}>
-          <Text
-            fontSize={0.55}
-            color="#1a1a1a"
-            anchorX="center"
-            anchorY="middle"
-            letterSpacing={-0.06}
-            material-toneMapped={false}
-          >
-            hp
-          </Text>
-        </group>
+        <HpLogo position={[W / 2, 0.0, D / 2 + 0.012]} size={0.78} />
       </group>
     </group>
+  );
+}
+
+/**
+ * Self-contained HP logo: textured plane carrying the official HP brand
+ * asset. `size` is the side length of the square plane (the source PNG is
+ * 1280×1278, effectively square). The texture has an alpha channel so the
+ * plane simply blends onto the door surface — no procedural recreation,
+ * no z-fight halo.
+ */
+function HpLogo({
+  position,
+  size,
+}: {
+  position: [number, number, number];
+  size: number;
+}) {
+  const texture = useTexture("/hp-logo.png");
+  // Configure the asset for correct sRGB rendering and STRAIGHT (not
+  // premultiplied) alpha so the transparent corners of the PNG don't get
+  // composited as black against the door panel.
+  texture.colorSpace = SRGBColorSpace;
+  texture.premultipliedAlpha = false;
+  return (
+    <mesh position={position} raycast={noRaycast}>
+      <planeGeometry args={[size, size]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        // alphaTest discards near-zero-alpha texels entirely so even if a
+        // GPU/driver loses the blend equation we never see the black RGB
+        // payload underneath the alpha mask.
+        alphaTest={0.05}
+        toneMapped={false}
+      />
+    </mesh>
   );
 }
 
@@ -768,6 +815,50 @@ function SanctumLight({ shellOpacityRef }: { shellOpacityRef: React.MutableRefOb
   );
 }
 
+/* ── Print "fusing" light — warm point light pulsing inside the chamber ── */
+
+/**
+ * PrintFusingLight — driven by the same `executingPrint` flag as the recoater
+ * sweep. Lives near the powder-bed surface so the warm wash bounces off the
+ * brushed-steel internals and reads through the open door without ever
+ * leaking outside the chassis (point light, sharp falloff).
+ *
+ * Two ramps stacked: a slow envelope (eases over ~250 ms when the action
+ * toggles) and a fast sinusoid (the laser/fusing pulse). Multiplying them
+ * keeps the fade-in clean and the heartbeat clearly readable.
+ */
+function PrintFusingLight() {
+  const executingPrint = useTwin((s) => s.executingPrint);
+  const lightRef = useRef<PointLight>(null);
+  const envelope = useRef(0);
+
+  useFrame((state, delta) => {
+    const l = lightRef.current;
+    if (!l) return;
+    damp(envelope, "current", executingPrint ? 1 : 0, 0.25, delta);
+    const env = envelope.current;
+    if (env < 0.001) {
+      l.intensity = 0;
+      return;
+    }
+    const phase = (state.clock.elapsedTime * (2 * Math.PI)) / PRINT_LIGHT_PERIOD;
+    // 0..1 sinusoid, biased so the light never fully dies between pulses.
+    const beat = 0.55 + 0.45 * Math.sin(phase);
+    l.intensity = env * beat * PRINT_LIGHT_PEAK;
+  });
+
+  return (
+    <pointLight
+      ref={lightRef}
+      position={[0.5, 0.95, 0]}
+      color="#ffb070"
+      distance={3.2}
+      decay={1.6}
+      intensity={0}
+    />
+  );
+}
+
 /* ── Floor feet (always opaque, never fade) ─────────────────────────────── */
 
 function Feet() {
@@ -813,13 +904,15 @@ interface InternalDef {
 }
 
 const INTERNAL_PARTS: InternalDef[] = [
-  /* === Build Unit (powder bed) — light matte silver platform === */
+  /* === Build Unit (powder bed) — slate housing + warm metal-powder bed.
+       Real metal powder reads as a warm silver-tan under chamber light, which
+       gives the build unit its own colour identity vs the cool-grey chassis. */
   {
     id: "heating_element",
     memberIds: ["heating_element", "insulation_panel"],
     basePosition: [0.5, 0.6, 0],
     explodeY: -0.2,
-    baseColor: "#33363b",
+    baseColor: "#3a3d44",
     hitbox: [2.6, 0.9, 1.8],
     render: ({ active, hovered, status, baseColor, onPick }) => (
       <group>
@@ -866,13 +959,15 @@ const INTERNAL_PARTS: InternalDef[] = [
     ),
   },
 
-  /* === Printhead Carriage — high-contrast dark ceramic + LED indicators === */
+  /* === Printhead Carriage — high-contrast dark ceramic + amber firing LEDs.
+       LEDs are warm amber (not the chassis cyan) so the printhead reads as a
+       different functional system from the cooling/IO indicators around it. */
   {
     id: "nozzle_plate",
     memberIds: ["nozzle_plate", "thermal_resistor"],
     basePosition: [0.5, 1.4, 0],
     explodeY: 0.35,
-    baseColor: "#15161a",
+    baseColor: "#1a1c20",
     hitbox: [2.0, 0.7, 1.0],
     render: ({ active, hovered, status, baseColor, onPick }) => (
       <group>
@@ -904,14 +999,16 @@ const INTERNAL_PARTS: InternalDef[] = [
             clearcoatRoughness={0.15}
           />
         </RoundedBox>
-        {/* Indicator LED strip across the front face — sits above the ceramic */}
+        {/* Firing-array indicator LED strip — warm amber so the printhead
+            reads as its own functional system, not as part of the chassis
+            cyan light bar. Centre LED is the "active firing" beacon. */}
         {[-0.6, -0.3, 0, 0.3, 0.6].map((x, i) => (
           <mesh key={`led-${i}`} position={[x, 0.05, 0.36]} onClick={onPick}>
             <sphereGeometry args={[0.025, 16, 16]} />
             <meshStandardMaterial
-              color="#7ec3ff"
-              emissive="#7ec3ff"
-              emissiveIntensity={i === 2 ? 1.6 : 1.1}
+              color="#ffb663"
+              emissive="#ffa84a"
+              emissiveIntensity={i === 2 ? 1.7 : 1.1}
               toneMapped={false}
               roughness={0.3}
               metalness={0.1}
@@ -1094,9 +1191,10 @@ function PremiumInternalMaterial({
   const tint = tintFor(status);
   const tintC = useMemo(() => (tint ? new Color(tint) : null), [tint]);
 
-  useFrame((_, d) => {
+  useFrame((state, d) => {
     const m = matRef.current;
     if (!m) return;
+    // Faulted parts always carry their warning tint regardless of selection.
     if (tintC) {
       m.emissive.copy(tintC);
       m.emissiveIntensity = active ? 0.6 : hovered ? 0.42 : 0.22;
@@ -1105,15 +1203,26 @@ function PremiumInternalMaterial({
     damp(selBlend, "current", active ? 1 : 0, SELECTION_SMOOTH, d);
     const sb = selBlend.current;
     if (sb > 0.005) {
-      m.emissive.lerpColors(BLACK, SELECTION_EMISSIVE, sb);
-      const hi = 0.04 + (hovered ? 0.08 : 0) + sb * SELECTION_EMISSIVE_INT;
-      damp(m, "emissiveIntensity", Math.min(0.95, hi), 0.18, d);
+      // === Selection: intermittent cyan glow ===
+      // Wide-amplitude sine on emissiveIntensity so the part visibly
+      // breathes between dim (≈0.20) and brilliant (≈1.20). Period ~1.6 s
+      // — slow enough to read as deliberate, fast enough to feel alive.
+      // Color is set directly (no damp) so the pulse hits its peaks
+      // without being averaged out by the easing.
+      const phase = state.clock.elapsedTime * 3.9;
+      const pulse = 0.5 + 0.5 * Math.sin(phase); // 0..1
+      m.emissive.copy(SELECTION_EMISSIVE);
+      m.emissiveIntensity = (0.20 + 1.00 * pulse) * sb;
     } else if (hovered) {
       m.emissive.lerp(ACCENT_GLOW, 0.2);
-      damp(m, "emissiveIntensity", 0.2, 0.2, d);
+      damp(m, "emissiveIntensity", 0.22, 0.2, d);
     } else {
-      m.emissive.lerp(BLACK, 0.2);
-      damp(m, "emissiveIntensity", 0.04, 0.22, d);
+      // Idle — a very faint accent breath (8 s period, peak 0.09) keeps
+      // clickable parts visibly different from the static chassis without
+      // pulling focus.
+      const idleBreath = 0.06 + 0.03 * (0.5 + 0.5 * Math.sin(state.clock.elapsedTime * 0.78));
+      m.emissive.lerp(ACCENT_GLOW, 0.05);
+      damp(m, "emissiveIntensity", idleBreath, 0.22, d);
     }
   });
 
@@ -1165,11 +1274,17 @@ function InternalPart({ def }: { def: InternalDef }) {
   const snapshot = useTwin((s) => s.snapshot);
   const selectedId = useTwin((s) => s.selectedComponentId);
   const setSelected = useTwin((s) => s.selectComponent);
+  const executingPrint = useTwin((s) => s.executingPrint);
   const groupRef = useRef<Group>(null);
   const outlineLineMat = useRef<LineBasicMaterial | null>(null);
   const outlineOp = useRef(0);
+  // Damped envelope so the recoater eases in/out of its sweep instead of
+  // jump-cutting when `executingPrint` toggles.
+  const printEnvelope = useRef(0);
   const [hovered, setHovered] = useState(false);
   useCursor(hovered);
+
+  const isRecoater = def.id === "recoater_blade";
 
   const status = worstStatus(snapshot, def.memberIds);
   const isActive =
@@ -1203,7 +1318,7 @@ function InternalPart({ def }: { def: InternalDef }) {
     return () => cancelAnimationFrame(id2);
   }, [def.id]);
 
-  useFrame((_state, delta) => {
+  useFrame((state, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const targetScale = isActive ? 1.04 : hovered ? 1.02 : 1;
@@ -1215,6 +1330,18 @@ function InternalPart({ def }: { def: InternalDef }) {
     if (outlineLineMat.current) {
       outlineLineMat.current.opacity = outlineOp.current;
       outlineLineMat.current.needsUpdate = true;
+    }
+
+    // Mock "Execute Print" — recoater sweeps across the powder bed in Z while
+    // the warm chamber light pulses (handled separately in <PrintFusingLight />).
+    // The envelope eases in/out so toggling the action never snaps the mesh.
+    if (isRecoater) {
+      damp(printEnvelope, "current", executingPrint ? 1 : 0, PRINT_ENVELOPE_SMOOTH, delta);
+      const env = printEnvelope.current;
+      const phase = (state.clock.elapsedTime * (2 * Math.PI)) / PRINT_RECOATER_PERIOD;
+      const offset = Math.sin(phase) * PRINT_RECOATER_TRAVEL * env;
+      const baseZ = def.basePosition[2];
+      damp(g.position, "z", baseZ + offset, 0.05, delta);
     }
   });
 
@@ -1294,6 +1421,9 @@ export function MachineModel() {
 
       {/* Lifts intensity in lock-step with the chassis fade. */}
       <SanctumLight shellOpacityRef={shellOpacityRef} />
+
+      {/* Warm fusing pulse — only on while `executingPrint` is true. */}
+      <PrintFusingLight />
 
       {/* Static feet — never fade. */}
       <Feet />

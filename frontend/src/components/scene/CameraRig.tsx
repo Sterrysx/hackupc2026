@@ -15,30 +15,42 @@ import {
 const OVERVIEW_POS = new Vector3(7.5, 3.6, 8.5);
 const OVERVIEW_LOOK_AT = new Vector3(-0.8, 1.7, 0);
 
+/**
+ * Strength of the focus zoom: 0 keeps the camera at overview, 1 jumps all
+ * the way to the close-up pose. 0.6 = a calm two-step zoom that still frames
+ * the assembly clearly without snapping into its face.
+ */
+const FOCUS_BLEND = 0.6;
+
+/** Linear interpolation from the overview pose toward a close-up pose. */
+function blendFromOverview(closeUp: Vector3, overview: Vector3, t: number): Vector3 {
+  return overview.clone().lerp(closeUp, t);
+}
+
 const FOCUS: Partial<Record<ComponentId, { position: Vector3; lookAt: Vector3 }>> = {
   recoater_blade: {
-    position: new Vector3(2.4, 4.4, 6.0),
-    lookAt: new Vector3(0.5, 1.6, 0),
+    position: blendFromOverview(new Vector3(2.4, 4.4, 6.0), OVERVIEW_POS, FOCUS_BLEND),
+    lookAt:   blendFromOverview(new Vector3(0.5, 1.6, 0),   OVERVIEW_LOOK_AT, FOCUS_BLEND),
   },
   recoater_motor: {
-    position: new Vector3(2.7, 4.0, 5.6),
-    lookAt: new Vector3(1.35, 1.5, 0.12),
+    position: blendFromOverview(new Vector3(2.7, 4.0, 5.6),    OVERVIEW_POS, FOCUS_BLEND),
+    lookAt:   blendFromOverview(new Vector3(1.35, 1.5, 0.12),  OVERVIEW_LOOK_AT, FOCUS_BLEND),
   },
   nozzle_plate: {
-    position: new Vector3(2.1, 3.5, 5.0),
-    lookAt: new Vector3(0.5, 1.25, 0),
+    position: blendFromOverview(new Vector3(2.1, 3.5, 5.0),  OVERVIEW_POS, FOCUS_BLEND),
+    lookAt:   blendFromOverview(new Vector3(0.5, 1.25, 0),   OVERVIEW_LOOK_AT, FOCUS_BLEND),
   },
   thermal_resistor: {
-    position: new Vector3(2.1, 3.5, 5.0),
-    lookAt: new Vector3(0.5, 1.25, 0),
+    position: blendFromOverview(new Vector3(2.1, 3.5, 5.0),  OVERVIEW_POS, FOCUS_BLEND),
+    lookAt:   blendFromOverview(new Vector3(0.5, 1.25, 0),   OVERVIEW_LOOK_AT, FOCUS_BLEND),
   },
   heating_element: {
-    position: new Vector3(2.5, 2.6, 5.4),
-    lookAt: new Vector3(0.5, -0.1, 0),
+    position: blendFromOverview(new Vector3(2.5, 2.6, 5.4),  OVERVIEW_POS, FOCUS_BLEND),
+    lookAt:   blendFromOverview(new Vector3(0.5, -0.1, 0),   OVERVIEW_LOOK_AT, FOCUS_BLEND),
   },
   insulation_panel: {
-    position: new Vector3(2.5, 2.6, 5.4),
-    lookAt: new Vector3(0.5, -0.1, 0),
+    position: blendFromOverview(new Vector3(2.5, 2.6, 5.4),  OVERVIEW_POS, FOCUS_BLEND),
+    lookAt:   blendFromOverview(new Vector3(0.5, -0.1, 0),   OVERVIEW_LOOK_AT, FOCUS_BLEND),
   },
 };
 
