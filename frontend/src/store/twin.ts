@@ -16,6 +16,7 @@ import type {
   ComponentId,
   SystemSnapshot,
 } from "@/types/telemetry";
+import type { City } from "@/components/location/cities";
 import { snapshotAtTick } from "@/lib/mockData";
 import { deriveAlerts } from "@/lib/alerts";
 import { probeTwinApiHealth, queryAgent } from "@/lib/agentApi";
@@ -29,10 +30,22 @@ import {
   makeWatchdogAssistantMessage,
 } from "@/lib/rag";
 
+/**
+ * Top-level app phase. The location-selector landing page renders while
+ * `appPhase === "location-select"`; once the operator launches the
+ * simulation we flip to `"main"` and the existing twin shell takes over.
+ */
+export type AppPhase = "location-select" | "main";
+
 /** Latest `sendUserMessage` id — drop stale responses if the user sends again while in flight. */
 let latestChatSendId = 0;
 
 interface TwinState {
+  /** Which top-level surface is rendered (landing vs. main twin shell). */
+  appPhase: AppPhase;
+  /** Physical location of the printer; null until the operator confirms. */
+  selectedCity: City | null;
+
   tick: number;
   snapshot: SystemSnapshot;
   alerts: Alert[];
@@ -74,6 +87,10 @@ interface TwinState {
   backendPulseAlerts: Alert[];
 
   /* Actions */
+  /** Persist the operator's chosen city; does NOT change phase. */
+  confirmCity: (city: City) => void;
+  /** Flip from landing to the main twin shell. */
+  launchSimulation: () => void;
   advance: () => void;
   jumpForward: (ticks: number) => void;
   reset: () => void;
@@ -127,6 +144,9 @@ const initial = (() => {
 })();
 
 export const useTwin = create<TwinState>((set, get) => ({
+  appPhase: "location-select",
+  selectedCity: null,
+
   tick: INITIAL_TICK,
   snapshot: initial.snapshot,
   alerts: initial.alerts,
@@ -153,6 +173,9 @@ export const useTwin = create<TwinState>((set, get) => ({
     const ok = await probeTwinApiHealth();
     set({ chatApiStatus: ok ? "live" : "offline" });
   },
+
+  confirmCity: (city) => set({ selectedCity: city }),
+  launchSimulation: () => set({ appPhase: "main" }),
 
   advance: () => {
     const { tick, alerts, alertHistory, paused, speed } = get();
