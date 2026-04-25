@@ -21,11 +21,19 @@ const SUGGESTIONS = [
  *  - Composer pinned at the bottom.
  *  - "Thinking" indicator (3 pulsing dots) while the RAG simulates a reply.
  */
+function chatApiStatusLabel(status: "unknown" | "live" | "offline"): { dot: string; text: string } {
+  if (status === "live") return { dot: "bg-emerald-400/90", text: "Agente conectado" };
+  if (status === "offline") return { dot: "bg-amber-400/90", text: "Sin API — respuestas locales" };
+  return { dot: "bg-white/25", text: "Comprobando API…" };
+}
+
 export function EmbeddedChat() {
   const messages = useTwin((s) => s.messages);
   const isThinking = useTwin((s) => s.isThinking);
+  const chatApiStatus = useTwin((s) => s.chatApiStatus);
   const sendUserMessage = useTwin((s) => s.sendUserMessage);
   const highlightComponent = useTwin((s) => s.highlightComponent);
+  const statusUi = chatApiStatusLabel(chatApiStatus);
 
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -43,15 +51,24 @@ export function EmbeddedChat() {
   return (
     <section className="flex flex-col min-h-0 border-t border-[var(--color-border)]">
       {/* Mini header */}
-      <header className="flex items-center justify-between px-6 h-12 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[var(--color-accent-soft)]">
+      <header className="flex items-center justify-between px-6 h-12 flex-shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-5 h-5 rounded-full flex items-center justify-center bg-[var(--color-accent-soft)] flex-shrink-0">
             <Sparkles size={11} className="text-[var(--color-accent)]" />
           </div>
-          <span className="text-[12px] font-medium tracking-tight">Aether</span>
-          <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-faint)]">
-            grounded co-pilot
-          </span>
+          <div className="flex flex-col min-w-0 leading-tight">
+            <span className="text-[12px] font-medium tracking-tight">Aether</span>
+            <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-faint)] truncate">
+              grounded co-pilot
+            </span>
+          </div>
+        </div>
+        <div
+          className="flex items-center gap-1.5 flex-shrink-0 max-w-[52%]"
+          title="El front llama a /api/… (Vite → :8000). Arranca uvicorn en el repo."
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${statusUi.dot}`} aria-hidden />
+          <span className="text-[10px] text-[var(--color-fg-muted)] truncate">{statusUi.text}</span>
         </div>
       </header>
 

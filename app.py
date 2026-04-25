@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
@@ -11,6 +12,22 @@ from Ai_Agent.graph import build_graph
 from Ai_Agent.db import insert_telemetry, init_db
 
 app = FastAPI(title="Digital Twin AI API")
+
+# CORS — lets the Vite dev server (and preview) call this API from the browser.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
+    # Vite con `host: true`: el front suele abrirse como http://192.168.x.x:5173 — sin esto el navegador bloquea el fetch a :8000.
+    allow_origin_regex=r"https?://(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize components
 transcriber = SpeechToText()
@@ -53,6 +70,17 @@ class TelemetryResponse(BaseModel):
     message: str
 
 # --- Endpoints ---
+
+@app.get("/")
+async def root():
+    """Unified entry — FastAPI serves the AI/telemetry API; frontend runs via Vite (or static in prod)."""
+    return {
+        "service": "hackupc2026 Digital Twin API",
+        "docs": "/docs",
+        "health": "/health",
+        "note": "Agent answers require GROQ_API_KEY in .env (see .env.example). Frontend: cd frontend && npm run dev",
+    }
+
 
 @app.post("/telemetry", response_model=TelemetryResponse)
 async def add_telemetry(data: TelemetryData):

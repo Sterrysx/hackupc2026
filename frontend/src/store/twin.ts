@@ -17,7 +17,16 @@ import type {
 } from "@/types/telemetry";
 import { snapshotAtTick } from "@/lib/mockData";
 import { deriveAlerts } from "@/lib/alerts";
-import { answer, makeAssistantMessage, makeUserMessage } from "@/lib/rag";
+import { probeTwinApiHealth, queryAgent } from "@/lib/agentApi";
+import {
+  answer,
+  makeAssistantFromAgentReport,
+  makeAssistantMessage,
+  makeUserMessage,
+} from "@/lib/rag";
+
+/** Latest `sendUserMessage` id — drop stale responses if the user sends again while in flight. */
+let latestChatSendId = 0;
 
 interface TwinState {
   tick: number;
@@ -41,6 +50,8 @@ interface TwinState {
 
   messages: ChatMessage[];
   isThinking: boolean;
+  /** Si el backend FastAPI responde en `/health` (proxy `/api` o URL absoluta). */
+  chatApiStatus: "unknown" | "live" | "offline";
 
   /* Actions */
   advance: () => void;
@@ -55,6 +66,7 @@ interface TwinState {
   setMode: (m: "dashboard" | "immersive") => void;
   setBubbleOpen: (o: boolean) => void;
   sendUserMessage: (text: string) => void;
+  refreshChatApiStatus: () => Promise<void>;
 }
 
 const INITIAL_TICK = 1200; // start a few hours in so degradation is visible
@@ -103,6 +115,12 @@ export const useTwin = create<TwinState>((set, get) => ({
 
   messages: [initial.seedMessage],
   isThinking: false,
+  chatApiStatus: "unknown",
+
+  refreshChatApiStatus: async () => {
+    const ok = await probeTwinApiHealth();
+    set({ chatApiStatus: ok ? "live" : "offline" });
+  },
 
   advance: () => {
     const { tick, alerts, alertHistory, paused, speed } = get();
@@ -161,16 +179,41 @@ export const useTwin = create<TwinState>((set, get) => ({
   sendUserMessage: (text) => {
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    const sendId = ++latestChatSendId;
+    const prior = get().messages;
     const userMsg = makeUserMessage(trimmed);
-    set((s) => ({ messages: [...s.messages, userMsg], isThinking: true }));
-    // Bumped to ~700ms so the typing indicator is actually visible.
+    const chat_history = prior
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
+
+    set({ messages: [...prior, userMsg], isThinking: true });
+
     const snap = get().snapshot;
-    setTimeout(() => {
-      const reply = answer(trimmed, snap);
-      set((s) => ({
-        messages: [...s.messages, makeAssistantMessage(reply)],
-        isThinking: false,
-      }));
-    }, 700);
+    const run_identifier = `twin-${snap.tick}-${snap.timestamp}`;
+
+    void (async () => {
+      try {
+        const { final_report } = await queryAgent({
+          query: trimmed,
+          chat_history,
+          run_identifier,
+        });
+        if (sendId !== latestChatSendId) return;
+        set((s) => ({
+          messages: [...s.messages, makeAssistantFromAgentReport(final_report)],
+          isThinking: false,
+          chatApiStatus: "live",
+        }));
+      } catch {
+        if (sendId !== latestChatSendId) return;
+        const reply = answer(trimmed, snap);
+        set((s) => ({
+          messages: [...s.messages, makeAssistantMessage(reply)],
+          isThinking: false,
+          chatApiStatus: "offline",
+        }));
+      }
+    })();
   },
 }));

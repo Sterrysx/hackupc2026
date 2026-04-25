@@ -1,3 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Root `app.py` is the FastAPI entrypoint; only ship Python packages, not `frontend/` or `UI_EXAMPLE/`.
+packages = ["Ai_Agent", "stt"]
+py-modules = ["app"]
+
 [project]
 name = "hackupc2026"
 version = "0.1.0"

@@ -31,6 +31,10 @@ export default function App() {
   const mode = useTwin((s) => s.mode);
   const selectedId = useTwin((s) => s.selectedComponentId);
   const setBubbleOpen = useTwin((s) => s.setBubbleOpen);
+  // Comprueba /health al cargar (proxy /api en dev → uvicorn :8000).
+  useEffect(() => {
+    void useTwin.getState().refreshChatApiStatus();
+  }, []);
 
   // Tick the simulator once per second.
   useEffect(() => {

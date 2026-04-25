@@ -274,6 +274,18 @@ export function makeAssistantMessage(reply: RagReply): ChatMessage {
   };
 }
 
+/** Assistant message from the real agent (`final_report`) — no structured citations. */
+export function makeAssistantFromAgentReport(report: string): ChatMessage {
+  const text = report.trim() || "No report generated.";
+  return {
+    id: `m-${Math.random().toString(36).slice(2, 10)}`,
+    role: "assistant",
+    text,
+    severity: "INFO",
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function makeUserMessage(text: string): ChatMessage {
   return {
     id: `m-${Math.random().toString(36).slice(2, 10)}`,
