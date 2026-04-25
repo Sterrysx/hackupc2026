@@ -1,5 +1,36 @@
 # HackUPC 2026
 
+## Judges — Live End-to-End Proof
+
+Two commands show that the Digital Co-Pilot is not a visual shell — the real
+simulator parquet, the real SQLite historian, the real LangGraph agent, and
+the real Groq LLM all take part in every answer.
+
+```bash
+# 1) Prerequisite: a Groq API key (see .env.example).
+cp .env.example .env   # then fill GROQ_API_KEY
+
+# 2) Automated assertions: grounding, tool usage, websocket watchdog.
+make test-e2e
+
+# 3) Narrated 5-act walkthrough (human-readable, prints the reasoning trace).
+make demo-e2e
+```
+
+`make test-e2e` runs `tests/test_integration_e2e.py` with `-m live`. The tests
+auto-skip when `GROQ_API_KEY` is absent, so the default `uv run pytest` stays
+offline and fast.
+
+`make demo-e2e` runs `scripts/demo_e2e.py`, which prints:
+
+1. **Seed check** — historian SQLite is real (`R1`, `R2`).
+2. **Parquet ground truth** — `/twin/state` numbers match `fleet_baseline.parquet` row-for-row.
+3. **Live agent reasoning** — every LangGraph step (tool calls, tool results, guardrail) is streamed; the final citation must include both an ISO timestamp and a `run_id`.
+4. **Proactive watchdog** — a `CRITICAL` telemetry POST triggers a grounded `PROACTIVE_ALERT` over the websocket.
+5. **Verdict** — checklist + exit code (0 all green, 1 any miss, 2 missing key).
+
+---
+
 ## Git Workflow
 
 ### Starting a new feature
