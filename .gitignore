@@ -83,3 +83,15 @@ ml_models/02_ssl/results/*.json
 # defensive: catch the path-doubling Jupyter footgun if it ever resurfaces
 ml_models/01_baseline/ml_models/
 ml_models/02_ssl/data/
+
+# ── UI inspiration / scratch references (not part of the deliverable) ─────────
+ui-inspiration/
+UI_EXAMPLE/
+00_POC/
+
+# ── Frontend tooling extras ───────────────────────────────────────────────────
+.vite/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+coverage/
