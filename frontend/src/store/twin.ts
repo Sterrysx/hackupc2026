@@ -23,6 +23,12 @@ import { probeTwinApiHealth, queryAgent } from "@/lib/agentApi";
 import { getOrCreateAgentThreadId } from "@/lib/agentThread";
 import { resolveComponentForAgent, tryParseAgentReport } from "@/lib/componentMap";
 import {
+  backendCityName,
+  fetchTwinState,
+  listPrinters,
+  tickToDay,
+} from "@/lib/twinApi";
+import {
   answer,
   makeAssistantFromAgentReport,
   makeAssistantMessage,
@@ -40,14 +46,34 @@ export type AppPhase = "location-select" | "main";
 /** Latest `sendUserMessage` id — drop stale responses if the user sends again while in flight. */
 let latestChatSendId = 0;
 
+/** Live state fetcher token — bumped on city/printer change so stale fetches are dropped. */
+let latestLiveFetchId = 0;
+
+/** Source of the snapshot the UI is reading.
+ *  - `mock`: the deterministic in-browser simulator (`snapshotAtTick`)
+ *  - `live`: the FastAPI `/twin/state` (real Stage 1 parquet + Stage 2 forecast)
+ */
+export type TwinDataSource = "mock" | "live";
+
 interface TwinState {
   /** Which top-level surface is rendered (landing vs. main twin shell). */
   appPhase: AppPhase;
   /** Physical location of the printer; null until the operator confirms. */
   selectedCity: City | null;
+  /** Picked from the printers backing the chosen city (auto-set after confirmCity). */
+  selectedPrinterId: number | null;
+  /** Where today's snapshot is coming from. */
+  dataSource: TwinDataSource;
+  /** True while a `/twin/state` request is in flight — prevents request pileup. */
+  fetchInflight: boolean;
 
   tick: number;
   snapshot: SystemSnapshot;
+  /** Store-tick value at which the *current* snapshot landed. Used to
+   *  smoothly interpolate ETAs (`minutesUntilFailure`,
+   *  `minutesUntilCritical`) between snapshot fetches: the displayed ETA
+   *  decrements by `(tick − snapshotMarkTick) · SIM_MINUTES_PER_TICK`. */
+  snapshotMarkTick: number;
   alerts: Alert[];
   alertHistory: Alert[];
   /** Last `seenAlertIds` — used to surface "new" alerts with toast/animation. */
@@ -87,12 +113,19 @@ interface TwinState {
   backendPulseAlerts: Alert[];
 
   /* Actions */
-  /** Persist the operator's chosen city; does NOT change phase. */
+  /** Persist the operator's chosen city; does NOT change phase.
+   *  Side effect: triggers a printer auto-pick + first live state fetch when
+   *  the API is reachable. */
   confirmCity: (city: City) => void;
+  /** Manually override the auto-picked printer. */
+  setSelectedPrinter: (id: number | null) => void;
   /** Flip from landing to the main twin shell. */
   launchSimulation: () => void;
   advance: () => void;
   jumpForward: (ticks: number) => void;
+  /** Absolute tick scrub — used by the expanded transport timeline. Negative
+   *  values are clamped to 0; live-mode triggers a re-fetch on day boundary. */
+  setTick: (tick: number) => void;
   reset: () => void;
   setPaused: (p: boolean) => void;
   setSpeed: (s: number) => void;
@@ -146,15 +179,20 @@ const initial = (() => {
 export const useTwin = create<TwinState>((set, get) => ({
   appPhase: "location-select",
   selectedCity: null,
+  selectedPrinterId: null,
+  dataSource: "mock",
+  fetchInflight: false,
 
   tick: INITIAL_TICK,
   snapshot: initial.snapshot,
+  snapshotMarkTick: INITIAL_TICK,
   alerts: initial.alerts,
   alertHistory: [],
   newAlertIds: initial.newAlertIds,
 
   paused: false,
-  speed: 8, // demo-friendly default — visible movement without being chaotic
+  speed: 1, // 1× = real-time. The expanded transport bar lets the operator
+            // boost to 32× when they want to skim across days quickly.
 
   selectedComponentId: null,
   highlightComponentId: null,
@@ -174,21 +212,101 @@ export const useTwin = create<TwinState>((set, get) => ({
     set({ chatApiStatus: ok ? "live" : "offline" });
   },
 
-  confirmCity: (city) => set({ selectedCity: city }),
+  confirmCity: (city) => {
+    set({ selectedCity: city, selectedPrinterId: null });
+    // Fire-and-forget: try to fetch the printer roster from the backend, pick
+    // the first one, and switch the snapshot source to live. If anything
+    // fails (API down, city not in parquet, etc.) we silently stay on mock.
+    const ticket = ++latestLiveFetchId;
+    void (async () => {
+      const backendCity = backendCityName(city);
+      try {
+        const printers = await listPrinters(backendCity);
+        if (ticket !== latestLiveFetchId) return;
+        if (printers.length === 0) return;
+        const pid = printers[0];
+        const day = tickToDay(get().tick);
+        const live = await fetchTwinState({ city: backendCity, printerId: pid, day });
+        if (ticket !== latestLiveFetchId) return;
+        const alerts = deriveAlerts(live);
+        set({
+          selectedPrinterId: pid,
+          dataSource: "live",
+          snapshot: live,
+          snapshotMarkTick: get().tick,
+          alerts,
+        });
+      } catch {
+        if (ticket !== latestLiveFetchId) return;
+        set({ dataSource: "mock" });
+      }
+    })();
+  },
+  setSelectedPrinter: (id) => set({ selectedPrinterId: id }),
   launchSimulation: () => set({ appPhase: "main" }),
 
   advance: () => {
-    const { tick, alerts, alertHistory, paused, speed } = get();
+    const {
+      tick, alerts, alertHistory, paused, speed,
+      dataSource, selectedCity, selectedPrinterId, fetchInflight,
+    } = get();
     if (paused) return;
     const nextTick = tick + speed;
+
+    if (dataSource === "live" && selectedCity && selectedPrinterId !== null) {
+      // Always advance the tick — the visual clock keeps moving even while
+      // a fetch is in flight; we only debounce the network call.
+      set({ tick: nextTick });
+      if (fetchInflight) return;
+
+      const prevDay = tickToDay(tick);
+      const nextDay = tickToDay(nextTick);
+      // Only refetch on day boundaries — within a day the parquet has nothing
+      // new to say, so polling 8×/sec would be wasted load.
+      if (nextDay === prevDay) return;
+
+      const ticket = ++latestLiveFetchId;
+      const backendCity = backendCityName(selectedCity);
+      set({ fetchInflight: true });
+      void (async () => {
+        try {
+          const live = await fetchTwinState({
+            city: backendCity, printerId: selectedPrinterId, day: nextDay,
+          });
+          if (ticket !== latestLiveFetchId) return;
+          const prevKeys = new Set(get().alerts.map(stableAlertKey));
+          const nextAlerts = deriveAlerts(live);
+          const newAlertIds = nextAlerts
+            .filter((a) => !prevKeys.has(stableAlertKey(a)))
+            .map((a) => a.id);
+          const trulyNew = nextAlerts.filter((a) => !prevKeys.has(stableAlertKey(a)));
+          const updatedHistory = [...trulyNew, ...get().alertHistory].slice(0, 80);
+          set({
+            snapshot: live,
+            snapshotMarkTick: get().tick,
+            alerts: nextAlerts,
+            newAlertIds,
+            alertHistory: updatedHistory,
+            fetchInflight: false,
+          });
+        } catch {
+          if (ticket !== latestLiveFetchId) return;
+          // Backend hiccup — keep ticking against the mock until it recovers.
+          set({ fetchInflight: false, dataSource: "mock" });
+        }
+      })();
+      return;
+    }
+
+    // Mock path — unchanged behaviour for offline / pre-fetch demos.
     const prevKeys = new Set(alerts.map(stableAlertKey));
     const next = buildState(nextTick, prevKeys);
-    // Append newly-raised alerts to history (capped).
     const trulyNew = next.alerts.filter((a) => !prevKeys.has(stableAlertKey(a)));
     const updatedHistory = [...trulyNew, ...alertHistory].slice(0, 80);
     set({
       tick: nextTick,
       snapshot: next.snapshot,
+      snapshotMarkTick: nextTick,
       alerts: next.alerts,
       newAlertIds: next.newAlertIds,
       alertHistory: updatedHistory,
@@ -196,17 +314,64 @@ export const useTwin = create<TwinState>((set, get) => ({
   },
 
   jumpForward: (ticks) => {
-    const { tick, alerts, alertHistory } = get();
-    const nextTick = tick + ticks;
+    get().setTick(get().tick + ticks);
+  },
+
+  setTick: (target) => {
+    const {
+      tick, alerts, alertHistory,
+      dataSource, selectedCity, selectedPrinterId,
+    } = get();
+    const next = Math.max(0, Math.floor(target));
+    if (next === tick) return;
+
+    if (dataSource === "live" && selectedCity && selectedPrinterId !== null) {
+      // Live mode: jump tick visually right away, then debounce a fetch on
+      // the day boundary so the scrubber feels responsive even mid-drag.
+      set({ tick: next });
+      const prevDay = tickToDay(tick);
+      const nextDay = tickToDay(next);
+      if (nextDay === prevDay) return;
+      const ticket = ++latestLiveFetchId;
+      const backendCity = backendCityName(selectedCity);
+      set({ fetchInflight: true });
+      void (async () => {
+        try {
+          const live = await fetchTwinState({
+            city: backendCity, printerId: selectedPrinterId, day: nextDay,
+          });
+          if (ticket !== latestLiveFetchId) return;
+          const prevKeys = new Set(get().alerts.map(stableAlertKey));
+          const nextAlerts = deriveAlerts(live);
+          const newAlertIds = nextAlerts
+            .filter((a) => !prevKeys.has(stableAlertKey(a)))
+            .map((a) => a.id);
+          const trulyNew = nextAlerts.filter((a) => !prevKeys.has(stableAlertKey(a)));
+          const updatedHistory = [...trulyNew, ...get().alertHistory].slice(0, 80);
+          set({
+            snapshot: live, snapshotMarkTick: get().tick,
+            alerts: nextAlerts, newAlertIds,
+            alertHistory: updatedHistory, fetchInflight: false,
+          });
+        } catch {
+          if (ticket !== latestLiveFetchId) return;
+          set({ fetchInflight: false, dataSource: "mock" });
+        }
+      })();
+      return;
+    }
+
+    // Mock path
     const prevKeys = new Set(alerts.map(stableAlertKey));
-    const next = buildState(nextTick, prevKeys);
-    const trulyNew = next.alerts.filter((a) => !prevKeys.has(stableAlertKey(a)));
+    const built = buildState(next, prevKeys);
+    const trulyNew = built.alerts.filter((a) => !prevKeys.has(stableAlertKey(a)));
     const updatedHistory = [...trulyNew, ...alertHistory].slice(0, 80);
     set({
-      tick: nextTick,
-      snapshot: next.snapshot,
-      alerts: next.alerts,
-      newAlertIds: next.newAlertIds,
+      tick: next,
+      snapshot: built.snapshot,
+      snapshotMarkTick: next,
+      alerts: built.alerts,
+      newAlertIds: built.newAlertIds,
       alertHistory: updatedHistory,
     });
   },
@@ -216,10 +381,14 @@ export const useTwin = create<TwinState>((set, get) => ({
     set({
       tick: INITIAL_TICK,
       snapshot: next.snapshot,
+      snapshotMarkTick: INITIAL_TICK,
       alerts: next.alerts,
       newAlertIds: [],
       alertHistory: [],
       backendPulseAlerts: [],
+      dataSource: "mock",
+      selectedPrinterId: null,
+      fetchInflight: false,
     });
   },
 

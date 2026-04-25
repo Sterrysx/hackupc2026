@@ -4,7 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 # Root `app.py` is the FastAPI entrypoint; only ship Python packages, not `frontend/` or `UI_EXAMPLE/`.
-packages = ["Ai_Agent", "stt"]
+# Note `ml_models/03_rl+ssl/` is intentionally NOT a package — `+` is invalid in Python module names.
+# Importable Stage 03 code lives under `ml_models.lib.rl`.
+packages = [
+    "Ai_Agent",
+    "stt",
+    "tts",
+    "sdg", "sdg.config", "sdg.core", "sdg.weather",
+    "ml_models", "ml_models.lib", "ml_models.lib.rl",
+]
 py-modules = ["app"]
 
 [project]

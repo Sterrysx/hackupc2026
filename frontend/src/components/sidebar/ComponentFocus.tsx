@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { HealthRing } from "@/components/HealthRing";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { MicButton } from "@/components/floating/MicButton";
-import { formatEta } from "@/lib/alerts";
-import type { ComponentMetric } from "@/types/telemetry";
+import { HealthTimelineChart } from "@/components/sidebar/HealthTimelineChart";
+import { formatEta, liveMinutesRemaining } from "@/lib/alerts";
+import { SIM_MINUTES_PER_TICK } from "@/lib/twinApi";
+import type { ComponentId, ComponentMetric } from "@/types/telemetry";
 
 const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -35,6 +37,8 @@ const itemVariants = {
  */
 export function ComponentFocus({ id }: { id: string }) {
   const snapshot = useTwin((s) => s.snapshot);
+  const tick = useTwin((s) => s.tick);
+  const snapshotMarkTick = useTwin((s) => s.snapshotMarkTick);
   const selectComponent = useTwin((s) => s.selectComponent);
   const sendUserMessage = useTwin((s) => s.sendUserMessage);
   const setChatOpen = useTwin((s) => s.setChatOpen);
@@ -114,6 +118,11 @@ export function ComponentFocus({ id }: { id: string }) {
         />
       </motion.section>
 
+      {/* Lifetime trace — only renders when live data is available. */}
+      <motion.div variants={itemVariants}>
+        <HealthTimelineChart id={c.id as ComponentId} />
+      </motion.div>
+
       {/* Live metrics */}
       <motion.section variants={itemVariants}>
         <header className="flex items-baseline justify-between mb-3">
@@ -139,16 +148,47 @@ export function ComponentFocus({ id }: { id: string }) {
             <AnimatedNumber value={f.confidence * 100} format={(v) => `${Math.round(v)}% confidence`} />
           </span>
         </header>
-        {(f.minutesUntilCritical !== null || f.minutesUntilFailure !== null) && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {f.minutesUntilFailure !== null && (
-              <Badge tone="crit" size="sm">Failure ~{formatEta(f.minutesUntilFailure)}</Badge>
-            )}
-            {f.minutesUntilCritical !== null && (
-              <Badge tone="warn" size="sm">Critical ~{formatEta(f.minutesUntilCritical)}</Badge>
-            )}
-          </div>
-        )}
+        {(() => {
+          // Tone the badge by *urgency*, not by mere presence of a forecast.
+          // The backend already drops ETAs beyond the 30-day operational
+          // horizon (see `Ai_Agent/forecast.py::_OPERATIONAL_HORIZON_MIN`),
+          // so anything we get here is at least within planning range — but
+          // we still need to distinguish "act in the next hour" from
+          // "schedule maintenance next week".
+          const FAILURE_HOT_MIN = 2 * 60;        // < 2h → CRITICAL red
+          const FAILURE_SOON_MIN = 24 * 60;      // < 24h → WARN amber
+          const CRITICAL_HOT_MIN = 8 * 60;       // < 8h → WARN amber
+          // Smoothly interpolate ETA between snapshot fetches so the badge
+          // counts down with simulated time instead of staying frozen for
+          // a full sim-day (see `liveMinutesRemaining` in lib/alerts).
+          const mF = liveMinutesRemaining(f.minutesUntilFailure, tick, snapshotMarkTick, SIM_MINUTES_PER_TICK);
+          const mC = liveMinutesRemaining(f.minutesUntilCritical, tick, snapshotMarkTick, SIM_MINUTES_PER_TICK);
+          const failureBadge = mF === null
+            ? null
+            : mF < FAILURE_HOT_MIN
+              ? <Badge key="f" tone="crit" size="sm">Failure ~{formatEta(mF)}</Badge>
+              : mF < FAILURE_SOON_MIN
+                ? <Badge key="f" tone="warn" size="sm">Failure ~{formatEta(mF)}</Badge>
+                : <Badge key="f" tone="neutral" size="sm">Failure ~{formatEta(mF)}</Badge>;
+          const criticalBadge = mC === null
+            ? null
+            : mC < CRITICAL_HOT_MIN
+              ? <Badge key="c" tone="warn" size="sm">Critical ~{formatEta(mC)}</Badge>
+              : <Badge key="c" tone="neutral" size="sm">Critical ~{formatEta(mC)}</Badge>;
+          if (failureBadge === null && criticalBadge === null) {
+            return (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <Badge tone="ok" size="sm">Stable · no failure in 30 d</Badge>
+              </div>
+            );
+          }
+          return (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {failureBadge}
+              {criticalBadge}
+            </div>
+          );
+        })()}
         <p className="text-[12.5px] text-[var(--color-fg-muted)] leading-relaxed">
           {f.rationale}
         </p>

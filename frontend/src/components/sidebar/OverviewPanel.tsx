@@ -5,8 +5,9 @@ import { useTwin } from "@/store/twin";
 import { Badge, statusLabel, statusToTone } from "@/components/ui/Badge";
 import { HealthRing } from "@/components/HealthRing";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
-import { formatEta } from "@/lib/alerts";
-import type { ComponentState } from "@/types/telemetry";
+import { formatEta, liveMinutesRemaining } from "@/lib/alerts";
+import { SIM_MINUTES_PER_TICK } from "@/lib/twinApi";
+import type { ComponentForecast, ComponentState } from "@/types/telemetry";
 
 /* ── Stagger config ───────────────────────────────────────────────────── */
 
@@ -115,6 +116,34 @@ export function OverviewPanel() {
             </div>
           ))}
         </div>
+      </motion.section>
+
+      {/* Time-to-failure forecast — one bar per component, sorted by urgency. */}
+      <motion.section variants={itemVariants}>
+        <header className="flex items-baseline justify-between mb-3">
+          <h2 className="text-[10px] uppercase tracking-[0.20em] text-[var(--color-fg-faint)]">
+            Time to failure
+          </h2>
+          <span className="text-[10.5px] text-[var(--color-fg-faint)]">
+            forecast
+          </span>
+        </header>
+        <ul className="flex flex-col gap-2.5">
+          {sortedByUrgency(snapshot.components, snapshot.forecasts).map(
+            ({ component, forecast }) => (
+              <RulBar
+                key={component.id}
+                component={component}
+                forecast={forecast}
+                onClick={() => {
+                  selectComponent(component.id);
+                  highlightComponent(component.id);
+                  setTimeout(() => highlightComponent(null), 1200);
+                }}
+              />
+            ),
+          )}
+        </ul>
       </motion.section>
 
       {/* Alerts */}
@@ -236,6 +265,92 @@ function DriverRow({ label, value, unit }: { label: string; value: number; unit:
         {unit && <span className="text-[var(--color-fg-faint)]"> {unit}</span>}
       </dd>
     </div>
+  );
+}
+
+/**
+ * Visual scale: matches the backend operational horizon
+ * (`Ai_Agent/forecast.py::_OPERATIONAL_HORIZON_MIN` = 30 days). Anything
+ * beyond that arrives as ``null`` from the backend ("stable") and renders as
+ * an empty bar, so we never need to clamp negative widths in CSS.
+ */
+const RUL_VISUAL_CAP_MIN = 60 * 24 * 30;
+
+function urgencyFraction(minutes: number | null): number {
+  if (minutes === null) return 0;
+  if (minutes <= 0) return 1;
+  // 1.0 = imminent (0 min), 0.0 = at the operational horizon. Clamped to
+  // [0, 1] so a stale snapshot with an out-of-range value can't render a
+  // negative-width bar.
+  return Math.max(0, Math.min(1, 1 - minutes / RUL_VISUAL_CAP_MIN));
+}
+
+function rulColour(minutes: number | null): string {
+  if (minutes === null) return "var(--color-info)";
+  if (minutes <= 60 * 2)  return "var(--color-crit)";    // < 2h
+  if (minutes <= 60 * 24) return "var(--color-warn)";    // < 24h
+  return "var(--color-accent)";
+}
+
+function sortedByUrgency(
+  components: ComponentState[],
+  forecasts: ComponentForecast[],
+): { component: ComponentState; forecast: ComponentForecast | undefined }[] {
+  const fById = new Map(forecasts.map((f) => [f.id, f]));
+  return components
+    .map((c) => ({ component: c, forecast: fById.get(c.id) }))
+    .sort((a, b) => {
+      const am = a.forecast?.minutesUntilFailure ?? Number.POSITIVE_INFINITY;
+      const bm = b.forecast?.minutesUntilFailure ?? Number.POSITIVE_INFINITY;
+      return am - bm;
+    });
+}
+
+function RulBar({
+  component,
+  forecast,
+  onClick,
+}: {
+  component: ComponentState;
+  forecast: ComponentForecast | undefined;
+  onClick: () => void;
+}) {
+  // Live-interpolate the ETA so the bar drains smoothly between snapshot
+  // fetches instead of staying frozen for a full sim-day.
+  const tick = useTwin((s) => s.tick);
+  const snapshotMarkTick = useTwin((s) => s.snapshotMarkTick);
+  const minutes = liveMinutesRemaining(
+    forecast?.minutesUntilFailure ?? null,
+    tick, snapshotMarkTick, SIM_MINUTES_PER_TICK,
+  );
+  const fraction = urgencyFraction(minutes);
+  const colour = rulColour(minutes);
+  const etaLabel = minutes === null
+    ? "stable"
+    : `~${formatEta(minutes)}`;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left flex flex-col gap-1.5 py-1 hover:opacity-90 transition-opacity"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[12px] text-[var(--color-fg)] truncate">
+            {component.label}
+          </span>
+          <span className="text-[11px] tabular-nums text-[var(--color-fg-muted)]">
+            {etaLabel}
+          </span>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div
+            className="h-full rounded-full transition-[width] duration-500 ease-out"
+            style={{ width: `${fraction * 100}%`, background: colour }}
+          />
+        </div>
+      </button>
+    </li>
   );
 }
 

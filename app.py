@@ -24,6 +24,7 @@ from tts.speaker import TextToSpeech
 from Ai_Agent.graph import build_graph
 from Ai_Agent.db import insert_telemetry, init_db
 from Ai_Agent.trace import build_reasoning_trace
+from Ai_Agent import twin_data, forecast
 
 app = FastAPI(title="Digital Twin AI API")
 
@@ -312,6 +313,106 @@ async def health_check():
         "status": "ok",
         "agent_ready": bool(os.getenv("GROQ_API_KEY")),
     }
+
+
+# ---------------------------------------------------------------- /twin/* —
+# Stage 1 timeline accessors. Read-only views over `data/fleet_baseline.parquet`
+# shaped to match the React store's `SystemSnapshot` contract.
+
+@app.get("/twin/cities")
+async def twin_cities():
+    return {"cities": twin_data.list_cities()}
+
+
+@app.get("/twin/printers")
+async def twin_printers(city: str):
+    try:
+        return {"city": city, "printers": twin_data.list_printers(city)}
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/twin/snapshot")
+async def twin_snapshot(city: str, printer_id: int, day: int):
+    try:
+        return twin_data.get_snapshot(city, printer_id, day)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/twin/timeline")
+async def twin_timeline(
+    city: str,
+    printer_id: int,
+    fields: str,
+    day_from: Optional[int] = None,
+    day_to: Optional[int] = None,
+):
+    """`fields` is a comma-separated list of parquet column names."""
+    requested = [f.strip() for f in fields.split(",") if f.strip()]
+    if not requested:
+        raise HTTPException(status_code=400, detail="fields must be non-empty")
+    try:
+        return twin_data.get_timeline(
+            city, printer_id, requested,
+            day_from=day_from, day_to=day_to,
+        )
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/twin/state")
+async def twin_state(
+    city: str,
+    printer_id: int,
+    day: int,
+    horizon_min: int = twin_data.DEFAULT_FORECAST_HORIZON_MIN,
+):
+    """Combined snapshot + Stage 2 forecast — single round-trip per UI tick.
+
+    Forecasts use the analytic projection by default (per-hour hazard ×
+    horizon). When `ml_models/02_ssl/models/rul_head_ssl.pt` appears, the
+    forecast module switches automatically — no API change required.
+    """
+    try:
+        snap = twin_data.get_snapshot(
+            city, printer_id, day,
+            forecast_horizon_min=horizon_min,
+        )
+        snap["forecasts"] = forecast.compute_forecasts(
+            city, printer_id, day, horizon_min=horizon_min,
+        )
+        return snap
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/twin/model_status")
+async def twin_model_status():
+    """Tells the UI whether forecasts are coming from the trained SSL+RUL
+    head (`active_path == "ssl"`) or the analytic fallback."""
+    return {
+        "active_path": forecast.active_path(),
+        "rul_head_present": bool(forecast._has_rul_head()),
+    }
+
+
+@app.get("/twin/forecast")
+async def twin_forecast(
+    city: str,
+    printer_id: int,
+    day: int,
+    horizon_min: int = twin_data.DEFAULT_FORECAST_HORIZON_MIN,
+):
+    try:
+        return {
+            "horizonMin": horizon_min,
+            "forecasts": forecast.compute_forecasts(
+                city, printer_id, day, horizon_min=horizon_min,
+            ),
+        }
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

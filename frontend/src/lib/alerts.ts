@@ -167,11 +167,44 @@ function sevRank(s: AlertSeverity): number {
   return s === "CRITICAL" ? 3 : s === "WARNING" ? 2 : 1;
 }
 
+/**
+ * Smoothly interpolate a forecast ETA between snapshot fetches.
+ *
+ * The backend only refreshes a snapshot at sim-day boundaries (every
+ * `TICKS_PER_DAY` store ticks), so the raw `minutesUntilFailure` field stays
+ * frozen for up to a sim day at a time. To keep the badge alive while the
+ * day clock advances, we subtract simulated minutes elapsed since the
+ * snapshot landed.
+ *
+ * Returns:
+ *   • `null` if the source ETA was already null (stable / past horizon)
+ *   • `0` once the elapsed sim time has caught up with the original ETA
+ *   • the remaining sim minutes otherwise
+ */
+export function liveMinutesRemaining(
+  rawMinutes: number | null,
+  currentTick: number,
+  snapshotMarkTick: number,
+  simMinutesPerTick: number,
+): number | null {
+  if (rawMinutes === null) return null;
+  const elapsedSimMin = Math.max(0, currentTick - snapshotMarkTick) * simMinutesPerTick;
+  return Math.max(0, rawMinutes - elapsedSimMin);
+}
+
 export function formatEta(minutes: number): string {
   if (minutes < 60) return `${Math.round(minutes)} min`;
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  if (minutes < 24 * 60) {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
+  if (minutes < 14 * 24 * 60) {
+    const days = minutes / 1440;
+    return `${days.toFixed(1)}d`;
+  }
+  const weeks = Math.round(minutes / (7 * 1440));
+  return `${weeks}w`;
 }
 
 /** Pick the single most urgent alert, used by the failure-ribbon. */
