@@ -1,123 +1,77 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useTwin } from "@/store/twin";
-import { Header } from "@/components/Header";
-import { FailureRibbon } from "@/components/FailureRibbon";
-import { MetricsGrid } from "@/components/MetricsGrid";
-import { AlertsPanel } from "@/components/AlertsPanel";
-import { DriversCard } from "@/components/DriversCard";
-import { ChatPanel } from "@/components/ChatPanel";
-import { FloatingChatButton } from "@/components/FloatingChatButton";
+import { InteractiveSchematic } from "@/components/schematic/InteractiveSchematic";
 import { CommandPalette } from "@/components/CommandPalette";
-import { ComponentDrawer } from "@/components/ComponentDrawer";
-import { SchematicView } from "@/views/SchematicView";
-
-type View = "dashboard" | "schematic";
-
-function viewFromHash(): View {
-  if (typeof window === "undefined") return "dashboard";
-  return window.location.hash === "#schematic" ? "schematic" : "dashboard";
-}
+import { BrandMark } from "@/components/floating/BrandMark";
+import { ModeToggle } from "@/components/floating/ModeToggle";
+import { SimControls } from "@/components/floating/SimControls";
+import { DashboardPanel } from "@/components/floating/DashboardPanel";
+import { ARDataCard } from "@/components/floating/ARDataCard";
+import { AetherBubble } from "@/components/floating/AetherBubble";
 
 /**
- * Top-level shell. Two views, hash-routed:
- *   /            → dashboard (Phase 1)
- *   /#schematic  → interactive 2D schematic (Phase 2, in progress)
+ * "Ethereal Spatial" shell.
+ *
+ *   • Schematic is the entire 100vw × 100vh background — never constrained.
+ *   • Floating glass overlays sit ABOVE it with margins from every edge.
+ *   • Selecting a part:
+ *       1. DashboardPanel (if visible) exits   (~0.32s)
+ *       2. Schematic spring-zooms              (~0.8s)
+ *       3. ARDataCard fades in spatially       (~0.42s, sequenced via mode="wait")
+ *   • Reverse on Esc / back / re-click.
+ *   • Mode toggle:
+ *       - Dashboard → DashboardPanel visible (overview + embedded chat)
+ *       - Immersive → DashboardPanel hidden, only schematic + chat bubble.
+ *   • Aether chat bubble is a FAB at bottom-right whenever the dashboard
+ *     widget isn't shown — so chat is always one click away.
  */
 export default function App() {
   const advance = useTwin((s) => s.advance);
-  const [view, setView] = useState<View>(viewFromHash);
+  const mode = useTwin((s) => s.mode);
+  const selectedId = useTwin((s) => s.selectedComponentId);
+  const setBubbleOpen = useTwin((s) => s.setBubbleOpen);
 
+  // Tick the simulator once per second.
   useEffect(() => {
     const id = setInterval(() => advance(), 1000);
     return () => clearInterval(id);
   }, [advance]);
 
+  const showDashboardPanel = mode === "dashboard" && !selectedId;
+  const showBubble = !showDashboardPanel; // bubble fills in whenever the widget is gone
+
+  // If the user opens the dashboard widget while the chat bubble is expanded,
+  // close the bubble — its chat is now embedded in the widget.
   useEffect(() => {
-    const onHash = () => setView(viewFromHash());
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-
-  if (view === "schematic") return <SchematicView />;
+    if (showDashboardPanel) setBubbleOpen(false);
+  }, [showDashboardPanel, setBubbleOpen]);
 
   return (
-    <div className="min-h-screen flex flex-col text-[var(--color-fg)]">
-      <Header />
+    <div className="h-screen w-screen relative overflow-hidden bg-[var(--color-bg)]">
+      {/* Full-bleed schematic background */}
+      <div className="absolute inset-0">
+        <InteractiveSchematic />
+      </div>
 
-      <main className="flex-1">
-        <div className="max-w-[1100px] mx-auto px-10 py-16 flex flex-col gap-16">
-          <Hero />
-          <FailureRibbon />
-          <MetricsGrid />
-          <AlertsPanel />
-          <DriversCard />
-          <Footer />
-        </div>
-      </main>
+      {/* Floating chrome (always visible) */}
+      <BrandMark />
+      <ModeToggle />
+      <SimControls />
 
-      <ChatPanel />
-      <FloatingChatButton />
+      {/* Right-side data surface — DashboardPanel and ARDataCard never both visible.
+          mode="wait" sequences the cross-fade: one exits fully before the next enters. */}
+      <AnimatePresence mode="wait">
+        {showDashboardPanel && <DashboardPanel key="dashboard" />}
+        {selectedId && <ARDataCard key={`ar-${selectedId}`} id={selectedId} />}
+      </AnimatePresence>
+
+      {/* Floating chat (FAB + expandable panel) — present whenever dashboard widget isn't. */}
+      <AnimatePresence>
+        {showBubble && <AetherBubble key="bubble" />}
+      </AnimatePresence>
+
       <CommandPalette />
-      <ComponentDrawer />
     </div>
-  );
-}
-
-function Hero() {
-  const { snapshot, alerts } = useTwin();
-  const failed = snapshot.components.filter((c) => c.status === "FAILED").length;
-  const critical = snapshot.components.filter((c) => c.status === "CRITICAL").length;
-  const degraded = snapshot.components.filter((c) => c.status === "DEGRADED").length;
-  const healthy = snapshot.components.length - failed - critical - degraded;
-  const avgHealth = Math.round(
-    (snapshot.components.reduce((a, c) => a + c.healthIndex, 0) / snapshot.components.length) * 100,
-  );
-
-  let headline: string;
-  let supporting: string;
-
-  if (failed) {
-    headline = `${failed} component${failed === 1 ? "" : "s"} offline`;
-    supporting = "Immediate inspection recommended.";
-  } else if (critical) {
-    headline = "Attention needed";
-    supporting = `${critical} critical · ${degraded} degraded · forecasting next ${snapshot.forecastHorizonMin} min.`;
-  } else if (degraded) {
-    headline = "All systems running";
-    supporting = `${degraded} component${degraded === 1 ? "" : "s"} degraded — schedule maintenance soon.`;
-  } else if (alerts.length > 0) {
-    headline = "All systems running";
-    supporting = `${alerts.length} predictive watch${alerts.length === 1 ? "" : "es"} active.`;
-  } else {
-    headline = "All systems healthy";
-    supporting = `${healthy} of ${snapshot.components.length} components nominal · average health ${avgHealth}%.`;
-  }
-
-  return (
-    <section className="flex flex-col gap-3">
-      <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--color-fg-faint)]">
-        Operator overview
-      </p>
-      <h1 className="text-[40px] sm:text-[48px] font-medium tracking-[-0.02em] leading-[1.05] text-[var(--color-fg)]">
-        {headline}
-      </h1>
-      <p className="text-[16px] text-[var(--color-fg-muted)] max-w-prose">
-        {supporting}
-      </p>
-    </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="pt-10 mt-4 border-t border-[var(--color-border)] flex items-center justify-between text-[10.5px] uppercase tracking-[0.18em] text-[var(--color-fg-faint)]">
-      <span>Phase 1 · Synthetic telemetry</span>
-      <a
-        href="#schematic"
-        className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-muted)] transition-colors"
-      >
-        Schematic preview →
-      </a>
-    </footer>
   );
 }

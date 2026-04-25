@@ -34,8 +34,13 @@ interface TwinState {
   highlightComponentId: ComponentId | null;
   commandPaletteOpen: boolean;
   chatOpen: boolean;
+  /** Top-level UI mode: dashboard panels visible, or immersive (panels hidden). */
+  mode: "dashboard" | "immersive";
+  /** Whether the floating Aether chat bubble is expanded into a panel. */
+  bubbleOpen: boolean;
 
   messages: ChatMessage[];
+  isThinking: boolean;
 
   /* Actions */
   advance: () => void;
@@ -47,6 +52,8 @@ interface TwinState {
   highlightComponent: (id: ComponentId | null) => void;
   setCommandPaletteOpen: (o: boolean) => void;
   setChatOpen: (o: boolean) => void;
+  setMode: (m: "dashboard" | "immersive") => void;
+  setBubbleOpen: (o: boolean) => void;
   sendUserMessage: (text: string) => void;
 }
 
@@ -91,8 +98,11 @@ export const useTwin = create<TwinState>((set, get) => ({
   highlightComponentId: null,
   commandPaletteOpen: false,
   chatOpen: false,
+  mode: "dashboard",
+  bubbleOpen: false,
 
   messages: [initial.seedMessage],
+  isThinking: false,
 
   advance: () => {
     const { tick, alerts, alertHistory, paused, speed } = get();
@@ -144,18 +154,23 @@ export const useTwin = create<TwinState>((set, get) => ({
   selectComponent: (id) => set({ selectedComponentId: id }),
   highlightComponent: (id) => set({ highlightComponentId: id }),
   setCommandPaletteOpen: (o) => set({ commandPaletteOpen: o }),
+  setMode: (m) => set({ mode: m }),
+  setBubbleOpen: (o) => set({ bubbleOpen: o }),
   setChatOpen: (o) => set({ chatOpen: o }),
 
   sendUserMessage: (text) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     const userMsg = makeUserMessage(trimmed);
-    set((s) => ({ messages: [...s.messages, userMsg] }));
-    // Simulate ~250ms of "thinking" so the typing indicator has a moment.
+    set((s) => ({ messages: [...s.messages, userMsg], isThinking: true }));
+    // Bumped to ~700ms so the typing indicator is actually visible.
     const snap = get().snapshot;
     setTimeout(() => {
       const reply = answer(trimmed, snap);
-      set((s) => ({ messages: [...s.messages, makeAssistantMessage(reply)] }));
-    }, 280);
+      set((s) => ({
+        messages: [...s.messages, makeAssistantMessage(reply)],
+        isThinking: false,
+      }));
+    }, 700);
   },
 }));

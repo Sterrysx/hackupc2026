@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
 
 interface HealthRingProps {
   /** Current health 0..1 */
@@ -81,12 +82,12 @@ export function HealthRing({
       </svg>
       {showValue && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span
-            className="text-base font-medium tabular-nums tracking-tight text-[var(--color-fg)]"
+          <AnimatedNumber
+            value={value * 100}
+            className="font-medium tabular-nums tracking-tight text-[var(--color-fg)] leading-none"
+            duration={0.6}
             style={{ fontSize: Math.max(10, size * 0.28) }}
-          >
-            {Math.round(value * 100)}
-          </span>
+          />
         </div>
       )}
     </div>

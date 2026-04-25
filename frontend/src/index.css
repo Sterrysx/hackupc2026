@@ -109,13 +109,14 @@ body {
 }
 
 @utility glass-floating {
-  background: oklch(0.26 0.003 260 / 0.82);
-  backdrop-filter: blur(40px) saturate(150%);
-  -webkit-backdrop-filter: blur(40px) saturate(150%);
-  border: 1px solid var(--color-border-strong);
+  background: oklch(0.18 0.003 260 / 0.62);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid oklch(1 0 0 / 0.10);
   box-shadow:
-    0 1px 0 oklch(1 0 0 / 0.04) inset,
-    0 24px 64px -24px oklch(0 0 0 / 0.55);
+    0 1px 0 oklch(1 0 0 / 0.05) inset,
+    0 28px 80px -24px oklch(0 0 0 / 0.70),
+    0 8px 24px -12px oklch(0 0 0 / 0.45);
 }
 
 /* ── Animations ────────────────────────────────────────────────────────── */
@@ -129,6 +130,12 @@ body {
 @keyframes statusPulse {
   0%, 100% { opacity: 0.07; }
   50%      { opacity: 0.18; }
+}
+
+/* Shimmer wash — used by Skeleton loaders. */
+@keyframes shimmer {
+  0%   { background-position: -150% 0; }
+  100% { background-position:  150% 0; }
 }
 
 @keyframes fadeIn {
