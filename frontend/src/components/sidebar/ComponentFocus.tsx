@@ -222,8 +222,8 @@ function MetricRow({
 
 function prettySub(s: "recoating" | "printhead" | "thermal"): string {
   switch (s) {
-    case "recoating": return "Recoating system";
-    case "printhead": return "Printhead array";
-    case "thermal":   return "Thermal control";
+    case "recoating": return "Recoater assembly";
+    case "printhead": return "Printhead carriage";
+    case "thermal":   return "Build unit";
   }
 }

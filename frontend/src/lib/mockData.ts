@@ -84,7 +84,7 @@ interface ComponentSpec {
 }
 
 /**
- * Recoater Blade — abrasive wear accelerated by contamination.
+ * Recoater Roller / Blade — abrasive wear accelerated by contamination.
  * Wear is monotonically increasing; thickness drops from 1.20mm to ~0.60mm.
  */
 function buildBlade(tick: number, drivers: DriverVector): ComponentState {
@@ -102,7 +102,7 @@ function buildBlade(tick: number, drivers: DriverVector): ComponentState {
   const metrics: ComponentMetric[] = [
     {
       key: "thickness",
-      label: "Blade thickness",
+      label: "Roller blade thickness",
       value: thickness,
       unit: "mm",
       softMin: 0.85,
@@ -110,7 +110,7 @@ function buildBlade(tick: number, drivers: DriverVector): ComponentState {
     },
     {
       key: "roughness",
-      label: "Surface roughness",
+      label: "Powder layer roughness",
       value: surfaceRoughness,
       unit: "µm Ra",
       softMax: 2.2,
@@ -126,7 +126,7 @@ function buildBlade(tick: number, drivers: DriverVector): ComponentState {
 
   return {
     id: "recoater_blade",
-    label: "Recoater Blade",
+    label: "Recoater Roller / Blade",
     subsystem: "recoating",
     healthIndex: round2(health),
     status: statusFromHealth(health),
@@ -177,7 +177,7 @@ function buildMotor(tick: number, drivers: DriverVector): ComponentState {
 
   return {
     id: "recoater_motor",
-    label: "Recoater Motor",
+    label: "Recoater Drive Motor",
     subsystem: "recoating",
     healthIndex: round2(health),
     status: statusFromHealth(health),
@@ -187,7 +187,9 @@ function buildMotor(tick: number, drivers: DriverVector): ComponentState {
 }
 
 /**
- * Nozzle Plate — clogging accelerated when temperature wanders out of band.
+ * Printhead Carriage / Firing Array — clogging accelerated when temperature
+ * wanders out of band. The "nozzle plate" id is preserved for store/API
+ * stability but the operator-facing label uses the canonical HP terminology.
  */
 function buildNozzle(tick: number, drivers: DriverVector): ComponentState {
   const idealTemp = 235;
@@ -206,7 +208,7 @@ function buildNozzle(tick: number, drivers: DriverVector): ComponentState {
   const metrics: ComponentMetric[] = [
     {
       key: "temperature",
-      label: "Printhead temp",
+      label: "Carriage temperature",
       value: round1(tempC),
       unit: "°C",
       softMin: 220,
@@ -224,7 +226,7 @@ function buildNozzle(tick: number, drivers: DriverVector): ComponentState {
     },
     {
       key: "droplet_variance",
-      label: "Droplet variance",
+      label: "Binder droplet variance",
       value: dropletVariance,
       unit: "%",
       softMax: 4.0,
@@ -234,7 +236,7 @@ function buildNozzle(tick: number, drivers: DriverVector): ComponentState {
 
   return {
     id: "nozzle_plate",
-    label: "Nozzle Plate",
+    label: "Printhead Carriage",
     subsystem: "printhead",
     healthIndex: round2(health),
     status: statusFromHealth(health),
@@ -244,7 +246,7 @@ function buildNozzle(tick: number, drivers: DriverVector): ComponentState {
 }
 
 /**
- * Thermal Firing Resistors — electrical fatigue from cycling.
+ * Firing Array (thermal firing resistors) — electrical fatigue from cycling.
  */
 function buildResistor(tick: number, drivers: DriverVector): ComponentState {
   const cycles = tick * 28;
@@ -283,7 +285,7 @@ function buildResistor(tick: number, drivers: DriverVector): ComponentState {
 
   return {
     id: "thermal_resistor",
-    label: "Firing Resistors",
+    label: "Firing Array",
     subsystem: "printhead",
     healthIndex: round2(health),
     status: statusFromHealth(health),
@@ -293,7 +295,8 @@ function buildResistor(tick: number, drivers: DriverVector): ComponentState {
 }
 
 /**
- * Heating Element — electrical degradation, accelerated by insulation loss.
+ * Build Unit / Powder Bed — heater element of the platform that lowers as
+ * each layer is fused. Electrical degradation accelerated by insulation loss.
  */
 function buildHeater(tick: number, drivers: DriverVector): ComponentState {
   // Insulation degrades a touch with humidity → feedback loop on heater wear.
@@ -308,7 +311,7 @@ function buildHeater(tick: number, drivers: DriverVector): ComponentState {
   const metrics: ComponentMetric[] = [
     {
       key: "build_temp",
-      label: "Build chamber temp",
+      label: "Powder bed temp",
       value: actualC,
       unit: "°C",
       softMin: 1160,
@@ -316,7 +319,7 @@ function buildHeater(tick: number, drivers: DriverVector): ComponentState {
     },
     {
       key: "current",
-      label: "Element current",
+      label: "Heater current",
       value: drawAmps,
       unit: "A",
       softMax: 14.5,
@@ -334,7 +337,7 @@ function buildHeater(tick: number, drivers: DriverVector): ComponentState {
 
   return {
     id: "heating_element",
-    label: "Heating Element",
+    label: "Build Unit Heater",
     subsystem: "thermal",
     healthIndex: round2(health),
     status: statusFromHealth(health),
@@ -344,7 +347,8 @@ function buildHeater(tick: number, drivers: DriverVector): ComponentState {
 }
 
 /**
- * Insulation Panel — slow degradation amplified by humidity (cascading effect).
+ * Build Unit Insulation — slow degradation amplified by humidity (cascading
+ * effect on the bed heater).
  */
 function buildInsulation(tick: number, drivers: DriverVector): ComponentState {
   const wear = clamp01(tick / 22000 + (drivers.humidityPct / 100) * 0.1);
@@ -373,7 +377,7 @@ function buildInsulation(tick: number, drivers: DriverVector): ComponentState {
 
   return {
     id: "insulation_panel",
-    label: "Insulation Panel",
+    label: "Build Unit Insulation",
     subsystem: "thermal",
     healthIndex: round2(health),
     status: statusFromHealth(health),
@@ -383,12 +387,12 @@ function buildInsulation(tick: number, drivers: DriverVector): ComponentState {
 }
 
 const COMPONENT_SPECS: ComponentSpec[] = [
-  { id: "recoater_blade", label: "Recoater Blade", subsystem: "recoating", primaryMetricKey: "thickness", build: buildBlade },
-  { id: "recoater_motor", label: "Recoater Motor", subsystem: "recoating", primaryMetricKey: "vibration", build: buildMotor },
-  { id: "nozzle_plate",   label: "Nozzle Plate",   subsystem: "printhead", primaryMetricKey: "temperature", build: buildNozzle },
-  { id: "thermal_resistor", label: "Firing Resistors", subsystem: "printhead", primaryMetricKey: "resistance", build: buildResistor },
-  { id: "heating_element", label: "Heating Element", subsystem: "thermal", primaryMetricKey: "build_temp", build: buildHeater },
-  { id: "insulation_panel", label: "Insulation Panel", subsystem: "thermal", primaryMetricKey: "heat_loss", build: buildInsulation },
+  { id: "recoater_blade",   label: "Recoater Roller / Blade", subsystem: "recoating", primaryMetricKey: "thickness", build: buildBlade },
+  { id: "recoater_motor",   label: "Recoater Drive Motor",    subsystem: "recoating", primaryMetricKey: "vibration", build: buildMotor },
+  { id: "nozzle_plate",     label: "Printhead Carriage",      subsystem: "printhead", primaryMetricKey: "temperature", build: buildNozzle },
+  { id: "thermal_resistor", label: "Firing Array",            subsystem: "printhead", primaryMetricKey: "resistance", build: buildResistor },
+  { id: "heating_element",  label: "Build Unit Heater",       subsystem: "thermal",   primaryMetricKey: "build_temp", build: buildHeater },
+  { id: "insulation_panel", label: "Build Unit Insulation",   subsystem: "thermal",   primaryMetricKey: "heat_loss", build: buildInsulation },
 ];
 
 /* ─── Forecasting ──────────────────────────────────────────────────────── */

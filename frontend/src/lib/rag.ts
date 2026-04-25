@@ -256,9 +256,9 @@ function sevFromStatus(s: ComponentState["status"]): AlertSeverity {
 
 function pretty(subsystem: ComponentState["subsystem"]): string {
   switch (subsystem) {
-    case "recoating": return "Recoating";
-    case "printhead": return "Printhead";
-    case "thermal":   return "Thermal";
+    case "recoating": return "Recoater assembly";
+    case "printhead": return "Printhead carriage";
+    case "thermal":   return "Build unit";
   }
 }
 

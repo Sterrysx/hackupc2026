@@ -1,24 +1,15 @@
 /**
- * InteractiveSchematic — Phase 2.5 (unified-layout edition).
+ * InteractiveSchematic — Phase 2 SVG schematic, restored as the "2D Schematic"
+ * mode in Phase 3.6. Selection lives in the global store so it shares its
+ * focus state with the 3D scene; toggling between views never loses context.
  *
- * Spring-physics zoom on a minimalist 2D schematic of the printer. Selection
- * lives in the global store so the right-hand sidebar can react instantly
- * (focus mode shows deep diagnostics for the picked part). The popover from
- * the previous iteration is gone — the sidebar replaces it.
+ * Zoom math (SVG):
+ *   For viewBox WxH and a part box (x, y, w, h), to land the part centre
+ *   (cx, cy) at canvas centre at scale s:
+ *       tx = W/2 ? s*cx,   ty = H/2 ? s*cy
  *
- * Zoom math:
- *   For SVG viewBox W×H and a part box (x, y, w, h), we want the part centre
- *   (cx, cy) to land at the centre of the canvas at scale s. SVG transform
- *   "translate(tx ty) scale(s)" reads right-to-left, so a coord (px, py)
- *   lands at (s·px + tx, s·py + ty). Solve:
- *       tx = W/2 − s·cx,   ty = H/2 − s·cy
- *
- * Why setAttribute via ref:
- *   `motion.g transform={motionValue}` doesn't subscribe — `motion.g` only
- *   auto-projects shorthand transforms (x/y/scale) via CSS, which on SVG
- *   conflate viewBox units with CSS pixels in browser-inconsistent ways.
- *   Writing the SVG `transform` attribute imperatively guarantees clean
- *   viewBox-unit semantics with zero React re-renders per frame.
+ * SVG transform is written imperatively via useEffect on a ref so framer
+ * motion values can drive it without React re-renders per frame.
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -33,7 +24,6 @@ const FILL_FRACTION = 0.55;
 const MAX_SCALE = 4.5;
 const MIN_SCALE = 1;
 
-/** Spring config — high stiffness, near-critical damping. Heavy + deliberate. */
 const ZOOM_SPRING = {
   type: "spring" as const,
   stiffness: 100,
@@ -41,11 +31,10 @@ const ZOOM_SPRING = {
   mass: 1,
 };
 
-/** Default ease for everything that's not the zoom — Apple's ease-out-expo. */
 const APPLE_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const FADE_DURATION = 0.45;
 
-/* ── Stroke / fill palette ─────────────────────────────────────────────── */
+/* ?? Palette ????????????????????????????????????????????????????????????? */
 
 const COL = {
   STROKE_BASE:    "rgba(255, 255, 255, 0.32)",
@@ -86,20 +75,16 @@ interface SchematicPart {
   render: (active: boolean, status: OperationalStatus) => React.ReactNode;
 }
 
-/* ── Layout coordinates ────────────────────────────────────────────────── */
-
 const RAIL_Y  = 200;
 const RAIL_X1 = 180;
 const RAIL_X2 = 1010;
 const CHASSIS = { x: 540, y: 250, w: 220, h: 72 };
 const CHAMBER = { x: 290, y: 365, w: 620, h: 195 };
 
-/* ── Parts ─────────────────────────────────────────────────────────────── */
-
 const PARTS: SchematicPart[] = [
   {
     id: "recoater_blade",
-    label: "Recoater Blade",
+    label: "Recoater Roller / Blade",
     subsystem: "recoating",
     zoomBox: { x: 410, y: 175, w: 110, h: 70 },
     hitRects: [{ x: 410, y: 175, w: 110, h: 70 }],
@@ -125,7 +110,7 @@ const PARTS: SchematicPart[] = [
   },
   {
     id: "recoater_motor",
-    label: "Recoater Motor",
+    label: "Recoater Drive Motor",
     subsystem: "recoating",
     zoomBox: { x: 985, y: 158, w: 90, h: 92 },
     hitRects: [{ x: 985, y: 158, w: 90, h: 92 }],
@@ -156,7 +141,7 @@ const PARTS: SchematicPart[] = [
   },
   {
     id: "thermal_resistor",
-    label: "Thermal Firing Resistors",
+    label: "Firing Array",
     subsystem: "printhead",
     zoomBox: { x: 540, y: 248, w: 220, h: 50 },
     hitRects: [{ x: 540, y: 248, w: 220, h: 50 }],
@@ -177,7 +162,7 @@ const PARTS: SchematicPart[] = [
   },
   {
     id: "nozzle_plate",
-    label: "Nozzle Plate",
+    label: "Printhead Carriage",
     subsystem: "printhead",
     zoomBox: { x: 540, y: 305, w: 220, h: 38 },
     hitRects: [{ x: 540, y: 305, w: 220, h: 38 }],
@@ -198,7 +183,7 @@ const PARTS: SchematicPart[] = [
   },
   {
     id: "heating_element",
-    label: "Heating Element",
+    label: "Build Unit Heater",
     subsystem: "thermal",
     zoomBox: { x: 280, y: 562, w: 640, h: 44 },
     hitRects: [{ x: 280, y: 562, w: 640, h: 44 }],
@@ -229,7 +214,7 @@ const PARTS: SchematicPart[] = [
   },
   {
     id: "insulation_panel",
-    label: "Insulation Panel",
+    label: "Build Unit Insulation",
     subsystem: "thermal",
     zoomBox: { x: 256, y: 348, w: 688, h: 270 },
     hitRects: [
@@ -262,7 +247,7 @@ const PARTS: SchematicPart[] = [
   },
 ];
 
-/* ── Camera math ───────────────────────────────────────────────────────── */
+/* ?? Camera math ????????????????????????????????????????????????????????? */
 
 interface CameraState { x: number; y: number; scale: number; }
 
@@ -282,7 +267,7 @@ function cameraFor(box: PartBox | null): CameraState {
   };
 }
 
-/* ── Static decoration ─────────────────────────────────────────────────── */
+/* ?? Static decoration ??????????????????????????????????????????????????? */
 
 function StaticDecoration() {
   return (
@@ -295,24 +280,24 @@ function StaticDecoration() {
         stroke={COL.STROKE_VFAINT} strokeWidth={1} vectorEffect="non-scaling-stroke" />
       <text x={100} y={614} fill={COL.TEXT_LABEL}
         fontSize={9} letterSpacing="0.18em" fontFamily="var(--font-mono)">
-        HP METAL JET S100 · DIGITAL TWIN
+        HP METAL JET S100 * DIGITAL TWIN
       </text>
       <text x={100} y={636} fill={COL.TEXT_VFAINT}
         fontSize={8} letterSpacing="0.18em" fontFamily="var(--font-mono)">
-        2D INTERACTIVE SCHEMATIC · v0.2
+        2D INTERACTIVE SCHEMATIC * v0.2
       </text>
 
       <text x={600} y={148} fill={COL.TEXT_LABEL} fontSize={9}
         letterSpacing="0.22em" textAnchor="middle" fontFamily="var(--font-mono)">
-        RECOATING SYSTEM
+        RECOATER ASSEMBLY
       </text>
       <text x={650} y={232} fill={COL.TEXT_LABEL} fontSize={9}
         letterSpacing="0.22em" textAnchor="middle" fontFamily="var(--font-mono)">
-        PRINTHEAD ARRAY
+        PRINTHEAD CARRIAGE
       </text>
       <text x={600} y={678} fill={COL.TEXT_LABEL} fontSize={9}
         letterSpacing="0.22em" textAnchor="middle" fontFamily="var(--font-mono)">
-        THERMAL CONTROL
+        BUILD UNIT
       </text>
 
       <line x1={RAIL_X1} y1={RAIL_Y} x2={RAIL_X2} y2={RAIL_Y}
@@ -356,7 +341,7 @@ function StaticDecoration() {
         vectorEffect="non-scaling-stroke" />
       <text x={600} y={395} fill={COL.STROKE_FAINT} fontSize={8}
         letterSpacing="0.18em" textAnchor="middle" fontFamily="var(--font-mono)">
-        BUILD CHAMBER
+        POWDER BED
       </text>
 
       {(() => {
@@ -382,23 +367,14 @@ function StaticDecoration() {
 /* ── Component ─────────────────────────────────────────────────────────── */
 
 export function InteractiveSchematic() {
-  // Selection now lives in the global store so the sidebar reacts in real-time.
   const snapshot = useTwin((s) => s.snapshot);
   const selectedId = useTwin((s) => s.selectedComponentId);
   const setSelected = useTwin((s) => s.selectComponent);
   const toggleDashboard = useTwin((s) => s.toggleDashboard);
 
-  // Background tap behaviour:
-  //   • If a part is zoomed in → first tap zooms back out (preserves the
-  //     user's dashboard preference for when they return to overview).
-  //   • If we're already in overview → tap-to-clear UI: hide / show the
-  //     telemetry panel, mirroring Apple's spatial-app gesture.
   const onCanvasClick = () => {
-    if (selectedId) {
-      setSelected(null);
-    } else {
-      toggleDashboard();
-    }
+    if (selectedId) setSelected(null);
+    else toggleDashboard();
   };
 
   const statusMap = useMemo<Record<ComponentId, OperationalStatus>>(() => {
@@ -412,7 +388,6 @@ export function InteractiveSchematic() {
   const ty = useMotionValue(0);
   const ts = useMotionValue(1);
 
-  // Imperative SVG transform attribute sync (zero React re-renders per frame).
   useEffect(() => {
     const apply = () => {
       const g = groupRef.current;
@@ -429,7 +404,6 @@ export function InteractiveSchematic() {
     return () => { u1(); u2(); u3(); };
   }, [tx, ty, ts]);
 
-  // Spring-driven camera tween on selection change.
   useEffect(() => {
     const sel = PARTS.find((p) => p.id === selectedId) ?? null;
     const cam = cameraFor(sel?.zoomBox ?? null);
@@ -439,7 +413,6 @@ export function InteractiveSchematic() {
     return () => { a1.stop(); a2.stop(); a3.stop(); };
   }, [selectedId, tx, ty, ts]);
 
-  // Esc returns to overview.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && selectedId) setSelected(null);
@@ -458,7 +431,6 @@ export function InteractiveSchematic() {
         role="img"
         aria-label="HP Metal Jet S100 schematic"
       >
-        {/* transform set imperatively in useEffect — never declared in JSX. */}
         <g ref={groupRef}>
           <StaticDecoration />
 
@@ -479,7 +451,6 @@ export function InteractiveSchematic() {
           </g>
         </g>
       </svg>
-
     </div>
   );
 }

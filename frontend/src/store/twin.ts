@@ -51,6 +51,13 @@ interface TwinState {
    * user keeps full agency without us inventing a separate "mode" enum.
    */
   dashboardOpen: boolean;
+  /**
+   * Background visualization. The selected component, dashboard, AR card,
+   * chat, etc. are all view-agnostic — they read the same store either way.
+   */
+  viewMode: "2d" | "3d";
+  /** When true while focused in 3D, user can orbit/pan freely. */
+  cameraOpen: boolean;
 
   messages: ChatMessage[];
   isThinking: boolean;
@@ -69,6 +76,8 @@ interface TwinState {
   setChatOpen: (o: boolean) => void;
   setDashboardOpen: (o: boolean) => void;
   toggleDashboard: () => void;
+  setViewMode: (m: "2d" | "3d") => void;
+  setCameraOpen: (open: boolean) => void;
   sendUserMessage: (text: string) => void;
   refreshChatApiStatus: () => Promise<void>;
 }
@@ -115,6 +124,8 @@ export const useTwin = create<TwinState>((set, get) => ({
   commandPaletteOpen: false,
   chatOpen: false,
   dashboardOpen: true,
+  viewMode: "3d",
+  cameraOpen: false,
 
   messages: [initial.seedMessage],
   isThinking: false,
@@ -172,12 +183,14 @@ export const useTwin = create<TwinState>((set, get) => ({
 
   setPaused: (p) => set({ paused: p }),
   setSpeed: (s) => set({ speed: s }),
-  selectComponent: (id) => set({ selectedComponentId: id }),
+  selectComponent: (id) => set({ selectedComponentId: id, cameraOpen: id ? get().cameraOpen : false }),
   highlightComponent: (id) => set({ highlightComponentId: id }),
   setCommandPaletteOpen: (o) => set({ commandPaletteOpen: o }),
   setChatOpen: (o) => set({ chatOpen: o }),
   setDashboardOpen: (o) => set({ dashboardOpen: o }),
   toggleDashboard: () => set((s) => ({ dashboardOpen: !s.dashboardOpen })),
+  setViewMode: (m) => set({ viewMode: m, cameraOpen: m === "3d" ? get().cameraOpen : false }),
+  setCameraOpen: (open) => set({ cameraOpen: open }),
 
   sendUserMessage: (text) => {
     const trimmed = text.trim();

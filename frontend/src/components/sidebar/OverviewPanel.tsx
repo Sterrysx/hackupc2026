@@ -245,8 +245,8 @@ function dotColour(s: "INFO" | "WARNING" | "CRITICAL"): string {
 
 function prettySub(s: ComponentState["subsystem"]): string {
   switch (s) {
-    case "recoating": return "Recoating system";
-    case "printhead": return "Printhead array";
-    case "thermal":   return "Thermal control";
+    case "recoating": return "Recoater assembly";
+    case "printhead": return "Printhead carriage";
+    case "thermal":   return "Build unit";
   }
 }
