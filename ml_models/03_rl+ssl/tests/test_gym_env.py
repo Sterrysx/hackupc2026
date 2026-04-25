@@ -13,8 +13,10 @@ import pytest
 
 from ml_models.lib.rl import (
     MaintenanceBanditEnv,
+    MaintenancePerTickEnv,
     TAU_RANGES,
     action_to_tau,
+    make_per_tick_vec_env,
     random_encoder_bundle,
     tau_to_action,
 )
@@ -161,3 +163,47 @@ def test_env_evaluate_tau_matches_step(small_env) -> None:
     direct = small_env.evaluate_tau(info["tau_vector"], printer_ids=[0])
     assert abs(direct["annual_cost"] - info["annual_cost"]) < 1e-6
     assert abs(direct["availability"] - info["availability"]) < 1e-9
+
+
+# ----------------------------------------------------------------------
+# Vec-env helper — sanity only (we don't actually spawn subprocs in CI).
+# ----------------------------------------------------------------------
+def test_make_per_tick_vec_env_single_env_falls_back_to_dummy() -> None:
+    from datetime import date, timedelta
+
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    short = [date(2015, 1, 1) + timedelta(days=d) for d in range(40)]
+    vec = make_per_tick_vec_env([0], n_envs=1, dates=short)
+    assert isinstance(vec, DummyVecEnv)
+    assert vec.num_envs == 1
+    vec.close()
+
+
+def test_make_per_tick_vec_env_partitions_disjoint() -> None:
+    from datetime import date, timedelta
+
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    short = [date(2015, 1, 1) + timedelta(days=d) for d in range(40)]
+    # use_subproc=False so the test stays in-process and fast
+    vec = make_per_tick_vec_env([0, 7, 14, 21], n_envs=2, use_subproc=False, dates=short)
+    assert isinstance(vec, DummyVecEnv)
+    assert vec.num_envs == 2
+    seen: set[int] = set()
+    for env_fn in vec.envs:  # DummyVecEnv exposes .envs
+        ids = set(env_fn.printer_ids)
+        assert ids.isdisjoint(seen), f"printer subsets overlap: {ids} vs {seen}"
+        seen |= ids
+    assert seen == {0, 7, 14, 21}
+    vec.close()
+
+
+def test_make_per_tick_vec_env_n_envs_capped_to_n_printers() -> None:
+    from datetime import date, timedelta
+
+    short = [date(2015, 1, 1) + timedelta(days=d) for d in range(40)]
+    # asking for 5 envs over 3 printers should drop empties → 3 envs
+    vec = make_per_tick_vec_env([0, 7, 14], n_envs=5, use_subproc=False, dates=short)
+    assert vec.num_envs == 3
+    vec.close()

@@ -30,7 +30,7 @@ from .gym_env import (
     action_to_tau,
     tau_to_action,
 )
-from .per_tick_env import MaintenancePerTickEnv
+from .per_tick_env import MaintenancePerTickEnv, make_per_tick_vec_env
 from .policy import (
     make_mlp_policy_kwargs,
     warm_start_action_mean,
@@ -75,6 +75,7 @@ __all__ = [
     "tau_to_action",
     # Per-tick env
     "MaintenancePerTickEnv",
+    "make_per_tick_vec_env",
     # Policy / bandit trainer
     "make_mlp_policy_kwargs",
     "warm_start_action_mean",

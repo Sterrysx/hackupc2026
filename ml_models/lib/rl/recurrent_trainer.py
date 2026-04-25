@@ -212,14 +212,20 @@ def build_ppo(
 
 
 def train_per_tick(
-    train_env: MaintenancePerTickEnv,
+    train_env: MaintenancePerTickEnv | VecEnv,
     val_env: MaintenancePerTickEnv,
     config: PerTickPPOConfig | None = None,
     *,
     save_dir: str | Path | None = None,
     use_spr: bool = True,
 ) -> tuple[PPO, PerTickHistory, SPRModule | None]:
-    """Train per-tick PPO with optional SPR auxiliary loss."""
+    """Train per-tick PPO with optional SPR auxiliary loss.
+
+    ``train_env`` may be either a single ``MaintenancePerTickEnv`` (default
+    DummyVecEnv wrap, sequential) or a pre-built ``VecEnv``. Pass the
+    output of :func:`make_per_tick_vec_env` to step multiple envs across
+    subprocesses for a ~Nx throughput win on multi-core CPUs.
+    """
     if config is None:
         config = PerTickPPOConfig()
     save_dir_p = Path(save_dir) if save_dir is not None else None
@@ -227,7 +233,10 @@ def train_per_tick(
         save_dir_p.mkdir(parents=True, exist_ok=True)
     best_path = save_dir_p / "ppo_per_tick_best.zip" if save_dir_p else None
 
-    vec_env: VecEnv = DummyVecEnv([lambda env=train_env: env])
+    if isinstance(train_env, VecEnv):
+        vec_env = train_env
+    else:
+        vec_env = DummyVecEnv([lambda env=train_env: env])
     model = build_ppo(vec_env, config)
 
     spr: SPRModule | None = None
