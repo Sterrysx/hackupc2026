@@ -30,28 +30,15 @@ export function simIdFor(id: ComponentId): string {
 }
 
 /**
- * The parquet covers 15 European cities. The landing page lets the operator
- * choose from a worldwide list of 10 — only Barcelona and London overlap. For
- * the others, route to a climate-equivalent European city so the simulation
- * shown on screen still reflects the operator's intent.
+ * Backend city name resolver.
  *
- * Update if the landing list or parquet city set changes.
+ * Both parquets — historical (`data/fleet_baseline.parquet`) and predictive
+ * (`data/validation/fleet_2026_2035.parquet`) — now use the operator-facing
+ * 10-city lowercase set (`singapore`, `dubai`, `barcelona`, …). The legacy
+ * 15-European-city remap is retired; we just pass `city.id` through.
  */
-const CITY_TO_BACKEND: Record<string, string> = {
-  singapore:   "Athens",       // hot + humid
-  dubai:       "Madrid",       // hot + dry
-  mumbai:      "Athens",       // hot + humid
-  shanghai:    "Vienna",       // mild + humid
-  barcelona:   "Barcelona",
-  london:      "London",
-  moscow:      "Helsinki",     // cold continental
-  chicago:     "Warsaw",       // continental
-  houston:     "Athens",       // hot
-  mexico_city: "Madrid",       // mild altitude — closest fit
-};
-
 export function backendCityName(city: City): string {
-  return CITY_TO_BACKEND[city.id] ?? city.name;
+  return city.id;
 }
 
 /**

@@ -1,15 +1,18 @@
-.PHONY: help new-branch pr test-e2e demo-e2e
+.PHONY: help run dev backend frontend new-branch pr test-e2e demo-e2e
 
 # Default target: show help
 help:
 	@echo ""
-	@echo "  HackUPC 2026 — Git Workflow"
+	@echo "  HackUPC 2026 — Common workflows"
 	@echo ""
-	@echo "  STARTING A NEW FEATURE"
+	@echo "  RUNNING THE STACK"
+	@echo "    make run        # start backend (:8000) + frontend (:5173) in one shell"
+	@echo "    make backend    # only the FastAPI backend (uv run uvicorn, hot reload)"
+	@echo "    make frontend   # only the Vite dev server (npm run dev)"
+	@echo ""
+	@echo "  GIT WORKFLOW"
 	@echo "    make new-branch name=feat/your-feature-name"
 	@echo "    make new-branch name=fix/bug-you-are-fixing"
-	@echo ""
-	@echo "  OPENING A PULL REQUEST (when you are done)"
 	@echo "    make pr"
 	@echo ""
 	@echo "  GETTING AN AI REVIEW (after the PR is open)"
@@ -20,6 +23,24 @@ help:
 	@echo "    make demo-e2e   # narrated 5-act walkthrough, human-readable"
 	@echo ""
 
+# ── Stack runner ─────────────────────────────────────────────────────────── #
+# `make run` boots the full stack in one terminal: FastAPI on :8000 with hot
+# reload, plus Vite on :5173. Both share stdout; Ctrl+C tears down cleanly.
+# `make dev` is an alias so muscle memory works either way.
+run:
+	@bash scripts/run-stack.sh
+
+dev: run
+
+# Single-process variants — handy when you want one of the two on a debugger
+# or you've got the other running in another terminal already.
+backend:
+	@uv run --no-sync uvicorn app:app --reload --port 8000
+
+frontend:
+	@cd frontend && npm run dev
+
+# ── Git workflow ─────────────────────────────────────────────────────────── #
 new-branch:
 ifndef name
 	$(error Missing branch name. Usage: make new-branch name=feat/your-feature)
@@ -29,6 +50,7 @@ endif
 pr:
 	@bash scripts/create-pr.sh
 
+# ── End-to-end gates ─────────────────────────────────────────────────────── #
 # Live end-to-end test: real parquet + real LangGraph + real Groq LLM.
 # Skips automatically if GROQ_API_KEY is missing.
 test-e2e:

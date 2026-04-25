@@ -7,6 +7,7 @@ import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from
 import worldRaw from "world-atlas/land-110m.json";
 import { CITIES, type City } from "./cities";
 import {
+  buildContinentFillGeometry,
   buildContinentHatchGeometry,
   buildContinentLineGeometry,
   buildGraticuleGeometry,
@@ -76,6 +77,19 @@ const landFeature: Feature<MultiPolygon> = {
 const continentResult = buildContinentLineGeometry(landFeature, GLOBE_RADIUS * 1.0015);
 const graticuleGeometry = buildGraticuleGeometry(GLOBE_RADIUS * 1.0005, 15);
 const hatchGeometry = buildContinentHatchGeometry(landFeature, GLOBE_RADIUS * 1.001, 4, 6);
+// Land fill — sits just above the ocean sphere, below the hatch + outline
+// layers, so the hatch and the gradient can both read at once. Equator is
+// a warm sand (#d8c8a4 → 0.847, 0.784, 0.643), |lat|=90 cools to a soft
+// neutral (#cfd6cb → 0.812, 0.839, 0.796). Differentiates land from the
+// near-white ocean (#f0f0f0) without overwhelming the engraved aesthetic.
+const continentFillGeometry = buildContinentFillGeometry(
+  landFeature,
+  GLOBE_RADIUS * 1.0008,
+  {
+    equatorColor: [0.847, 0.784, 0.643],
+    poleColor: [0.812, 0.839, 0.796],
+  },
+);
 
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -208,6 +222,13 @@ function Globe({ continentRef }: { continentRef: RefObject<THREE.LineSegments | 
       <mesh>
         <sphereGeometry args={[GLOBE_RADIUS, 96, 96]} />
         <meshBasicMaterial color="#f0f0f0" />
+      </mesh>
+
+      {/* Land fill — vertex-coloured gradient (warm sand at the equator,
+          cool neutral toward the poles). Sits just above the ocean and
+          below the hatch + outlines. */}
+      <mesh geometry={continentFillGeometry}>
+        <meshBasicMaterial vertexColors />
       </mesh>
 
       {/* Subtle global graticule */}

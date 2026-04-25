@@ -12,6 +12,12 @@ import type { Feature, MultiPolygon } from "geojson";
  *   • buildContinentHatchGeometry — scanline hatch (horizontal + vertical)
  *     CLIPPED to continent polygons via per-polygon parity. Gives every
  *     landmass an interlaced texture without a custom shader.
+ *   • buildContinentFillGeometry — solid filled landmasses with per-vertex
+ *     colours that paint a latitude-driven gradient. Triangulates each
+ *     polygon (with holes) via THREE.ShapeUtils, subdivides the triangles
+ *     so they follow the sphere's curvature, then projects every vertex to
+ *     the surface. The result is a single non-indexed BufferGeometry the
+ *     globe renders below the hatch + outline layers.
  */
 
 const SUBDIVISIONS = 4;
@@ -189,4 +195,138 @@ export function buildContinentHatchGeometry(
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(verts), 3));
   return geometry;
+}
+
+// ── Continent fill ──────────────────────────────────────────────────────── //
+
+/** Maximum edge length (in degrees of arc on the lon/lat plane) before we
+ *  subdivide a triangle. Triangles with longer edges look visibly flat
+ *  against the sphere; 4° matches the hatch density and reads as smooth. */
+const FILL_MAX_EDGE_DEG = 4;
+
+export interface ContinentFillOptions {
+  /** RGB triple for the equatorial pole of the gradient. */
+  equatorColor: [number, number, number];
+  /** RGB triple for the high-latitude pole of the gradient. */
+  poleColor: [number, number, number];
+}
+
+/**
+ * Build a single filled, vertex-coloured BufferGeometry covering every land
+ * polygon. Colour is interpolated from `equatorColor` at lat=0 to
+ * `poleColor` at |lat|=90 with a smoothstep so the transition reads as a
+ * gradient rather than a hard band.
+ */
+export function buildContinentFillGeometry(
+  land: Feature<MultiPolygon>,
+  radius: number,
+  opts: ContinentFillOptions,
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+
+  for (const polygon of land.geometry.coordinates) {
+    if (polygon.length === 0) continue;
+    const outer = polygon[0].map(([lon, lat]) => new THREE.Vector2(lon, lat));
+    const holes = polygon
+      .slice(1)
+      .map((ring) => ring.map(([lon, lat]) => new THREE.Vector2(lon, lat)));
+
+    // Drop the duplicated closing vertex some GeoJSON rings carry — leaving
+    // it in confuses the ear-clipper into producing slivers.
+    if (outer.length > 1 && outer[0].equals(outer[outer.length - 1])) {
+      outer.pop();
+    }
+    for (const hole of holes) {
+      if (hole.length > 1 && hole[0].equals(hole[hole.length - 1])) {
+        hole.pop();
+      }
+    }
+    if (outer.length < 3) continue;
+
+    const triangles = THREE.ShapeUtils.triangulateShape(outer, holes);
+    if (triangles.length === 0) continue;
+
+    // ShapeUtils returns triangle index triples into the merged
+    // (outer + ...holes) array — re-merge so the index lookup is consistent.
+    const merged: THREE.Vector2[] = outer.slice();
+    for (const hole of holes) merged.push(...hole);
+
+    for (const tri of triangles) {
+      const [i, j, k] = tri;
+      emitSubdividedTriangle(
+        merged[i], merged[j], merged[k],
+        radius, opts, positions, colors,
+      );
+    }
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+  geom.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
+  return geom;
+}
+
+/**
+ * Recursively split a triangle in lon/lat space until every edge is shorter
+ * than `FILL_MAX_EDGE_DEG`, then project each vertex to the sphere and emit
+ * positions + per-vertex colours.
+ */
+function emitSubdividedTriangle(
+  a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2,
+  radius: number,
+  opts: ContinentFillOptions,
+  positions: number[],
+  colors: number[],
+): void {
+  const edgeAB = a.distanceTo(b);
+  const edgeBC = b.distanceTo(c);
+  const edgeCA = c.distanceTo(a);
+  const maxEdge = Math.max(edgeAB, edgeBC, edgeCA);
+
+  if (maxEdge <= FILL_MAX_EDGE_DEG) {
+    pushVertex(a, radius, opts, positions, colors);
+    pushVertex(b, radius, opts, positions, colors);
+    pushVertex(c, radius, opts, positions, colors);
+    return;
+  }
+
+  // Subdivide on the longest edge so the children stay roughly equilateral.
+  if (edgeAB === maxEdge) {
+    const m = midpoint(a, b);
+    emitSubdividedTriangle(a, m, c, radius, opts, positions, colors);
+    emitSubdividedTriangle(m, b, c, radius, opts, positions, colors);
+  } else if (edgeBC === maxEdge) {
+    const m = midpoint(b, c);
+    emitSubdividedTriangle(a, b, m, radius, opts, positions, colors);
+    emitSubdividedTriangle(a, m, c, radius, opts, positions, colors);
+  } else {
+    const m = midpoint(c, a);
+    emitSubdividedTriangle(a, b, m, radius, opts, positions, colors);
+    emitSubdividedTriangle(m, b, c, radius, opts, positions, colors);
+  }
+}
+
+function midpoint(p: THREE.Vector2, q: THREE.Vector2): THREE.Vector2 {
+  return new THREE.Vector2((p.x + q.x) / 2, (p.y + q.y) / 2);
+}
+
+function pushVertex(
+  p: THREE.Vector2,
+  radius: number,
+  opts: ContinentFillOptions,
+  positions: number[],
+  colors: number[],
+): void {
+  // p.x is longitude, p.y is latitude.
+  const v = latLonToVec3(p.y, p.x, radius);
+  positions.push(v.x, v.y, v.z);
+  // Latitude-driven gradient: equator → equatorColor, |lat|=90 → poleColor.
+  // Smoothstep so the band reads as a gradient instead of a hard transition.
+  const t = Math.min(1, Math.abs(p.y) / 90);
+  const ts = t * t * (3 - 2 * t);
+  const r = opts.equatorColor[0] + (opts.poleColor[0] - opts.equatorColor[0]) * ts;
+  const g = opts.equatorColor[1] + (opts.poleColor[1] - opts.equatorColor[1]) * ts;
+  const b = opts.equatorColor[2] + (opts.poleColor[2] - opts.equatorColor[2]) * ts;
+  colors.push(r, g, b);
 }

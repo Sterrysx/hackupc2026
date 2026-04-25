@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useTwin } from "@/store/twin";
-import { fetchPredictionsTimeline, tickToDay } from "@/lib/twinApi";
+import { fetchPredictionsTimeline } from "@/lib/twinApi";
 
 /**
  * PredictiveTrajectoryTile — operator-facing view of the 10-year forward
@@ -18,10 +18,14 @@ import { fetchPredictionsTimeline, tickToDay } from "@/lib/twinApi";
  *   └────────────────────────────────────────────────────────────────────┘
  *
  * Every component's `H_C{i}` is plotted across the full validation horizon.
- * The cursor marks the current playback tick and bisects each curve into
- * "what already happened" (solid, full opacity) and "what the model says is
- * coming" (dashed, faded). When `forecastPlaying` is true the cursor walks
- * forward with each tick; in live mode it stays pinned on the current day.
+ * The cursor's position is driven by `forecastHorizonDays` — the value the
+ * **predictive scrubber** owns. **Live mode = static**: when the operator
+ * has not pressed play and has not dragged the scrubber, `forecastHorizonDays`
+ * stays at 0 and the cursor stays pinned to the start of the predictive
+ * window. Pressing play walks `forecastHorizonDays` forward via rAF in the
+ * scrubber, and the cursor follows. Crucially this is decoupled from the
+ * global simulation tick (which keeps advancing for the live snapshot) so
+ * the analytics view never moves without the operator asking it to.
  *
  * Predictions are NEVER re-run client-side — the validation parquet is the
  * baked output of the simulator + RUL head, so this tile is just a renderer
@@ -48,7 +52,11 @@ interface PredictionFrame {
 const SIM_START_DATE_UTC = Date.UTC(2026, 0, 1);
 
 export function PredictiveTrajectoryTile({ className }: { className?: string }) {
-  const tick = useTwin((s) => s.tick);
+  // Cursor is driven by the predictive scrubber, NOT by the global tick.
+  // forecastHorizonDays = 0 in live/idle mode → cursor pinned at day 0.
+  // Dragging or playing the scrubber advances forecastHorizonDays → cursor
+  // walks. This is the "live = static" contract the operator expects.
+  const forecastHorizonDays = useTwin((s) => s.forecastHorizonDays);
   const selectedCity = useTwin((s) => s.selectedCity);
   const selectedPrinterId = useTwin((s) => s.selectedPrinterId);
   const dataSource = useTwin((s) => s.dataSource);
@@ -87,7 +95,7 @@ export function PredictiveTrajectoryTile({ className }: { className?: string }) 
     return () => { cancelled = true; };
   }, [selectedCity, selectedPrinterId]);
 
-  const currentDay = tickToDay(tick);
+  const currentDay = Math.round(forecastHorizonDays);
 
   return (
     <motion.section
@@ -186,14 +194,18 @@ function TrajectoryCanvas({
     return ticks;
   }, [dayW, totalDays]);
 
-  // Per-component curve paths, split at the cursor so we can style past
-  // (solid) vs future (dashed) without re-walking the array twice.
+  // Bucket the 10-year series into ~one sample per pixel — the simulator's
+  // corrective-maintenance cycle restarts H every 1–3 days, so the raw
+  // daily series goes 1.0 → 0.1 → 1.0 in well under a pixel and rasterises
+  // as a flat band near H=1. Bucket-min/max gives the operator the wear
+  // envelope (lows = pre-failure dips, highs = post-reset peaks).
   const trackPaths = useMemo(() => {
+    const buckets = Math.max(120, Math.min(360, Math.floor(innerW / 3)));
     return COMPONENT_TRACKS.map((track) => {
       const series = (frame as unknown as Record<string, number[]>)[`H_${track.sid}`];
-      return buildTrackPaths(series, dayW, currentDay);
+      return buildEnvelopePaths(series, dayW, currentDay, buckets);
     });
-  }, [frame, dayW, currentDay]);
+  }, [frame, dayW, currentDay, innerW]);
 
   const cursorX = PAD_LEFT + Math.min(totalDays, Math.max(0, currentDay)) * dayW;
 
@@ -249,25 +261,42 @@ function TrajectoryCanvas({
                 stroke="rgba(255,255,255,0.04)"
                 strokeDasharray="2 4"
               />
-              {/* Past — solid, full opacity */}
-              {paths.past && (
+              {/* Past — filled wear envelope (min↔max band) + min-line. */}
+              {paths.pastFill && (
                 <path
-                  d={paths.past}
-                  fill="none"
-                  stroke={track.color}
-                  strokeWidth={1.6}
-                  opacity={0.95}
+                  d={paths.pastFill}
+                  fill={track.color}
+                  fillOpacity={0.45}
+                  stroke="none"
                 />
               )}
-              {/* Future — dashed, faded */}
-              {paths.future && (
+              {paths.pastMin && (
                 <path
-                  d={paths.future}
+                  d={paths.pastMin}
                   fill="none"
                   stroke={track.color}
-                  strokeWidth={1.4}
-                  strokeDasharray="3 4"
-                  opacity={0.5}
+                  strokeWidth={1.8}
+                  opacity={1.0}
+                />
+              )}
+              {/* Future — same envelope, slightly faded + dashed min-line so
+                  the eye reads "predicted" without losing the wear signal. */}
+              {paths.futureFill && (
+                <path
+                  d={paths.futureFill}
+                  fill={track.color}
+                  fillOpacity={0.30}
+                  stroke="none"
+                />
+              )}
+              {paths.futureMin && (
+                <path
+                  d={paths.futureMin}
+                  fill="none"
+                  stroke={track.color}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  opacity={0.85}
                 />
               )}
             </g>
@@ -306,37 +335,114 @@ function TrajectoryCanvas({
 }
 
 /**
- * Build two SVG path strings for a series, split at `cutoffDay`. Past is
- * `[0, cutoffDay]` inclusive; future starts from `cutoffDay` so the two
- * paths share an endpoint and read as one continuous curve.
+ * Build the past + future envelope paths (filled min↔max band plus a
+ * min-line stroke) for a single component's H series.
+ *
+ * Why bucketed envelope and not a raw line? The simulator runs corrective
+ * maintenance every time H ≤ 0.1, snapping H back to 1.0. C3's mean
+ * lifetime is ~50 days but maintenance + cycling has it dipping to 0.1
+ * thousands of times across the 10-year horizon — a literal per-day line
+ * over 3 652 samples in ~800 px renders as a flat band at H=1 because each
+ * cycle is sub-pixel. Bucketing into 200ish columns and tracking
+ * `(min, max)` per bucket gives the operator the actual wear envelope:
+ * lows = pre-failure dips, highs = post-reset peaks.
  */
-function buildTrackPaths(
+function buildEnvelopePaths(
   series: number[],
   dayW: number,
   cutoffDay: number,
-): { past: string | null; future: string | null } {
-  if (!series || series.length === 0) return { past: null, future: null };
-  const cap = Math.max(0, Math.min(series.length - 1, cutoffDay));
+  bucketCount: number,
+): {
+  pastFill: string | null;
+  pastMin: string | null;
+  futureFill: string | null;
+  futureMin: string | null;
+} {
+  if (!series || series.length === 0) {
+    return { pastFill: null, pastMin: null, futureFill: null, futureMin: null };
+  }
+
   const trackTop = 4;
   const trackUsable = TRACK_H - 8;
-  let past = "";
-  for (let i = 0; i <= cap; i += 1) {
-    const x = PAD_LEFT + i * dayW;
-    const v = Math.max(0, Math.min(1, series[i] ?? 0));
-    const y = trackTop + (1 - v) * trackUsable;
-    past += (i === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1) + " ";
+  const totalDays = series.length;
+  const bucketDays = Math.max(1, Math.ceil(totalDays / bucketCount));
+
+  type Bucket = { day: number; min: number; max: number };
+  const buckets: Bucket[] = [];
+  for (let start = 0; start < totalDays; start += bucketDays) {
+    const end = Math.min(totalDays, start + bucketDays);
+    let bMin = Infinity;
+    let bMax = -Infinity;
+    for (let i = start; i < end; i += 1) {
+      const v = Math.max(0, Math.min(1, series[i] ?? 0));
+      if (v < bMin) bMin = v;
+      if (v > bMax) bMax = v;
+    }
+    if (!isFinite(bMin)) { bMin = 0; bMax = 0; }
+    // Anchor the bucket on its centre day so the cursor split lines up
+    // with calendar position rather than bucket index.
+    buckets.push({ day: start + Math.floor((end - start) / 2), min: bMin, max: bMax });
   }
-  let future = "";
-  for (let i = cap; i < series.length; i += 1) {
-    const x = PAD_LEFT + i * dayW;
-    const v = Math.max(0, Math.min(1, series[i] ?? 0));
-    const y = trackTop + (1 - v) * trackUsable;
-    future += (i === cap ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1) + " ";
+
+  const yFor = (v: number) => trackTop + (1 - v) * trackUsable;
+  const xFor = (day: number) => PAD_LEFT + day * dayW;
+
+  // Split buckets into past (≤cutoff) / future (>cutoff). Walk both the
+  // upper rail (max) forward and the lower rail (min) backward so the
+  // resulting filled path is a single closed loop SVG can fill.
+  const past: Bucket[] = [];
+  const future: Bucket[] = [];
+  for (const b of buckets) {
+    if (b.day <= cutoffDay) past.push(b);
+    else future.push(b);
   }
+  // Bridge bucket — share the cutoff sample between the two halves so the
+  // two envelopes visually touch.
+  if (past.length > 0 && future.length > 0) {
+    future.unshift(past[past.length - 1]);
+  }
+
   return {
-    past: past.trim() ? past : null,
-    future: future.trim() ? future : null,
+    pastFill: buildFillPath(past, xFor, yFor),
+    pastMin: buildMinPath(past, xFor, yFor),
+    futureFill: buildFillPath(future, xFor, yFor),
+    futureMin: buildMinPath(future, xFor, yFor),
   };
+}
+
+function buildFillPath(
+  buckets: { day: number; min: number; max: number }[],
+  xFor: (d: number) => number,
+  yFor: (v: number) => number,
+): string | null {
+  if (buckets.length < 2) return null;
+  let d = "";
+  // Upper rail (max) forward
+  for (let i = 0; i < buckets.length; i += 1) {
+    const b = buckets[i];
+    d += (i === 0 ? "M" : "L") + xFor(b.day).toFixed(1) + "," + yFor(b.max).toFixed(1) + " ";
+  }
+  // Lower rail (min) backward — closes the loop
+  for (let i = buckets.length - 1; i >= 0; i -= 1) {
+    const b = buckets[i];
+    d += "L" + xFor(b.day).toFixed(1) + "," + yFor(b.min).toFixed(1) + " ";
+  }
+  d += "Z";
+  return d;
+}
+
+function buildMinPath(
+  buckets: { day: number; min: number; max: number }[],
+  xFor: (d: number) => number,
+  yFor: (v: number) => number,
+): string | null {
+  if (buckets.length < 2) return null;
+  let d = "";
+  for (let i = 0; i < buckets.length; i += 1) {
+    const b = buckets[i];
+    d += (i === 0 ? "M" : "L") + xFor(b.day).toFixed(1) + "," + yFor(b.min).toFixed(1) + " ";
+  }
+  return d;
 }
 
 function dayToYearLabel(day: number): string {

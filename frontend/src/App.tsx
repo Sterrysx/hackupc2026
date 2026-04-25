@@ -51,6 +51,8 @@ export default function App() {
   const selectedId = useTwin((s) => s.selectedComponentId);
   const viewMode = useTwin((s) => s.viewMode);
   const appPhase = useTwin((s) => s.appPhase);
+  const forecastPlaying = useTwin((s) => s.forecastPlaying);
+  const forecastSpeed = useTwin((s) => s.forecastSpeed);
 
   useEffect(() => {
     void useTwin.getState().refreshChatApiStatus();
@@ -61,14 +63,25 @@ export default function App() {
     return () => close();
   }, []);
 
-  // The simulation tick only runs while the main shell is live. While the
-  // operator is still on the landing page there's no benefit to advancing
-  // the snapshot — it just burns CPU on a screen that doesn't read it.
+  // === Global simulation transport ===
+  // The tick only advances when the operator has explicitly pressed play
+  // on the predictive scrubber. Idle / live mode keeps the whole snapshot
+  // — hardware wear, drivers, alerts, the 3D scene — frozen. Speed picker
+  // (1×, 2×, 4×, 8×) on the scrubber is the multiplier: at N× we advance
+  // N sim-days per real second.
   useEffect(() => {
     if (appPhase !== "main") return;
-    const id = setInterval(() => advance(), 1000);
+    if (!forecastPlaying) return;
+    const id = setInterval(() => {
+      // `advance()` reads `speed` from the store and adds it to `tick` while
+      // also bookkeeping alerts. Setting `speed = forecastSpeed` once per
+      // tick guarantees the multiplier from the scrubber is what drives
+      // wear — no duplicate sources of truth.
+      useTwin.setState({ speed: useTwin.getState().forecastSpeed });
+      advance();
+    }, 1000);
     return () => clearInterval(id);
-  }, [advance, appPhase]);
+  }, [appPhase, advance, forecastPlaying, forecastSpeed]);
 
   const showDashboardPanel = dashboardOpen && !selectedId && viewMode !== "analytics";
   const inAnalytics = viewMode === "analytics";
