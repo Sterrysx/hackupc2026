@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ml_models.lib import data, features, objective, splits
-from sdg.schema import COMPONENT_IDS
+from ml.lib import data, features, objective, splits
+from backend.simulator.schema import COMPONENT_IDS
 
 
 # ---------------------------------------------------------- data.printer_split

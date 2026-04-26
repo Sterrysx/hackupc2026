@@ -1,4 +1,4 @@
-"""One-shot editor that wires every Stage notebook to ml_models.lib.fast.
+"""One-shot editor that wires every Stage notebook to ml.lib.fast.
 
 Run from repo root: ``uv run python scripts/apply_fast_mode_edits.py``.
 
@@ -59,17 +59,17 @@ def _replace_in_cell(
 
 def _ensure_import_first_cell(nb_path: Path, names: list[str]) -> None:
     """Ensure the first code cell ends with an import of the listed names from
-    ``ml_models.lib.fast`` and a one-shot ``banner()`` call. Idempotent."""
+    ``ml.lib.fast`` and a one-shot ``banner()`` call. Idempotent."""
     nb = _read(nb_path)
     code_cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
     cell = code_cells[0]
     src = "".join(cell["source"])
-    marker = "from ml_models.lib.fast import"
+    marker = "from ml.lib.fast import"
     if marker in src:
         print(f"  · {nb_path.relative_to(ROOT)} cell[0]: import already present")
         return
     addition = (
-        f"\nfrom ml_models.lib.fast import {', '.join(names)}, banner\n"
+        f"\nfrom ml.lib.fast import {', '.join(names)}, banner\n"
         f"banner()\n"
     )
     new_src = src.rstrip() + "\n" + addition
@@ -88,7 +88,7 @@ def edit_stage_01(nb_path: Path) -> None:
         nb_path,
         cell_idx=3,
         old="N_TRIALS = 200\n",
-        new="N_TRIALS = N_OPTUNA_TRIALS  # was 200; toggled by FAST_MODE in ml_models.lib.fast\n",
+        new="N_TRIALS = N_OPTUNA_TRIALS  # was 200; toggled by FAST_MODE in ml.lib.fast\n",
     )
     _replace_in_cell(
         nb_path,
@@ -105,7 +105,7 @@ def edit_stage_02_00(nb_path: Path) -> None:
         nb_path,
         cell_idx=1,
         old="K = 60\n",
-        new="K = N_LHS_SCHEDULES  # was 60; toggled by FAST_MODE in ml_models.lib.fast\n",
+        new="K = N_LHS_SCHEDULES  # was 60; toggled by FAST_MODE in ml.lib.fast\n",
     )
 
 
@@ -143,7 +143,7 @@ def edit_stage_02_03(nb_path: Path) -> None:
 
 
 def edit_stage_03_00(nb_path: Path) -> None:
-    print(f"[03_rl+ssl/00_setup_and_sanity.ipynb]")
+    print(f"[03_rl/00_setup_and_sanity.ipynb]")
     _ensure_import_first_cell(nb_path, ["SANITY_TRIALS"])
     _replace_in_cell(
         nb_path,
@@ -154,7 +154,7 @@ def edit_stage_03_00(nb_path: Path) -> None:
 
 
 def edit_stage_03_01(nb_path: Path) -> None:
-    print(f"[03_rl+ssl/01_train_ppo.ipynb]")
+    print(f"[03_rl/01_train_ppo.ipynb]")
     _ensure_import_first_cell(nb_path, ["BANDIT_PPO_TIMESTEPS"])
     _replace_in_cell(
         nb_path,
@@ -165,7 +165,7 @@ def edit_stage_03_01(nb_path: Path) -> None:
 
 
 def edit_stage_03_04(nb_path: Path) -> None:
-    print(f"[03_rl+ssl/04_per_tick_recurrent_ppo.ipynb]")
+    print(f"[03_rl/04_per_tick_recurrent_ppo.ipynb]")
     _ensure_import_first_cell(nb_path, ["PERTICK_TIMESTEPS", "PERTICK_SEEDS"])
     _replace_in_cell(
         nb_path,
@@ -185,14 +185,14 @@ def edit_stage_03_04(nb_path: Path) -> None:
 
 def main() -> int:
     edits: list[tuple[str, Callable[[Path], None]]] = [
-        ("ml_models/01_baseline/search.ipynb", edit_stage_01),
-        ("ml_models/02_ssl/00_generate_policy_runs.ipynb", edit_stage_02_00),
-        ("ml_models/02_ssl/01_pretrain.ipynb", edit_stage_02_01),
-        ("ml_models/02_ssl/02_finetune_rul.ipynb", edit_stage_02_02),
-        ("ml_models/02_ssl/03_surrogate_search.ipynb", edit_stage_02_03),
-        ("ml_models/03_rl+ssl/00_setup_and_sanity.ipynb", edit_stage_03_00),
-        ("ml_models/03_rl+ssl/01_train_ppo.ipynb", edit_stage_03_01),
-        ("ml_models/03_rl+ssl/04_per_tick_recurrent_ppo.ipynb", edit_stage_03_04),
+        ("ml/01_baseline/search.ipynb", edit_stage_01),
+        ("ml/02_ssl/00_generate_policy_runs.ipynb", edit_stage_02_00),
+        ("ml/02_ssl/01_pretrain.ipynb", edit_stage_02_01),
+        ("ml/02_ssl/02_finetune_rul.ipynb", edit_stage_02_02),
+        ("ml/02_ssl/03_surrogate_search.ipynb", edit_stage_02_03),
+        ("ml/03_rl/00_setup_and_sanity.ipynb", edit_stage_03_00),
+        ("ml/03_rl/01_train_ppo.ipynb", edit_stage_03_01),
+        ("ml/03_rl/04_per_tick_recurrent_ppo.ipynb", edit_stage_03_04),
     ]
     for rel, fn in edits:
         nb_path = ROOT / rel
