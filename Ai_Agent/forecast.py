@@ -230,25 +230,42 @@ def _confidence(lam_per_d: float, h: float) -> float:
 
 
 def _dominant_driver_text(row: pd.Series) -> str:
-    """Pick the driver currently most outside its comfortable range.
+    """Pick the driver currently most outside its comfortable range and
+    describe it in a sentence that includes the actual reading + the ratio
+    against its nominal value.
 
-    Cheap heuristic — picks the largest signed deviation from a hand-set
-    nominal so the rationale string says something specific (e.g.
-    "elevated dust at 3.4xnominal") rather than the generic "running hot".
+    Why this matters: the previous heuristic compared every driver against
+    a hand-set anchor of 1.0 / 18.0 / 55.0 — but ``dust_concentration``
+    sits around 50 nominally (it's ``c_p0`` in the simulator config), so
+    ``dust / 1.0 ≈ 50`` always dwarfed every other ratio and the rationale
+    string always read "elevated dust contamination at 50.x nominal" no
+    matter what was actually wrong. Refs below match the simulator's true
+    nominal values so the dominant driver is whichever one is **really**
+    most extreme right now.
     """
-    candidates = [
-        ("ambient temperature", float(row["ambient_temp_c"]), 18.0),
-        ("humidity",            float(row["humidity_pct"]),   55.0),
-        ("dust contamination",  float(row["dust_concentration"]), 1.0),
-        ("thermal demand Q",    float(row["Q_demand"]),       1.0),
+    candidates: list[tuple[str, float, float, str]] = [
+        # (label, current value, nominal reference, formatter for the value)
+        ("ambient temperature", float(row["ambient_temp_c"]),     22.0, f"{float(row['ambient_temp_c']):.1f} °C"),
+        ("humidity",            float(row["humidity_pct"]),       50.0, f"{float(row['humidity_pct']):.0f} %"),
+        ("dust contamination",  float(row["dust_concentration"]), 50.0, f"{float(row['dust_concentration']):.0f}"),
+        ("thermal demand Q",    float(row["Q_demand"]),            1.0, f"{float(row['Q_demand']):.2f}"),
     ]
-    label, value, ref = max(
+    # `daily_print_hours` only shows up on the predictions parquet and on
+    # newly-regenerated baseline rows; keep it optional so a snapshot
+    # missing the column still renders a rationale.
+    if "daily_print_hours" in row.index:
+        hours = float(row["daily_print_hours"])
+        candidates.append(("daily print hours", hours, 4.0, f"{hours:.1f} h"))
+
+    # Score by how far the reading is from nominal, normalised by the
+    # nominal so percentages and °C compete on the same axis.
+    label, value, ref, reading = max(
         candidates,
-        key=lambda x: abs(x[1] / x[2]) if x[2] else 0.0,
+        key=lambda c: abs(c[1] - c[2]) / c[2] if c[2] else 0.0,
     )
     ratio = value / ref if ref else 0.0
-    direction = "elevated" if ratio >= 1.0 else "depressed"
-    return f"{direction} {label} at {ratio:.2f}x nominal"
+    direction = "elevated" if value >= ref else "depressed"
+    return f"{direction} {label} at {reading} ({ratio:.2f}× nominal)"
 
 
 def _analytic_one_component(

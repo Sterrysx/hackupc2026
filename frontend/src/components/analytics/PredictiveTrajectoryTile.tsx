@@ -107,7 +107,7 @@ export function PredictiveTrajectoryTile({ className }: { className?: string }) 
         (className ?? "")
       }
     >
-      <header className="flex items-baseline justify-between mb-3">
+      <header className="flex items-baseline justify-between mb-2">
         <h2 className="text-[10px] uppercase tracking-[0.20em] text-[var(--color-fg-faint)]">
           Predictive trajectory
         </h2>
@@ -115,6 +115,23 @@ export function PredictiveTrajectoryTile({ className }: { className?: string }) 
           2026 — 2035 · model forecast
         </span>
       </header>
+
+      {/* Component legend — colour swatch + label per track. Sits under
+          the title so the operator can map curve colours to part names
+          without hunting the row labels. Mirrors the status legend in
+          the lifetime tile for visual consistency. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2">
+        {COMPONENT_TRACKS.map((t) => (
+          <span key={t.sid} className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-fg-muted)]">
+            <span
+              aria-hidden
+              className="block h-2 w-2 rounded-sm"
+              style={{ background: t.color }}
+            />
+            {t.label}
+          </span>
+        ))}
+      </div>
 
       {loadError && (
         <p className="text-[12px] text-[var(--color-fg-muted)]">
@@ -144,8 +161,8 @@ export function PredictiveTrajectoryTile({ className }: { className?: string }) 
 const PAD_LEFT = 92;
 const PAD_RIGHT = 24;
 const HEADER_H = 30;
-const TRACK_H = 36;
-const TRACK_GAP = 4;
+const TRACK_H = 70;        // tall enough to fill `row-span-4` end-to-end
+const TRACK_GAP = 2;       // hairline separator
 const FOOTER_PAD = 28;
 const TRACKS_H = COMPONENT_TRACKS.length * (TRACK_H + TRACK_GAP);
 const TOTAL_H = HEADER_H + TRACKS_H + FOOTER_PAD;

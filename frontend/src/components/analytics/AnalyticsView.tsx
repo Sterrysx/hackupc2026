@@ -64,28 +64,27 @@ export function AnalyticsView() {
           </p>
         </header>
 
-        {/* Bento grid — 6 cols × auto rows. Each tile spans by intent. */}
+        {/* Bento grid — 6 cols × auto rows.
+            Layout strategy:
+            - Hero band (5 rows): the lifetime forecast strip alone, full
+              bleed, because its 3 driver traces × 6 component bands need
+              real vertical room.
+            - Predictive trajectory + side rail (4 rows): trajectory tile
+              spans cols 1-4, the right two cols carry the live driver
+              gauges + risk ranking stacked.
+            - Bottom analytics row (2 rows): degradation projection on the
+              left half, alerts on the right.
+            Total 11 rows × 160 px = 1 760 px — fewer micro-tiles, no
+            wasted whitespace, every block earns its slot. */}
         <div className="grid grid-cols-6 auto-rows-[160px] gap-4">
-          {/* HERO: HP page-12 schematic — driver traces + status grid +
-              year ribbon + scrubbable cursor. Full bento width and tall
-              (5 rows) so every region — three driver traces, six
-              component bands, year ribbon, cursor caption — has real
-              whitespace and never reads as cramped. */}
+          {/* HERO — Lifetime forecast (page-12 schematic, predictions
+              parquet). Three driver traces + six component status bands. */}
           <LifetimeTelemetryTile className="col-span-6 row-span-5" />
 
-          {/* Forward 10-year prediction trajectory from
-              `data/validation/fleet_2026_2035.parquet`. Cursor walks with
-              `tick` in playback mode, frozen on the current day in live
-              mode — predictions are baked, never re-run client-side. */}
-          <PredictiveTrajectoryTile className="col-span-6 row-span-4" />
+          {/* Predictive trajectory: 6 component H envelopes over 10 years. */}
+          <PredictiveTrajectoryTile className="col-span-6 md:col-span-4 row-span-4" />
 
-          <DegradationForecastTile
-            className="col-span-6 md:col-span-4 row-span-2"
-            snapshotComponents={snapshot.components}
-            forecasts={snapshot.forecasts}
-            tick={tick}
-            snapshotMarkTick={snapshotMarkTick}
-          />
+          {/* Side rail: live drivers (1 row each) + top-3 risk ranking. */}
           <DriverRingTile
             className="col-span-3 md:col-span-2 row-span-1"
             label="Ambient temp"
@@ -104,17 +103,25 @@ export function AnalyticsView() {
             max={100}
             warmAt={75}
           />
-
           <RiskRankingTile
-            className="col-span-6 md:col-span-3 row-span-2"
+            className="col-span-6 md:col-span-2 row-span-2"
             forecasts={snapshot.forecasts}
             components={snapshot.components}
             tick={tick}
             snapshotMarkTick={snapshotMarkTick}
             onSelect={selectComponent}
           />
+
+          {/* Bottom row — degradation projection + alerts feed. */}
+          <DegradationForecastTile
+            className="col-span-6 md:col-span-4 row-span-2"
+            snapshotComponents={snapshot.components}
+            forecasts={snapshot.forecasts}
+            tick={tick}
+            snapshotMarkTick={snapshotMarkTick}
+          />
           <AlertsFeedTile
-            className="col-span-6 md:col-span-3 row-span-2"
+            className="col-span-6 md:col-span-2 row-span-2"
             alerts={combinedAlerts}
             onSelect={selectComponent}
           />

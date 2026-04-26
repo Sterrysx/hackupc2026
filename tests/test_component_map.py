@@ -31,9 +31,12 @@ def test_subsystems_partition_components():
     by_subsystem: dict[str, list[str]] = {}
     for c in COMPONENTS:
         by_subsystem.setdefault(c.subsystem, []).append(c.sim_id)
+    # C4 (thermal_resistor / firing-array) lives inside the printhead
+    # assembly — paired with C3 in the 3D model + 2D schematic and
+    # surfaced under "printhead" in the operator dashboard.
     assert by_subsystem["recoating"] == ["C1", "C2"]
-    assert by_subsystem["printhead"] == ["C3"]
-    assert by_subsystem["thermal"] == ["C4", "C5", "C6"]
+    assert by_subsystem["printhead"] == ["C3", "C4"]
+    assert by_subsystem["thermal"] == ["C5", "C6"]
 
 
 def test_round_trip_sim_to_frontend_and_back():

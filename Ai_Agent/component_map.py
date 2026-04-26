@@ -27,7 +27,12 @@ COMPONENTS: tuple[ComponentInfo, ...] = (
     ComponentInfo("C1", "recoater_blade",   "Recoater blade",    "recoating"),
     ComponentInfo("C2", "recoater_motor",   "Recoater motor",    "recoating"),
     ComponentInfo("C3", "nozzle_plate",     "Nozzle plate",      "printhead"),
-    ComponentInfo("C4", "thermal_resistor", "Thermal resistor",  "thermal"),
+    # C4 is the firing-array thermal resistor inside the HP TIJ printhead —
+    # it's part of the printhead assembly (paired with C3 in the 3D model
+    # and the 2D schematic). The backend used to mis-classify it under
+    # "thermal" alongside the heater/insulation; corrected to "printhead"
+    # so the dashboard groups it with the nozzle plate.
+    ComponentInfo("C4", "thermal_resistor", "Thermal resistor",  "printhead"),
     ComponentInfo("C5", "heating_element",  "Heating element",   "thermal"),
     ComponentInfo("C6", "insulation_panel", "Insulation panel",  "thermal"),
 )

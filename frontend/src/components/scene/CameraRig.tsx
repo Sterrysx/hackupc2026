@@ -3,7 +3,7 @@ import type { ComponentRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import type { Camera } from "three";
-import { Vector3 } from "three";
+import { MOUSE, TOUCH, Vector3 } from "three";
 import { useTwin } from "@/store/twin";
 import type { ComponentId } from "@/types/telemetry";
 import {
@@ -83,22 +83,56 @@ export function CameraRig() {
     const ctrl = controlsRef.current;
     if (!ctrl) return;
 
-    // Open mode = free pan/orbit at the current pose.
-    if (cameraOpen) {
+    // Default unfocused state: left-click rotates, **middle-click (scroll-
+    // wheel button) drags-to-pan**, right-click pans too, mouse wheel
+    // zooms (wheel zoom is governed by `enableZoom`, not by the button
+    // table — remapping MIDDLE doesn't break it). Touch keeps the
+    // standard one-finger rotate / two-finger dolly+pan combo.
+    const enableEverything = () => {
       ctrl.enabled = true;
+      ctrl.enableRotate = true;
+      ctrl.enableZoom = true;
+      ctrl.enablePan = true;
+      ctrl.mouseButtons.LEFT = MOUSE.ROTATE;
+      ctrl.mouseButtons.MIDDLE = MOUSE.PAN;
+      ctrl.mouseButtons.RIGHT = MOUSE.PAN;
+      ctrl.touches.ONE = TOUCH.ROTATE;
+      ctrl.touches.TWO = TOUCH.DOLLY_PAN;
+    };
+
+    // Focused-on-a-part state: lock rotate + zoom (the camera is parked
+    // on the assembly), but ENABLE pan so the operator can drag the
+    // printer aside when the side-by-side popup is covering most of the
+    // canvas. Left-click drag pans, two-finger drag pans on touch — no
+    // hidden right-click discovery required.
+    const enablePanOnly = () => {
+      ctrl.enabled = true;
+      ctrl.enableRotate = false;
+      ctrl.enableZoom = false;
+      ctrl.enablePan = true;
+      ctrl.mouseButtons.LEFT = MOUSE.PAN;
+      ctrl.mouseButtons.MIDDLE = MOUSE.PAN;
+      ctrl.mouseButtons.RIGHT = MOUSE.PAN;
+      ctrl.touches.ONE = TOUCH.PAN;
+      ctrl.touches.TWO = TOUCH.PAN;
+    };
+
+    // Open mode — full freedom at the current pose.
+    if (cameraOpen) {
+      enableEverything();
       ctrl.update();
       return;
     }
 
     if (!selectedId) {
-      ctrl.enabled = true;
+      enableEverything();
       applyPose(camera, ctrl, OVERVIEW_POS, OVERVIEW_LOOK_AT);
       return;
     }
 
     const focus = FOCUS[selectedId];
     if (!focus) {
-      ctrl.enabled = true;
+      enableEverything();
       applyPose(camera, ctrl, OVERVIEW_POS, OVERVIEW_LOOK_AT);
       return;
     }
@@ -113,7 +147,7 @@ export function CameraRig() {
     }
 
     applyPose(camera, ctrl, pos, look);
-    ctrl.enabled = false;
+    enablePanOnly();
   }, [camera, selectedId, cameraOpen]);
 
   return (

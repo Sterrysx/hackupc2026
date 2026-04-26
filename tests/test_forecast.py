@@ -96,8 +96,8 @@ def test_dominant_driver_text_picks_extreme_value():
 
 
 def test_compute_forecasts_returns_one_per_component():
-    pid = twin_data.list_printers("Barcelona")[0]
-    forecasts = forecast.compute_forecasts("Barcelona", pid, day=200)
+    pid = twin_data.list_printers("barcelona")[0]
+    forecasts = forecast.compute_forecasts("barcelona", pid, day=200)
 
     assert len(forecasts) == 6
     expected_ids = {c.frontend_id for c in COMPONENTS}
@@ -105,8 +105,8 @@ def test_compute_forecasts_returns_one_per_component():
 
 
 def test_compute_forecasts_payload_shape_matches_contract():
-    pid = twin_data.list_printers("Barcelona")[0]
-    forecasts = forecast.compute_forecasts("Barcelona", pid, day=200)
+    pid = twin_data.list_printers("barcelona")[0]
+    forecasts = forecast.compute_forecasts("barcelona", pid, day=200)
 
     expected_keys = {
         "id", "predictedHealthIndex", "predictedStatus", "predictedMetrics",
@@ -123,18 +123,18 @@ def test_compute_forecasts_payload_shape_matches_contract():
 
 def test_compute_forecasts_predicted_health_is_no_higher_than_current():
     """lambda >= 0 by construction -> projected health can't *increase* over horizon."""
-    pid = twin_data.list_printers("Athens")[0]
-    snap = twin_data.get_snapshot("Athens", pid, day=200)
-    forecasts = forecast.compute_forecasts("Athens", pid, day=200)
+    pid = twin_data.list_printers("singapore")[0]
+    snap = twin_data.get_snapshot("singapore", pid, day=200)
+    forecasts = forecast.compute_forecasts("singapore", pid, day=200)
     by_id = {c["id"]: c for c in snap["components"]}
     for f in forecasts:
         assert f["predictedHealthIndex"] <= by_id[f["id"]]["healthIndex"] + 1e-6
 
 
 def test_compute_forecasts_horizon_zero_keeps_health_unchanged():
-    pid = twin_data.list_printers("Athens")[0]
-    snap = twin_data.get_snapshot("Athens", pid, day=200)
-    forecasts = forecast.compute_forecasts("Athens", pid, day=200, horizon_d=0)
+    pid = twin_data.list_printers("singapore")[0]
+    snap = twin_data.get_snapshot("singapore", pid, day=200)
+    forecasts = forecast.compute_forecasts("singapore", pid, day=200, horizon_d=0)
     by_id = {c["id"]: c for c in snap["components"]}
     for f in forecasts:
         assert f["predictedHealthIndex"] == pytest.approx(by_id[f["id"]]["healthIndex"])
@@ -142,7 +142,7 @@ def test_compute_forecasts_horizon_zero_keeps_health_unchanged():
 
 def test_compute_forecasts_unknown_inputs_propagate_keyerror():
     with pytest.raises(KeyError):
-        forecast.compute_forecasts("Atlantis", 0, day=10)
+        forecast.compute_forecasts("atlantis", 0, day=10)
 
 
 def test_compute_forecasts_never_emits_failure_eta_past_operational_horizon():
@@ -150,9 +150,9 @@ def test_compute_forecasts_never_emits_failure_eta_past_operational_horizon():
     months/years away — that's the perception bug operators called out."""
     cap_d = forecast._OPERATIONAL_HORIZON_D
     samples = [
-        ("Barcelona", 50), ("Barcelona", 200), ("Barcelona", 800),
-        ("Madrid", 100), ("Helsinki", 400), ("Athens", 1500),
-        ("Athens", 2500), ("Athens", 3500),
+        ("barcelona", 50), ("barcelona", 200), ("barcelona", 800),
+        ("dubai", 100), ("moscow", 400), ("singapore", 1500),
+        ("singapore", 2500), ("singapore", 3500),
     ]
     for city, day in samples:
         pid = twin_data.list_printers(city)[0]
@@ -175,13 +175,13 @@ def test_compute_forecasts_healthy_printer_no_imminent_failures():
     the frontend tones them neutrally — but anything sub-week from a
     healthy component would be the perception bug returning."""
     NEAR_TERM_D = 7  # 1 week
-    pid = twin_data.list_printers("Helsinki")[0]
-    snap = twin_data.get_snapshot("Helsinki", pid, day=10)
+    pid = twin_data.list_printers("moscow")[0]
+    snap = twin_data.get_snapshot("moscow", pid, day=10)
     healthy_components = [c for c in snap["components"] if c["healthIndex"] > 0.9]
     if not healthy_components:
         pytest.skip("seed printer not healthy enough at day 10 for this assertion")
 
-    forecasts = forecast.compute_forecasts("Helsinki", pid, day=10)
+    forecasts = forecast.compute_forecasts("moscow", pid, day=10)
     by_id = {f["id"]: f for f in forecasts}
     flagged = [
         c["id"] for c in healthy_components
@@ -204,8 +204,8 @@ def test_active_path_reports_current_dispatch_mode():
 
 def test_compute_forecasts_falls_back_to_analytic_when_head_missing(monkeypatch):
     monkeypatch.setattr(forecast, "_has_rul_head", lambda: False)
-    pid = twin_data.list_printers("Barcelona")[0]
-    forecasts = forecast.compute_forecasts("Barcelona", pid, day=200)
+    pid = twin_data.list_printers("barcelona")[0]
+    forecasts = forecast.compute_forecasts("barcelona", pid, day=200)
 
     assert len(forecasts) == 6
     # Analytic confidence is always 0.4, 0.5 or 0.6, never the SSL bump (0.78).
@@ -220,8 +220,8 @@ def test_ssl_forecasts_use_learned_rationale_when_head_present():
         pytest.skip(
             "SSL head not active (file missing or feature-width mismatch with live parquet)"
         )
-    pid = twin_data.list_printers("Barcelona")[0]
-    forecasts = forecast.compute_forecasts("Barcelona", pid, day=400)
+    pid = twin_data.list_printers("barcelona")[0]
+    forecasts = forecast.compute_forecasts("barcelona", pid, day=400)
 
     assert len(forecasts) == 6
     assert all(f["confidence"] == 0.78 for f in forecasts)
@@ -238,9 +238,9 @@ def test_ssl_forecasts_use_learned_rationale_when_head_present():
 def test_ssl_forecasts_falls_back_when_window_is_too_short():
     if not forecast._has_rul_head():
         pytest.skip("rul_head_ssl.pt not on disk")
-    pid = twin_data.list_printers("Barcelona")[0]
+    pid = twin_data.list_printers("barcelona")[0]
     # Day 5 has only 6 days of history -> less than 360-day context window.
-    forecasts = forecast.compute_forecasts("Barcelona", pid, day=5)
+    forecasts = forecast.compute_forecasts("barcelona", pid, day=5)
     assert len(forecasts) == 6
     # Per-call analytic fallback kicks in for early days.
     assert all("Projected from current lambda" in f["rationale"] for f in forecasts)

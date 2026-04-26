@@ -1,44 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useTwin } from "@/store/twin";
-import {
-  backendCityName, fetchTimeline,
-  SIM_DAY_COUNT, TICKS_PER_DAY, tickToDay,
-} from "@/lib/twinApi";
+import { fetchPredictionsTimeline } from "@/lib/twinApi";
 
 /**
- * LifetimeTelemetryTile — the page-12 schematic from the HP brief.
+ * LifetimeTelemetryTile — the page-12 schematic from the HP brief, wired
+ * to the **predictive** dataset (`data/validation/fleet_2026_2035.parquet`).
  *
  *   ┌──────────────────────────────────────────────────────────────────┐
- *   │  2015  2016  2017  …  2024 │  2025+ projected                   │
+ *   │  2026  2027  2028  …  2035                                        │
  *   ├──────────────────────────────────────────────────────────────────┤
  *   │  Temperature  ─╲╱╲╱╲╱╲╱─                                         │
  *   │  Humidity     ─╲ ╱ ╲╱╲ ─                                         │
- *   │  Print volume ─╱╲╱─╲╱╲ ─                                         │
+ *   │  Print hours  ─╱╲╱─╲╱╲ ─                                         │
  *   ├──────────────────────────────────────────────────────────────────┤
- *   │  C1  ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ ▮▮▮▮▮ ▮▮▮▮▮ ▮▮▮▮▮▮▮ ▮▮▮▮▮▮▮▮▮▮▮▮▮         │
- *   │  C2  ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮ ▮▮▮▮▮ ▮▮▮▮▮ ▮▮▮▮▮▮▮ ▮▮▮▮▮▮▮▮▮▮▮▮▮         │
+ *   │  C1  ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮                            │
+ *   │  C2  ▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮▮                            │
  *   │  …                                                                │
- *   └──────────────────┬─── time cursor (day current_day) ──────────────┘
+ *   └──────────────────┬─── cursor (forecastHorizonDays) ───────────────┘
  *
- * Top half: per-day driver traces (temp, humidity, jobs) as SVG paths.
- * Bottom half: a 6 × N status grid where each cell is colored by
- * `status_C{i}` (FUNCTIONAL / DEGRADED / CRITICAL / FAILED).
+ * Every column in the strip is the model's forward simulation — the source
+ * is the SAME baked-prediction parquet the PredictiveTrajectoryTile reads
+ * from, just visualised differently (driver traces + per-component status
+ * bands instead of the H envelope). The 2015-2024 historical data the old
+ * version pulled from `/twin/timeline` is gone: this tile is purely about
+ * what the predictor expects to happen next.
  *
- * The "projected future" zone (anything beyond the last historical day) is
- * rendered with a hatched overlay so the operator immediately sees which
- * part is observed vs which part is the model's extrapolation. Today the
- * parquet covers 2015-01-01 .. 2024-12-31; in the production version we'd
- * extend the grid into 2025+ with the SSL/RUL forecasts.
- *
- * The full-width vertical cursor reflects the current sim tick and the
- * operator can click anywhere on the strip to scrub.
+ * The cursor is driven by `forecastHorizonDays` so it stays static in live
+ * mode and only walks when the predictive scrubber's play is engaged.
  */
 
-const SIM_START_DATE_UTC = Date.UTC(2015, 0, 1);
-const HISTORICAL_END_DAY = SIM_DAY_COUNT - 1;            // last parquet day
-const PROJECTION_DAYS = 5 * 365;                          // 5 years forward
-const TOTAL_DAYS = HISTORICAL_END_DAY + 1 + PROJECTION_DAYS;
+const SIM_START_DATE_UTC = Date.UTC(2026, 0, 1);
+const TOTAL_DAYS = 3652;       // 10 years, matches validation parquet length
 const STATUS_COLORS: Record<string, string> = {
   OK: "rgba(76, 217, 100, 0.85)",
   FUNCTIONAL: "rgba(76, 217, 100, 0.85)",
@@ -47,14 +40,42 @@ const STATUS_COLORS: Record<string, string> = {
   CRITICAL: "rgba(255, 149, 0, 0.85)",
   FAILED: "rgba(255, 69, 58, 0.85)",
 };
-const COMPONENT_ROWS: Array<{ sid: string; label: string }> = [
-  { sid: "C1", label: "Recoater blade"   },
-  { sid: "C2", label: "Recoater motor"   },
-  { sid: "C3", label: "Nozzle plate"     },
-  { sid: "C4", label: "Thermal resistor" },
-  { sid: "C5", label: "Heating element"  },
-  { sid: "C6", label: "Insulation panel" },
+/**
+ * Components grouped by physical subsystem so the grid reads bottom-up as
+ * the operator inspecting one assembly at a time. C4 (firing-array thermal
+ * resistor) is INSIDE the printhead — paired with C3 in the 3D model and
+ * the 2D schematic — so we list it under "Printhead", not "Build unit".
+ */
+const COMPONENT_GROUPS: Array<{
+  subsystem: string;
+  rows: Array<{ sid: string; label: string }>;
+}> = [
+  { subsystem: "Recoating", rows: [
+    { sid: "C1", label: "Recoater blade" },
+    { sid: "C2", label: "Recoater motor" },
+  ]},
+  { subsystem: "Printhead", rows: [
+    { sid: "C3", label: "Nozzle plate"     },
+    { sid: "C4", label: "Thermal resistor" },
+  ]},
+  { subsystem: "Build unit", rows: [
+    { sid: "C5", label: "Heating element"  },
+    { sid: "C6", label: "Insulation panel" },
+  ]},
 ];
+
+// Flat row list (sid, label, row index) in the order they appear, plus the
+// subsystem-header anchors used by the SVG layout.
+interface FlatRow { sid: string; label: string; rowIndex: number; subsystem: string }
+const FLAT_ROWS: FlatRow[] = COMPONENT_GROUPS.flatMap((g, gi) =>
+  g.rows.map((r, ri) => ({
+    sid: r.sid,
+    label: r.label,
+    rowIndex: gi * 0 + COMPONENT_GROUPS.slice(0, gi).reduce((acc, x) => acc + x.rows.length, 0) + ri,
+    subsystem: g.subsystem,
+  })),
+);
+const TOTAL_COMPONENT_ROWS = FLAT_ROWS.length;
 
 interface TimelineFrame {
   day: number[];
@@ -70,35 +91,33 @@ interface TimelineFrame {
 }
 
 export function LifetimeTelemetryTile({ className }: { className?: string }) {
-  const tick = useTwin((s) => s.tick);
-  const setTick = useTwin((s) => s.setTick);
-  const dataSource = useTwin((s) => s.dataSource);
+  const setForecastHorizon = useTwin((s) => s.setForecastHorizon);
+  const forecastHorizonDays = useTwin((s) => s.forecastHorizonDays);
   const selectedCity = useTwin((s) => s.selectedCity);
   const selectedPrinterId = useTwin((s) => s.selectedPrinterId);
 
   const [timeline, setTimeline] = useState<TimelineFrame | null>(null);
   const [loadError, setLoadError] = useState(false);
 
-  // Fetch the full lifetime once when in live mode. Mock mode shows the
-  // empty-state hint; the schematic is most valuable backed by real data.
+  // Fetch the full predicted lifetime once per (city, printer). The
+  // validation parquet is pre-baked, so a single request returns the whole
+  // 10-year strip — no day-by-day client compute.
   useEffect(() => {
-    if (dataSource !== "live" || !selectedCity || selectedPrinterId === null) {
+    if (!selectedCity || selectedPrinterId === null) {
       setTimeline(null);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const raw = await fetchTimeline({
-          city: backendCityName(selectedCity),
+        const raw = await fetchPredictionsTimeline({
+          city: selectedCity.id,
           printerId: selectedPrinterId,
           fields: [
             "ambient_temp_c", "humidity_pct", "daily_print_hours",
             "status_C1", "status_C2", "status_C3",
             "status_C4", "status_C5", "status_C6",
           ],
-          dayFrom: 0,
-          dayTo: HISTORICAL_END_DAY,
         });
         if (!cancelled) {
           setTimeline(raw as unknown as TimelineFrame);
@@ -109,7 +128,7 @@ export function LifetimeTelemetryTile({ className }: { className?: string }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [dataSource, selectedCity, selectedPrinterId]);
+  }, [selectedCity, selectedPrinterId]);
 
   return (
     <motion.section
@@ -121,34 +140,60 @@ export function LifetimeTelemetryTile({ className }: { className?: string }) {
         (className ?? "")
       }
     >
-      <header className="flex items-baseline justify-between mb-3">
+      <header className="flex items-baseline justify-between mb-2">
         <h2 className="text-[10px] uppercase tracking-[0.20em] text-[var(--color-fg-faint)]">
           Lifetime telemetry
         </h2>
         <span className="text-[10.5px] text-[var(--color-fg-faint)] tabular-nums">
-          2015 — 2030 · observed + projected
+          2026 — 2035 · model forecast
         </span>
       </header>
 
+      {/* Legends — driver line colours + component status palette. Sit
+          right under the title so the eye picks up the colour key before
+          looking at the chart, matching the `ui-ux-pro-max` `chart-type`
+          + `legend-visible` rules. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
+        {DRIVER_TRACES.map((d) => (
+          <span key={d.label} className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-fg-muted)]">
+            <span
+              aria-hidden
+              className="block h-[2px] w-3.5 rounded-full"
+              style={{ background: d.color }}
+            />
+            {d.label}
+          </span>
+        ))}
+        <span className="block h-3 w-px bg-[var(--color-border)] mx-1" aria-hidden />
+        {STATUS_LEGEND.map((s) => (
+          <span key={s.label} className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-fg-muted)]">
+            <span
+              aria-hidden
+              className="block h-2 w-2 rounded-sm"
+              style={{ background: s.color }}
+            />
+            {s.label}
+          </span>
+        ))}
+      </div>
+
       {loadError && (
         <p className="text-[12px] text-[var(--color-fg-muted)]">
-          Unable to load timeline from /twin/timeline.
+          Unable to load forecast from /twin/predictions/timeline.
         </p>
       )}
 
       {!timeline && !loadError && (
         <p className="text-[12px] text-[var(--color-fg-muted)]">
-          {dataSource !== "live"
-            ? "Connect a live printer to render the lifetime telemetry strip."
-            : "Loading 10 years of telemetry…"}
+          Loading 10-year prediction…
         </p>
       )}
 
       {timeline && (
         <TimelineCanvas
           frame={timeline}
-          currentDay={tickToDay(tick)}
-          onScrub={(day) => setTick(day * TICKS_PER_DAY)}
+          currentDay={Math.round(forecastHorizonDays)}
+          onScrub={(day) => setForecastHorizon(day)}
         />
       )}
     </motion.section>
@@ -159,19 +204,70 @@ export function LifetimeTelemetryTile({ className }: { className?: string }) {
 /*  Canvas — pure SVG, no chart lib, exact match to the schematic           */
 /* ───────────────────────────────────────────────────────────────────────── */
 
-// Layout constants — tuned for a `row-span-5` bento tile (~800 px tall).
-// Driver area gets ~85 px per trace, status rows are 38 px tall — every
-// channel now reads as its own region with real whitespace between them.
+// Layout constants — sized to fill a `row-span-5` bento tile (~800 px
+// tall) end-to-end with no wasted whitespace below the status grid.
 const PAD_LEFT = 108;      // label gutter on the left
 const PAD_RIGHT = 24;
 const HEADER_H = 36;       // year ribbon
-const DRIVERS_H = 256;     // 3 stacked driver lines (~85 px each)
+const DRIVERS_H = 260;     // 3 stacked driver lines
 const DRIVERS_GAP = 34;    // breathing room between drivers band and status grid
-const ROW_H = 32;          // status grid row height
-const ROW_GAP = 6;
-const GRID_H = COMPONENT_ROWS.length * (ROW_H + ROW_GAP);
+const SUBSYS_LABEL_H = 18; // vertical room for each "RECOATING / PRINTHEAD / BUILD UNIT" header
+const SUBSYS_GAP = 6;      // extra space below the last row of a group
+const ROW_H = 36;          // status grid row height
+const ROW_GAP = 2;         // hairline separator within a group
+// Status grid height = N subsystem headers + N rows + a SUBSYS_GAP after
+// every group except the last. Pre-computing avoids drift if we add
+// another subsystem later.
+const GRID_H =
+  COMPONENT_GROUPS.length * SUBSYS_LABEL_H +
+  TOTAL_COMPONENT_ROWS * (ROW_H + ROW_GAP) +
+  Math.max(0, COMPONENT_GROUPS.length - 1) * SUBSYS_GAP;
 const FOOTER_PAD = 38;     // bottom buffer below the status grid
 const TOTAL_H = HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H + FOOTER_PAD;
+
+/** Y offset of a component row inside the status grid (relative to the
+ *  grid's own translation). Honours subsystem-header rows + inter-group
+ *  gaps so the rows don't slide under their headers. */
+function rowYOffset(rowIndex: number): number {
+  // Walk groups, accumulate header + rows + gap up to the row.
+  let y = 0;
+  let consumed = 0;
+  for (let gi = 0; gi < COMPONENT_GROUPS.length; gi += 1) {
+    y += SUBSYS_LABEL_H;
+    const group = COMPONENT_GROUPS[gi];
+    for (let ri = 0; ri < group.rows.length; ri += 1) {
+      if (consumed === rowIndex) return y;
+      y += ROW_H + ROW_GAP;
+      consumed += 1;
+    }
+    if (gi < COMPONENT_GROUPS.length - 1) y += SUBSYS_GAP;
+  }
+  return y;
+}
+
+/** Y of the start of a subsystem header row inside the grid. */
+function subsystemHeaderY(groupIndex: number): number {
+  let y = 0;
+  for (let gi = 0; gi < groupIndex; gi += 1) {
+    y += SUBSYS_LABEL_H;
+    y += COMPONENT_GROUPS[gi].rows.length * (ROW_H + ROW_GAP);
+    y += SUBSYS_GAP;
+  }
+  return y;
+}
+
+const DRIVER_TRACES: Array<{ label: string; color: string }> = [
+  { label: "Temperature", color: "var(--color-fg)"        },
+  { label: "Humidity",    color: "var(--color-fg-muted)"  },
+  { label: "Print hours", color: "var(--color-accent)"    },
+];
+
+const STATUS_LEGEND: Array<{ label: string; color: string }> = [
+  { label: "OK",       color: "rgba(76, 217, 100, 0.85)" },
+  { label: "Degraded", color: "rgba(255, 204, 0, 0.85)"  },
+  { label: "Critical", color: "rgba(255, 149, 0, 0.85)"  },
+  { label: "Failed",   color: "rgba(255, 69, 58, 0.85)"  },
+];
 
 function TimelineCanvas({
   frame,
@@ -198,12 +294,13 @@ function TimelineCanvas({
 
   const innerW = Math.max(200, width - PAD_LEFT - PAD_RIGHT);
   const dayW = innerW / TOTAL_DAYS;
-  const projectionStartX = PAD_LEFT + (HISTORICAL_END_DAY + 1) * dayW;
 
   // ── Year ribbon labels ────────────────────────────────────────────────
+  // Every label is the model's forecast — no observed/projected split, so
+  // every tick uses the same neutral fill colour.
   const yearTicks = useMemo(() => {
-    const ticks: { x: number; label: string; isProjection: boolean }[] = [];
-    for (let year = 2015; year <= 2030; year += 1) {
+    const ticks: { x: number; label: string }[] = [];
+    for (let year = 2026; year <= 2035; year += 1) {
       const dayOfStart = Math.round(
         (Date.UTC(year, 0, 1) - SIM_START_DATE_UTC) / 86_400_000,
       );
@@ -211,40 +308,53 @@ function TimelineCanvas({
       ticks.push({
         x: PAD_LEFT + dayOfStart * dayW,
         label: String(year),
-        isProjection: dayOfStart > HISTORICAL_END_DAY,
       });
     }
     return ticks;
   }, [dayW]);
 
   // ── Driver paths ─────────────────────────────────────────────────────
+  // Each path is built with yOffset = 0 (i.e. coordinates LOCAL to its row);
+  // DriverRow translates the row group to its band slot.
+  // Vertical range is auto-fitted from the data with a 10 % padding so the
+  // line's amplitude actually stretches across its band — fixed -10..40 °C
+  // / 0..100 % buckets squashed real-world fluctuations down to ~25 % of
+  // the band height.
   const driverPaths = useMemo(() => {
     return [
-      driverLine(frame.ambient_temp_c,   frame.day, dayW, -10, 40, 0),
-      driverLine(frame.humidity_pct,     frame.day, dayW, 0, 100, DRIVERS_H / 3),
-      driverLine(frame.daily_print_hours, frame.day, dayW, 0, Math.max(12, ...frame.daily_print_hours), 2 * DRIVERS_H / 3),
+      driverLine(frame.ambient_temp_c,    frame.day, dayW, ...autoRange(frame.ambient_temp_c, 0.1)),
+      driverLine(frame.humidity_pct,      frame.day, dayW, ...autoRange(frame.humidity_pct,    0.1)),
+      driverLine(frame.daily_print_hours, frame.day, dayW, ...autoRange(frame.daily_print_hours, 0.1)),
     ];
   }, [frame, dayW]);
 
   // ── Status cells ─────────────────────────────────────────────────────
-  // Downsample to ~one cell per (TOTAL_DAYS / max_cells) days, so we
-  // don't paint 21,918 SVG rects on the page. 365 × 6 = 2,190 cells.
-  const cellStep = Math.max(1, Math.ceil(HISTORICAL_END_DAY / 365));
+  // Run-length-encode each row so contiguous days of the same status
+  // render as ONE rect rather than ~one rect per day.
   const statusCells = useMemo(() => {
     const out: { row: number; x: number; w: number; fill: string }[] = [];
-    for (let r = 0; r < COMPONENT_ROWS.length; r += 1) {
-      const sid = COMPONENT_ROWS[r].sid;
-      const arr = (frame as unknown as Record<string, string[]>)[`status_${sid}`];
-      for (let i = 0; i < arr.length; i += cellStep) {
-        const status = arr[i];
-        const fill = STATUS_COLORS[status] ?? "rgba(255,255,255,0.06)";
-        const x = PAD_LEFT + i * dayW;
-        const w = dayW * cellStep;
-        out.push({ row: r, x, w, fill });
+    for (const flat of FLAT_ROWS) {
+      const arr = (frame as unknown as Record<string, string[]>)[`status_${flat.sid}`];
+      if (!arr || arr.length === 0) continue;
+      let runStart = 0;
+      let runStatus = arr[0];
+      for (let i = 1; i <= arr.length; i += 1) {
+        const next = i < arr.length ? arr[i] : "__END__";
+        if (next !== runStatus) {
+          const fill = STATUS_COLORS[runStatus] ?? "rgba(255,255,255,0.06)";
+          out.push({
+            row: flat.rowIndex,
+            x: PAD_LEFT + runStart * dayW,
+            w: (i - runStart) * dayW,
+            fill,
+          });
+          runStart = i;
+          runStatus = next;
+        }
       }
     }
     return out;
-  }, [frame, dayW, cellStep]);
+  }, [frame, dayW]);
 
   // ── Cursor ───────────────────────────────────────────────────────────
   const cursorX = PAD_LEFT + currentDay * dayW;
@@ -252,19 +362,22 @@ function TimelineCanvas({
   function onClickStrip(e: React.MouseEvent<SVGRectElement>) {
     const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const day = Math.max(0, Math.min(HISTORICAL_END_DAY, Math.round((x - PAD_LEFT) / dayW)));
+    const day = Math.max(0, Math.min(TOTAL_DAYS - 1, Math.round((x - PAD_LEFT) / dayW)));
     onScrub(day);
   }
 
   return (
     <svg ref={ref} width="100%" height={TOTAL_H} className="select-none">
-      {/* Year ribbon */}
+      {/* Year ribbon — uniform style, every tick is forecast.
+          The vertical guideline only spans the DRIVER area; we stop it
+          before the status grid so it doesn't show as a slim dark cut
+          through the green/orange status bands. */}
       <g>
         {yearTicks.map((t) => (
           <g key={t.label}>
             <line
               x1={t.x} x2={t.x}
-              y1={HEADER_H - 4} y2={HEADER_H + DRIVERS_H + DRIVERS_GAP + GRID_H}
+              y1={HEADER_H - 4} y2={HEADER_H + DRIVERS_H + 4}
               stroke="rgba(255,255,255,0.04)"
               strokeWidth={1}
             />
@@ -272,32 +385,14 @@ function TimelineCanvas({
               x={t.x + 3}
               y={HEADER_H - 8}
               fontSize={10.5}
-              fill={t.isProjection ? "var(--color-warn)" : "var(--color-fg-faint)"}
+              fill="var(--color-fg-faint)"
               fontFamily="inherit"
             >
               {t.label}
             </text>
           </g>
         ))}
-        <rect
-          x={projectionStartX}
-          y={HEADER_H - 4}
-          width={Math.max(0, PAD_LEFT + innerW - projectionStartX)}
-          height={DRIVERS_H + DRIVERS_GAP + GRID_H + 4}
-          fill="url(#projHatch)"
-          opacity={0.9}
-        />
       </g>
-
-      <defs>
-        <pattern id="projHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255, 204, 0, 0.10)" strokeWidth="2" />
-        </pattern>
-        <linearGradient id="lineFadeTemp"  x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.85" />
-        </linearGradient>
-      </defs>
 
       {/* Driver block */}
       <g transform={`translate(0, ${HEADER_H})`}>
@@ -308,25 +403,57 @@ function TimelineCanvas({
 
       {/* Status grid */}
       <g transform={`translate(0, ${HEADER_H + DRIVERS_H + DRIVERS_GAP})`}>
-        {COMPONENT_ROWS.map((c, i) => (
+        {/* Subsystem headers — small caps over each group, with a faint
+            full-width hairline so the bands group visually under them. */}
+        {COMPONENT_GROUPS.map((g, gi) => {
+          const y = subsystemHeaderY(gi);
+          return (
+            <g key={g.subsystem}>
+              <text
+                x={PAD_LEFT - 10}
+                y={y + SUBSYS_LABEL_H * 0.78}
+                fontSize={9.5}
+                textAnchor="end"
+                fill="var(--color-fg-faint)"
+                fontFamily="inherit"
+                style={{ letterSpacing: "0.18em", textTransform: "uppercase" }}
+              >
+                {g.subsystem}
+              </text>
+              <line
+                x1={PAD_LEFT}
+                x2={PAD_LEFT + innerW}
+                y1={y + SUBSYS_LABEL_H - 3}
+                y2={y + SUBSYS_LABEL_H - 3}
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth={1}
+              />
+            </g>
+          );
+        })}
+        {/* Component labels — placed at the row's actual Y so they don't
+            slide under their subsystem header. */}
+        {FLAT_ROWS.map((flat) => (
           <text
-            key={c.sid}
+            key={flat.sid}
             x={PAD_LEFT - 10}
-            y={i * (ROW_H + ROW_GAP) + ROW_H * 0.68}
+            y={rowYOffset(flat.rowIndex) + ROW_H * 0.68}
             fontSize={11}
             textAnchor="end"
             fill="var(--color-fg-muted)"
             fontFamily="inherit"
           >
-            {c.label}
+            {flat.label}
           </text>
         ))}
+        {/* Status bands — same RLE'd rects as before, just positioned via
+            the new rowYOffset helper which honours the subsystem headers. */}
         {statusCells.map((cell, i) => (
           <rect
             key={i}
             x={cell.x}
-            y={cell.row * (ROW_H + ROW_GAP)}
-            width={Math.max(1, cell.w - 0.5)}
+            y={rowYOffset(cell.row)}
+            width={cell.w}
             height={ROW_H}
             fill={cell.fill}
             shapeRendering="crispEdges"
@@ -388,6 +515,26 @@ function DriverRow({
       <path d={pathD} stroke={color} strokeWidth={1.5} fill="none" opacity={0.9} />
     </g>
   );
+}
+
+/**
+ * Auto-fit a driver series's vertical range with `padPct` headroom on each
+ * end. Returns a tuple compatible with the trailing `vMin, vMax, yOffset`
+ * args of `driverLine` (yOffset is always 0 — local-to-row coords).
+ */
+function autoRange(values: number[], padPct: number): [number, number, number] {
+  if (!values || values.length === 0) return [0, 1, 0];
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const v of values) {
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  if (!isFinite(lo) || !isFinite(hi) || lo === hi) {
+    return [lo - 1, hi + 1, 0];
+  }
+  const pad = (hi - lo) * padPct;
+  return [lo - pad, hi + pad, 0];
 }
 
 function driverLine(
