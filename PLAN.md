@@ -7,7 +7,7 @@ and 3 (RL) are out of scope and consume only the Parquet file produced here.
 
 The Act 1 deliverable is a deterministic, schema-stable training dataset for a
 Digital Twin pipeline for the HP Metal Jet S100. The simulator lives under
-`sdg/` and is independent from downstream ML/RL code.
+`backend/simulator/` and is independent from downstream ML/RL code.
 
 Non-negotiables:
 
@@ -26,7 +26,7 @@ Non-negotiables:
 
 ## Output
 
-The generated file is `data/fleet_baseline.parquet`. It contains one row per
+The generated file is `data/train/fleet_baseline.parquet`. It contains one row per
 `(printer_id, day)` with frozen column names and Arrow types:
 
 - Identity: `printer_id`, `city`, `climate_zone`, `date`, `day`
@@ -44,16 +44,16 @@ The generated file is `data/fleet_baseline.parquet`. It contains one row per
 
 ## Implementation Modules
 
-- `sdg/config/components.yaml`: process constants, component costs, lifetimes,
+- `backend/simulator/config/components.yaml`: process constants, component costs, lifetimes,
   maintenance intervals, lambda bases, and degradation variables.
-- `sdg/config/couplings.yaml`: source-to-target coupling matrix and caps.
-- `sdg/config/cities.yaml`: 15 deterministic indoor climate profiles.
-- `sdg/core/weather.py`: deterministic sinusoidal daily temperature/humidity.
-- `sdg/core/component.py`: component state and maintenance transitions.
-- `sdg/core/degradation.py`: lambda and cross-factor calculations.
-- `sdg/core/simulator.py`: canonical daily tick order for one printer.
-- `sdg/generate.py`: streamed end-to-end Parquet generation.
-- `sdg/labels.py`: post-generation RUL label augmentation.
+- `backend/simulator/config/couplings.yaml`: source-to-target coupling matrix and caps.
+- `backend/simulator/config/cities.yaml`: 15 deterministic indoor climate profiles.
+- `backend/simulator/core/weather.py`: deterministic sinusoidal daily temperature/humidity.
+- `backend/simulator/core/component.py`: component state and maintenance transitions.
+- `backend/simulator/core/degradation.py`: lambda and cross-factor calculations.
+- `backend/simulator/core/simulator.py`: canonical daily tick order for one printer.
+- `backend/simulator/generate.py`: streamed end-to-end Parquet generation.
+- `backend/simulator/labels.py`: post-generation RUL label augmentation.
 
 ## Canonical Daily Tick
 

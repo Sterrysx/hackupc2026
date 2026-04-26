@@ -1,8 +1,8 @@
 # Auditoría: Spec vs. Implementación del Digital Twin HP Metal Jet S100
 
-> Comparación punto por punto entre `digital_twin_hp_metal_jet_s100_spec.md` y el código realmente ejecutado en `sdg/`.
+> Comparación punto por punto entre `digital_twin_hp_metal_jet_s100_spec.md` y el código realmente ejecutado en `backend/simulator/`.
 >
-> Archivos analizados: `sdg/core/{simulator,degradation,component,weather}.py`, `sdg/config/{components,couplings}.yaml`, `sdg/generate.py`.
+> Archivos analizados: `backend/simulator/core/{simulator,degradation,component,weather}.py`, `backend/simulator/config/{components,couplings}.yaml`, `backend/simulator/generate.py`.
 
 ---
 
@@ -10,9 +10,9 @@
 
 | Spec | Implementado |
 |---|---|
-| Simulación 24/7 durante **5 años** | ❌ La generación real es de **10 años reales (2016-2025)** + 10 años proyectados (2026-2035), no 5. Ver `sdg/generate.py:23-26`. |
+| Simulación 24/7 durante **5 años** | ❌ La generación real es de **10 años reales (2016-2025)** + 10 años proyectados (2026-2035), no 5. Ver `backend/simulator/generate.py:23-26`. |
 | Paso `Δt = 1 hora` | ❌ **El simulador trabaja en pasos de 1 día**, no 1 hora. Todas las unidades del config son `_d` (days). Ver `simulator.py:287` (`advance_time(1.0)`) y todas las claves `lambda0_per_d`, `tau_nom_d`, `L_nom_d`. |
-| Optimizador de τ_nom | ⚠️ Existe el hook (RL `PrinterStepper` con `agent_action`), pero el barrido masivo de τ no es el flujo principal — hay PPO en `ml_models/03_rl+ssl`. |
+| Optimizador de τ_nom | ⚠️ Existe el hook (RL `PrinterStepper` con `agent_action`), pero el barrido masivo de τ no es el flujo principal — hay PPO en `ml/03_rl+ssl`. |
 | Restricción disponibilidad ≥ 95 % | ❌ No se calcula ni se aplica como restricción en el simulador. |
 
 ---
@@ -27,7 +27,7 @@ No se modeliza el hardware HP literal. Solo viven en el simulador como **constan
 
 | Spec | Implementado |
 |---|---|
-| 3 subsistemas, 6 componentes (C1–C6) | ✅ `sdg/schema.py` define `COMPONENT_IDS` y los componentes están en `components.yaml`. |
+| 3 subsistemas, 6 componentes (C1–C6) | ✅ `backend/simulator/schema.py` define `COMPONENT_IDS` y los componentes están en `components.yaml`. |
 | Health Index $H_i \in [0,1]$ | ✅ `Component.H`, recortado en `apply_degradation` (`component.py:31-32`). |
 | Estados OK/WARNING/CRITICAL/FAILED con umbrales 0.7 / 0.4 / 0.1 | ✅ Idéntico al spec, ver `component.py:22-29`. |
 
@@ -215,17 +215,17 @@ Sumando ambos mecanismos:
 | Health Index medio por componente | ⚠️ Ídem, queda como serie temporal en parquet. |
 | Tiempo en cada estado | ❌ Sin postproceso. |
 | Restricción ≥ 95 % | ❌ No aplicada. |
-| Función objetivo | ❌ El simulador no tiene función objetivo explícita; eso vive en `ml_models/03_rl+ssl` (PPO). |
+| Función objetivo | ❌ El simulador no tiene función objetivo explícita; eso vive en `ml/03_rl+ssl` (PPO). |
 
 ---
 
 ## 11. Estructura de código
 
 La estructura sugerida (`digital_twin/config/`, `core/`, `optimizer/`, `analysis/`) **no existe** literalmente. La equivalente real:
-- `sdg/config/*.yaml` ✅
-- `sdg/core/{component,degradation,simulator}.py` ✅ (no hay `events.py` separado — está en `simulator.py`)
-- Optimizer → vive en `ml_models/03_rl+ssl/`
-- Analysis → notebooks en `ml_models/0X/` y dashboard en `frontend/`
+- `backend/simulator/config/*.yaml` ✅
+- `backend/simulator/core/{component,degradation,simulator}.py` ✅ (no hay `events.py` separado — está en `simulator.py`)
+- Optimizer → vive en `ml/03_rl/`
+- Analysis → notebooks en `ml/0X/` y dashboard en `frontend/`
 
 ---
 
