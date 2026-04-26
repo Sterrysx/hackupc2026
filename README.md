@@ -49,3 +49,6 @@ troubleshooting — lives in [`WALKTHROUGH.md`](WALKTHROUGH.md).
 | Open a PR | `make pr` |
 
 Run `make` with no arguments for the full list.
+
+# Video demo 
+https://youtu.be/fCIjTg1pWTk
