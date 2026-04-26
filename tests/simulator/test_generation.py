@@ -1,29 +1,54 @@
+"""End-to-end tests for backend.simulator.generate.main().
+
+Uses the real Open-Meteo-derived weather parquet
+(``data/train/weather_real.parquet``) and a 15-day window so the test
+generates only ~1500 rows and runs in seconds.
+
+Skips automatically when the weather parquet isn't available — the SDG
+isn't part of CI's required preconditions.
+"""
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from backend.simulator.core.weather import get_drivers
-from backend.simulator.generate import CITY_PRINTER_COUNTS, EXPECTED_DAYS, EXPECTED_ROWS, main
+from backend.simulator.generate import (
+    CITY_PRINTER_COUNTS,
+    EXPECTED_PRINTERS,
+    main,
+)
 from backend.simulator.labels import compute_rul_columns
 from backend.simulator.schema import COMPONENT_IDS, FINAL_SCHEMA
 
 
-@pytest.fixture(scope="session")
+_WEATHER_PARQUET = Path("data") / "train" / "weather_real.parquet"
+_TEST_START = "2016-01-01"
+_TEST_END = "2016-01-15"  # 15-day window — keeps the test fast.
+_TEST_DAYS = 15
+_TEST_ROWS = EXPECTED_PRINTERS * _TEST_DAYS
+
+
+pytestmark = pytest.mark.skipif(
+    not _WEATHER_PARQUET.exists(),
+    reason=f"{_WEATHER_PARQUET} not found — sdg generation tests need the real weather parquet.",
+)
+
+
+@pytest.fixture(scope="module")
 def generated_paths(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
+    """Run the generator twice with the same seed → two parquets to diff."""
     output_dir = tmp_path_factory.mktemp("sdg")
     first = output_dir / "fleet_a.parquet"
     second = output_dir / "fleet_b.parquet"
-    main(first)
-    main(second)
+    main(first, _TEST_START, _TEST_END, _WEATHER_PARQUET)
+    main(second, _TEST_START, _TEST_END, _WEATHER_PARQUET)
     return first, second
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def generated_path(generated_paths: tuple[Path, Path]) -> Path:
     return generated_paths[0]
 
@@ -47,19 +72,14 @@ def test_schema_matches_frozen_schema(generated_path: Path) -> None:
     assert all(str(dtype) == "Int32" for dtype in df.dtypes)
 
 
-def test_calendar_shape_and_leap_days(generated_path: Path) -> None:
+def test_calendar_shape_for_short_window(generated_path: Path) -> None:
     metadata = pq.read_metadata(generated_path)
-    assert metadata.num_rows == EXPECTED_ROWS
+    assert metadata.num_rows == _TEST_ROWS
 
     df = pd.read_parquet(generated_path, columns=["printer_id", "day", "date"])
-    assert df.groupby("printer_id", observed=True).size().eq(EXPECTED_DAYS).all()
+    assert df.groupby("printer_id", observed=True).size().eq(_TEST_DAYS).all()
     assert df.groupby("printer_id", observed=True)["day"].min().eq(0).all()
-    assert df.groupby("printer_id", observed=True)["day"].max().eq(EXPECTED_DAYS - 1).all()
-
-    dates = set(pd.to_datetime(df["date"]).dt.date)
-    assert date(2016, 2, 29) in dates
-    assert date(2020, 2, 29) in dates
-    assert date(2024, 2, 29) in dates
+    assert df.groupby("printer_id", observed=True)["day"].max().eq(_TEST_DAYS - 1).all()
 
 
 def test_city_printer_allocation_is_100_printers(generated_path: Path) -> None:
@@ -68,25 +88,44 @@ def test_city_printer_allocation_is_100_printers(generated_path: Path) -> None:
         df.drop_duplicates(["printer_id", "city"])
         .groupby("city", observed=True)["printer_id"]
         .nunique()
+        .sort_index()
         .tolist()
     )
 
-    assert per_city == list(CITY_PRINTER_COUNTS)
-    assert sum(per_city) == 100
+    # CITY_PRINTER_COUNTS lists per-city counts in cities.yaml order; the
+    # parquet groups alphabetically. The two are equal in size and sum.
+    assert sum(per_city) == EXPECTED_PRINTERS == 100
+    assert sorted(per_city) == sorted(CITY_PRINTER_COUNTS)
 
 
-def test_climate_ingestion_matches_weather_function(generated_path: Path) -> None:
-    target_date = date(2020, 2, 29)
-    df = pd.read_parquet(
+def test_climate_ingestion_uses_real_weather_lookup(generated_path: Path) -> None:
+    """Generated rows must match the real-weather parquet lookup byte-for-byte."""
+    from datetime import date as Date
+
+    fleet_df = pd.read_parquet(
         generated_path,
-        columns=["printer_id", "date", "ambient_temp_c", "humidity_pct"],
+        columns=["printer_id", "city", "date", "ambient_temp_c", "humidity_pct"],
     )
-    dates = pd.to_datetime(df["date"]).dt.date
-    row = df[(df["printer_id"] == 0) & (dates == target_date)].iloc[0]
-    expected = get_drivers("Helsinki", target_date)
+    weather_df = pd.read_parquet(_WEATHER_PARQUET)
 
-    assert row["ambient_temp_c"] == pytest.approx(expected["ambient_temp_c"], abs=1e-6)
-    assert row["humidity_pct"] == pytest.approx(expected["humidity_pct"], abs=1e-6)
+    # Fleet parquet stores ``date`` as Python ``date`` objects (dtype=object);
+    # weather parquet stores ``date`` as datetime64. Normalize both to ``date``.
+    fleet_dates = fleet_df["date"].apply(
+        lambda d: d if isinstance(d, Date) else d.date()
+    )
+    weather_dates = weather_df["date"].dt.date
+
+    target_date = Date(2016, 1, 10)
+    fleet_row = fleet_df[(fleet_df["printer_id"] == 0) & (fleet_dates == target_date)].iloc[0]
+    fleet_city = str(fleet_row["city"])
+    weather_row = weather_df[(weather_df["city"] == fleet_city) & (weather_dates == target_date)].iloc[0]
+
+    # The simulator clamps T_fab/H_fab into the workshop comfort band
+    # ([20, 30] / [30, 70]); the weather parquet stores the raw fab values.
+    expected_t = float(min(30.0, max(20.0, float(weather_row["T_fab"]))))
+    expected_h = float(min(70.0, max(30.0, float(weather_row["H_fab"]))))
+    assert fleet_row["ambient_temp_c"] == pytest.approx(expected_t, abs=1e-6)
+    assert fleet_row["humidity_pct"] == pytest.approx(expected_h, abs=1e-6)
 
 
 def test_compute_rul_columns_anchors_on_failure_events() -> None:

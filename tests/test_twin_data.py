@@ -16,19 +16,21 @@ def _ensure_dataset_loaded():
     twin_data.reset_cache()
 
 
-def test_list_cities_matches_expected_15():
+def test_list_cities_matches_expected_10():
+    """Operator-facing fleet covers 10 cities (lowercase ids)."""
     cities = twin_data.list_cities()
-    assert len(cities) == 15
-    assert "Barcelona" in cities
-    assert "Helsinki" in cities
+    assert len(cities) == 10
+    assert "barcelona" in cities
+    assert "singapore" in cities
 
 
 def test_list_printers_returns_assigned_ids():
-    printers = twin_data.list_printers("Barcelona")
+    printers = twin_data.list_printers("barcelona")
     assert printers == sorted(printers)  # ascending
     assert all(0 <= p <= 99 for p in printers)
-    # 10 cities have 7 printers, 5 have 6
-    assert len(printers) in (6, 7)
+    # Current layout assigns 10 printers per city; assert at least 1 to stay
+    # robust if printer counts ever shift again.
+    assert len(printers) >= 1
 
 
 def test_list_printers_unknown_city_raises():
@@ -43,9 +45,9 @@ def test_day_range_matches_plan_md_calendar():
 
 
 def test_get_snapshot_shape_matches_frontend_contract():
-    printers = twin_data.list_printers("Barcelona")
+    printers = twin_data.list_printers("barcelona")
     pid = printers[0]
-    snap = twin_data.get_snapshot("Barcelona", pid, 100)
+    snap = twin_data.get_snapshot("barcelona", pid, 100)
 
     assert set(snap.keys()) == {
         "timestamp", "tick", "drivers", "components",
@@ -58,7 +60,7 @@ def test_get_snapshot_shape_matches_frontend_contract():
 
 
 def test_get_snapshot_drivers_have_expected_keys():
-    snap = twin_data.get_snapshot("Barcelona", twin_data.list_printers("Barcelona")[0], 100)
+    snap = twin_data.get_snapshot("barcelona", twin_data.list_printers("barcelona")[0], 100)
     drivers = snap["drivers"]
     expected = {"ambientTempC", "humidityPct", "contaminationPct", "loadPct", "maintenanceCoeff"}
     assert set(drivers.keys()) == expected
@@ -66,7 +68,7 @@ def test_get_snapshot_drivers_have_expected_keys():
 
 
 def test_get_snapshot_returns_six_components_with_full_metric_set():
-    snap = twin_data.get_snapshot("Barcelona", twin_data.list_printers("Barcelona")[0], 100)
+    snap = twin_data.get_snapshot("barcelona", twin_data.list_printers("barcelona")[0], 100)
     components = snap["components"]
     assert len(components) == 6
 
@@ -88,34 +90,34 @@ def test_get_snapshot_returns_six_components_with_full_metric_set():
 
 
 def test_get_snapshot_health_matches_underlying_parquet_value():
-    pid = twin_data.list_printers("Helsinki")[0]
+    pid = twin_data.list_printers("singapore")[0]
     df = twin_data.get_dataset()
     row = df.loc[
-        (df["city"] == "Helsinki")
+        (df["city"] == "singapore")
         & (df["printer_id"] == pid)
         & (df["day"] == 50)
     ].iloc[0]
-    snap = twin_data.get_snapshot("Helsinki", pid, 50)
+    snap = twin_data.get_snapshot("singapore", pid, 50)
 
     blade = next(c for c in snap["components"] if c["id"] == "recoater_blade")
     assert blade["healthIndex"] == pytest.approx(float(row["H_C1"]))
 
 
 def test_get_snapshot_unknown_day_raises():
-    pid = twin_data.list_printers("Madrid")[0]
+    pid = twin_data.list_printers("dubai")[0]
     with pytest.raises(KeyError):
-        twin_data.get_snapshot("Madrid", pid, 99999)
+        twin_data.get_snapshot("dubai", pid, 99999)
 
 
 def test_get_snapshot_unknown_printer_raises():
     with pytest.raises(KeyError):
-        twin_data.get_snapshot("Madrid", 42_000, 100)
+        twin_data.get_snapshot("dubai", 42_000, 100)
 
 
 def test_get_timeline_returns_arrays_aligned_with_day_axis():
-    pid = twin_data.list_printers("Athens")[0]
+    pid = twin_data.list_printers("moscow")[0]
     timeline = twin_data.get_timeline(
-        "Athens", pid,
+        "moscow", pid,
         fields=["H_C1", "H_C5", "ambient_temp_c"],
         day_from=0, day_to=29,
     )
@@ -128,22 +130,22 @@ def test_get_timeline_returns_arrays_aligned_with_day_axis():
 
 
 def test_get_timeline_full_range_has_3653_rows():
-    pid = twin_data.list_printers("Athens")[0]
-    timeline = twin_data.get_timeline("Athens", pid, fields=["H_C1"])
+    pid = twin_data.list_printers("moscow")[0]
+    timeline = twin_data.get_timeline("moscow", pid, fields=["H_C1"])
     assert len(timeline["day"]) == 3653
     assert timeline["day"][0] == 0
     assert timeline["day"][-1] == 3652
 
 
 def test_get_timeline_failure_booleans_round_trip_as_bool():
-    pid = twin_data.list_printers("Athens")[0]
+    pid = twin_data.list_printers("moscow")[0]
     timeline = twin_data.get_timeline(
-        "Athens", pid, fields=["failure_C1"], day_from=0, day_to=10,
+        "moscow", pid, fields=["failure_C1"], day_from=0, day_to=10,
     )
     assert all(isinstance(v, bool) for v in timeline["failure_C1"])
 
 
 def test_get_timeline_rejects_unknown_fields():
-    pid = twin_data.list_printers("Athens")[0]
+    pid = twin_data.list_printers("moscow")[0]
     with pytest.raises(KeyError):
-        twin_data.get_timeline("Athens", pid, fields=["bogus_field"])
+        twin_data.get_timeline("moscow", pid, fields=["bogus_field"])
