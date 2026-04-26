@@ -16,7 +16,7 @@ optimiser's inner loop.
 ## Method (in 5 bullets)
 
 1. Search space: `lib.env_runner.TAU_RANGES` (log-uniform priors anchored on
-   `digital_twin_hp_metal_jet_s100_spec.md` §6).
+   `ai-context/digital_twin_hp_metal_jet_s100_spec.md` §6).
 2. Trial subset: one printer per city (15 printers) for the full 10-year
    window — keeps trials affordable, captures climate diversity.
 3. Sampler: TPE with seed 42; pruner: median (warm-up 5 trials).

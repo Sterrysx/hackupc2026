@@ -1,7 +1,7 @@
 # `ml/` — maintenance-policy modelling ladder
 
 This directory implements a progressive ladder of approaches to the optimisation
-problem stated in [`CONTEXT.md`](../CONTEXT.md) §10:
+problem stated in [`ai-context/CONTEXT.md`](../ai-context/CONTEXT.md) §10:
 
 ```
 minimize  E[per-printer annual cost]   (preventive + corrective €/yr)

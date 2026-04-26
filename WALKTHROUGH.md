@@ -127,8 +127,8 @@ In Claude Code: `/review <PR number>` posts an AI review on the PR.
 
 ## 9. Where to go next
 
-- [`BRIEF.md`](BRIEF.md) — challenge rubric and demo narrative.
-- [`CONTEXT.md`](CONTEXT.md) — full system design.
-- [`CLAUDE.md`](CLAUDE.md) — conventions + architecture notes for AI contributors.
+- [`ai-context/BRIEF.md`](ai-context/BRIEF.md) — challenge rubric and demo narrative.
+- [`ai-context/CONTEXT.md`](ai-context/CONTEXT.md) — full system design.
+- [`ai-context/CLAUDE.md`](ai-context/CLAUDE.md) — conventions + architecture notes for AI contributors.
 - [`backend/agent/README.md`](backend/agent/README.md) — agent internals.
 - [`ml/README.md`](ml/README.md) — ML ladder internals.

@@ -1,6 +1,6 @@
 """Cost and availability metrics derived from event booleans.
 
-The objective function follows CONTEXT.md §10:
+The objective function follows ai-context/CONTEXT.md §10:
     minimize  E[per-printer annual cost]
     subject to availability >= 95%
 """

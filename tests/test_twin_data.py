@@ -41,7 +41,7 @@ def test_list_printers_unknown_city_raises():
 def test_day_range_matches_plan_md_calendar():
     lo, hi = twin_data.day_range()
     assert lo == 0
-    assert hi == 3652  # 10 years incl. leap days, per PLAN.md
+    assert hi == 3652  # 10 years incl. leap days, per ai-context/PLAN.md
 
 
 def test_get_snapshot_shape_matches_frontend_contract():

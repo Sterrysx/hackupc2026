@@ -4,8 +4,8 @@ A digital twin of HP's binder-jet metal printer that **models** component
 degradation, **simulates** a 10-year fleet, and lets an operator **interact**
 with it through a grounded LangGraph agent and a live React dashboard.
 
-Entry for the HP challenge at HackUPC 2026. See [`BRIEF.md`](BRIEF.md) for the
-scoring rubric and [`CONTEXT.md`](CONTEXT.md) for the full design.
+Entry for the HP challenge at HackUPC 2026. See [`ai-context/BRIEF.md`](ai-context/BRIEF.md) for the
+scoring rubric and [`ai-context/CONTEXT.md`](ai-context/CONTEXT.md) for the full design.
 
 ---
 

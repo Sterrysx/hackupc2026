@@ -1,6 +1,6 @@
 """Pure transform functions: date relabeling + climate transfer functions.
 
-Implements the formulas in `climate_location_module.md` §2.1, §3.1, §4.1:
+Implements the formulas in `ai-context/climate_location_module.md` §2.1, §3.1, §4.1:
 
     T_fab = clip(T_set + alpha_T * (T_ext - T_ext_ref),  18, 30)
     H_fab = clip(H_set + alpha_H * (H_ext - H_ext_ref),  30, 70)
