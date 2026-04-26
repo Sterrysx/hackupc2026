@@ -1,9 +1,10 @@
 """Integration test: real LangGraph agent grounded in the real historian.
 
 This is a LIVE test — it builds the actual LangGraph via
-``Ai_Agent.graph.build_graph()`` and submits a question to the real Groq
-LLM. The whole module is skipped cleanly when ``GROQ_API_KEY`` is unset
-so the default offline ``uv run pytest`` invocation stays green.
+``Ai_Agent.graph.build_graph()`` and submits a question to the real LLM
+(Gemini by default, Groq as fallback). The whole module is skipped
+cleanly when neither ``GEMINI_API_KEY`` nor ``GROQ_API_KEY`` is set so
+the default offline ``uv run pytest`` invocation stays green.
 
 Asserts the "no hallucinations" demo contract:
 - the returned ``final_report`` carries every required ``DiagnosticReport`` field;
@@ -25,8 +26,14 @@ import pytest
 pytestmark = [
     pytest.mark.live,
     pytest.mark.skipif(
-        not os.getenv("GROQ_API_KEY"),
-        reason="GROQ_API_KEY not set — live agent grounding tests need real LLM access.",
+        not (
+            os.getenv("GITHUB_TOKEN")
+            or os.getenv("GITHUB_PAT")
+            or os.getenv("GEMINI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GROQ_API_KEY")
+        ),
+        reason="No LLM API key set — live agent grounding tests need GITHUB_TOKEN, GEMINI_API_KEY, or GROQ_API_KEY.",
     ),
 ]
 

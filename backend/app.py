@@ -205,7 +205,7 @@ async def root():
         "service": "hackupc2026 Digital Twin API",
         "docs": "/docs",
         "health": "/health",
-        "note": "Agent answers require GROQ_API_KEY in .env (see .env.example). Frontend: cd frontend && npm run dev",
+        "note": "Agent answers require GITHUB_TOKEN (preferred), GEMINI_API_KEY, or GROQ_API_KEY in .env (see .env.example). Frontend: cd frontend && npm run dev",
     }
 
 
@@ -345,7 +345,13 @@ async def health_check():
     # The API can be up while the LLM backend is not configured.
     return {
         "status": "ok",
-        "agent_ready": bool(os.getenv("GROQ_API_KEY")),
+        "agent_ready": bool(
+            os.getenv("GITHUB_TOKEN")
+            or os.getenv("GITHUB_PAT")
+            or os.getenv("GEMINI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GROQ_API_KEY")
+        ),
     }
 
 

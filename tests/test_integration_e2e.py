@@ -8,8 +8,9 @@ visual shell — every arrow in the Brain -> Clock -> Voice pipeline is exercise
 here and asserted against grounding rules (timestamp + run_id in every
 citation, tool-call trace present, parquet-backed twin numbers).
 
-Opt-in via `-m live`. Skips cleanly when `GROQ_API_KEY` is missing so the
-default `uv run pytest` invocation stays green on laptops without secrets.
+Opt-in via `-m live`. Skips cleanly when no LLM API key is set
+(`GEMINI_API_KEY` preferred, `GROQ_API_KEY` fallback) so the default
+`uv run pytest` invocation stays green on laptops without secrets.
 """
 from __future__ import annotations
 
@@ -29,8 +30,14 @@ from backend.agent import twin_data
 pytestmark = [
     pytest.mark.live,
     pytest.mark.skipif(
-        not os.getenv("GROQ_API_KEY"),
-        reason="GROQ_API_KEY not set — live end-to-end tests require a real LLM.",
+        not (
+            os.getenv("GITHUB_TOKEN")
+            or os.getenv("GITHUB_PAT")
+            or os.getenv("GEMINI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GROQ_API_KEY")
+        ),
+        reason="No LLM API key set — live end-to-end tests require GITHUB_TOKEN, GEMINI_API_KEY, or GROQ_API_KEY.",
     ),
 ]
 
@@ -151,24 +158,41 @@ def test_watchdog_broadcasts_grounded_alert_over_websocket(client: TestClient) -
 def test_twin_state_matches_parquet_ground_truth(client: TestClient) -> None:
     """The numbers the UI renders must come from the real simulator parquet,
     not from a hardcoded fixture. Cross-check HTTP against the direct
-    accessor byte for byte."""
-    city = "Madrid"
-    day = 200
+    accessor byte for byte.
+
+    We pull the city and day straight from the live dataset so the test
+    stays green across parquet regenerations (city lists and day ranges
+    change when the simulator config changes).
+    """
+    cities = twin_data.list_cities()
+    assert cities, "parquet has no cities — regenerate data/fleet_baseline.parquet"
+    city = cities[0]
+
+    day_min, day_max = twin_data.day_range()
+    # Use a day that has real degradation signal to look at but isn't the
+    # very first tick (which the simulator initializes to H=1.0 on every
+    # component). Cap at day_max to stay in-range for small datasets.
+    day = min(max(200, day_min + 1), day_max)
 
     printers_res = client.get("/twin/printers", params={"city": city})
     assert printers_res.status_code == 200, printers_res.text
     printer_ids = printers_res.json()["printers"]
-    assert printer_ids, "no printers returned for Madrid"
+    assert printer_ids, f"no printers returned for {city!r}"
     printer_id = printer_ids[0]
 
+    # horizon_d=0 collapses the forecast to the current tick so we can
+    # cross-check predicted vs current health byte-for-byte below. The
+    # /twin/state endpoint expects `horizon_d` (days); older fixtures used
+    # a `horizon_min` name that no longer exists on either the HTTP route
+    # or the twin_data accessor.
     state_res = client.get(
         "/twin/state",
-        params={"city": city, "printer_id": printer_id, "day": day, "horizon_min": 0},
+        params={"city": city, "printer_id": printer_id, "day": day, "horizon_d": 0.0},
     )
     assert state_res.status_code == 200, state_res.text
     state = state_res.json()
 
-    truth = twin_data.get_snapshot(city, printer_id, day, forecast_horizon_min=0)
+    truth = twin_data.get_snapshot(city, printer_id, day, forecast_horizon_d=0.0)
 
     assert state["tick"] == truth["tick"] == day
     assert state["timestamp"] == truth["timestamp"]
