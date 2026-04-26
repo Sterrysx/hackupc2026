@@ -33,7 +33,7 @@ export function simIdFor(id: ComponentId): string {
  * Backend city name resolver.
  *
  * Both parquets — historical (`data/fleet_baseline.parquet`) and predictive
- * (`data/validation/fleet_2026_2035.parquet`) — now use the operator-facing
+ * (`data/prediction/fleet_2026_2035.parquet`) — now use the operator-facing
  * 10-city lowercase set (`singapore`, `dubai`, `barcelona`, …). The legacy
  * 15-European-city remap is retired; we just pass `city.id` through.
  */
@@ -147,7 +147,7 @@ export async function fetchTimeline(args: {
 }
 
 /**
- * Fetch the model-prediction timeline from `data/validation/fleet_2026_2035`.
+ * Fetch the model-prediction timeline from `data/prediction/fleet_2026_2035`.
  * Mirrors `fetchTimeline` shape but goes through the analytics-only
  * `/twin/predictions/timeline` endpoint and may include `rul_C{i}` columns.
  */

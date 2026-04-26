@@ -5,7 +5,7 @@ import { fetchPredictionsTimeline } from "@/lib/twinApi";
 
 /**
  * LifetimeTelemetryTile — the page-12 schematic from the HP brief, wired
- * to the **predictive** dataset (`data/validation/fleet_2026_2035.parquet`).
+ * to the **predictive** dataset (`data/prediction/fleet_2026_2035.parquet`).
  *
  *   ┌──────────────────────────────────────────────────────────────────┐
  *   │  2026  2027  2028  …  2035                                        │

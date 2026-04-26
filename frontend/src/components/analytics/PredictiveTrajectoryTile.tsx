@@ -5,7 +5,7 @@ import { fetchPredictionsTimeline } from "@/lib/twinApi";
 
 /**
  * PredictiveTrajectoryTile — operator-facing view of the 10-year forward
- * simulation stored in `data/validation/fleet_2026_2035.parquet`.
+ * simulation stored in `data/prediction/fleet_2026_2035.parquet`.
  *
  *   ┌────────────────────────────────────────────────────────────────────┐
  *   │  2026  2027  …  2035                                               │
