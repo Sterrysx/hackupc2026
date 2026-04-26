@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Digital Co-Pilot · HP Metal Jet S100</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Inter+Tight:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}], throwOnError:false});"></script>
+<script src="deck-stage.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --ink: #0e0f10;
+    --ink-soft: #2a2c2e;
+    --muted: #8a857a;
+    --rule: #1a1b1c;
+    --rule-soft: #d8d4ca;
+    --accent: #1a3aff;
+    --warm: #0a2080;
+    --paper: #ffffff;
+  }
+  html, body { margin:0; padding:0; background:#1a1b1c; color:var(--ink); font-family:'Inter Tight', sans-serif; }
+  deck-stage { background:#1a1b1c; }
+
+  section.slide {
+    background: var(--bg);
+    color: var(--ink);
+    width: 1920px;
+    height: 1080px;
+    box-sizing: border-box;
+    padding: 80px 100px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Inter Tight', sans-serif;
+  }
+
+  /* Top meta bar */
+  .meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--ink);
+    padding-bottom: 26px;
+    border-bottom: 1.5px solid var(--rule);
+  }
+  .meta .left { display: flex; gap: 20px; align-items: center; }
+  .meta .dot { width: 8px; height: 8px; background: var(--ink); border-radius: 50%; display: inline-block; }
+  .meta .right { color: var(--muted); }
+
+  /* Bottom meta bar */
+  .footer {
+    position: absolute;
+    bottom: 60px;
+    left: 100px; right: 100px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--ink-soft);
+    padding-top: 20px;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .footer .stats { display: flex; gap: 40px; }
+  .footer .stat span:first-child { color: var(--muted); margin-right: 10px; }
+
+  /* Section number / kicker */
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.22em;
+    color: var(--ink);
+    margin-bottom: 18px;
+  }
+
+  /* Hero title */
+  h1.title {
+    font-family: 'Newsreader', serif;
+    font-weight: 400;
+    font-size: 168px;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    margin: 0;
+    color: var(--ink);
+  }
+  h1.title em {
+    font-style: italic;
+    font-weight: 300;
+  }
+  h2.title {
+    font-family: 'Newsreader', serif;
+    font-weight: 400;
+    font-size: 116px;
+    line-height: 0.94;
+    letter-spacing: -0.035em;
+    margin: 0;
+    color: var(--ink);
+  }
+  h2.title em { font-style: italic; font-weight: 300; }
+  h3.subtitle {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 400;
+    font-size: 30px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 1100px;
+  }
+
+  .lead {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 400;
+    font-size: 28px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    max-width: 1000px;
+  }
+
+  /* COVER */
+  .cover-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    padding-top: 60px;
+  }
+  .cover-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 19px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.24em;
+    color: var(--ink);
+    margin-bottom: 36px;
+  }
+  .cover-eyebrow em { font-style: normal; color: var(--muted); }
+  .cover-bottom {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--ink-soft);
+  }
+  .cover-bottom .machine { color: var(--muted); }
+
+  /* Generic content frame */
+  .body { flex: 1; display: flex; flex-direction: column; padding-top: 60px; }
+  .body-grid-2 { display: grid; grid-template-columns: 580px 1fr; gap: 80px; align-items: start; }
+
+  /* Bullets */
+  .bullets { display: flex; flex-direction: column; gap: 22px; margin-top: 36px; }
+  .bullet { display: grid; grid-template-columns: 56px 1fr; align-items: baseline; gap: 12px; }
+  .bullet .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+  .bullet .text {
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 26px; line-height: 1.4;
+    color: var(--ink);
+    font-weight: 400;
+  }
+  .bullet .text b { font-weight: 600; }
+
+  /* Formula card */
+  .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 36px 40px;
+    border-radius: 4px;
+  }
+  .formula .label {
+    font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 16px;
+  }
+  .formula .eq {
+    font-size: 38px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .formula .eq sub { font-size: 0.6em; vertical-align: -0.18em; }
+  .formula .eq sup { font-size: 0.6em; vertical-align: 0.6em; }
+  .formula .eq .op { color: var(--muted); margin: 0 8px; }
+  .formula .eq .accent { color: var(--accent); }
+
+  /* Variables list */
+  .vars { display: flex; flex-direction: column; gap: 14px; margin-top: 32px; }
+  .var-row {
+    display: grid; grid-template-columns: 90px 1fr;
+    gap: 24px; align-items: baseline;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .var-row .sym {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; font-weight: 600;
+    color: var(--accent);
+  }
+  .var-row .desc {
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 20px; line-height: 1.35;
+    color: var(--ink-soft);
+  }
+  .var-row .desc b { color: var(--ink); font-weight: 600; }
+
+  /* Big tag */
+  .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    padding: 6px 12px;
+    border: 1.2px solid var(--ink);
+    color: var(--ink);
+    border-radius: 999px;
+  }
+  .tag.warm { background: var(--warm); color: #fff; border-color: var(--warm); }
+  .tag.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tag.ghost { color: var(--muted); border-color: var(--rule-soft); }
+
+  /* TABLE */
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Inter Tight', sans-serif;
+    margin-top: 30px;
+  }
+  table.matrix th, table.matrix td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  table.matrix th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--muted);
+    border-bottom: 1.5px solid var(--ink);
+    padding-bottom: 14px;
+  }
+  table.matrix td.id {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 22px;
+    width: 70px;
+  }
+  table.matrix td.comp {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    width: 280px;
+  }
+  table.matrix td.eq {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  table.matrix td.eq sub { font-size: 0.65em; vertical-align: -0.18em; color: var(--muted); }
+  table.matrix td.eq sup { font-size: 0.65em; vertical-align: 0.55em; color: var(--warm); }
+  table.matrix td.notes {
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+    width: 300px;
+  }
+  table.matrix td.notes .vline {
+    display: grid;
+    grid-template-columns: 36px 1fr 36px 1fr;
+    column-gap: 8px;
+    row-gap: 1px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  table.matrix td.notes .vline .v {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  table.matrix td.notes .vline .src {
+    color: var(--ink-soft);
+  }
+  table.matrix td.notes .vline .v sub { font-size: 0.7em; vertical-align: -0.18em; color: var(--muted); }
+
+  /* Variable legend below the matrix */
+  .varlegend {
+    margin-top: 18px;
+    padding: 16px 20px;
+    background: var(--paper);
+    border: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    column-gap: 28px;
+    row-gap: 10px;
+  }
+  .varlegend .vlitem {
+    display: flex; align-items: baseline; gap: 12px;
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 16px;
+    color: var(--ink-soft);
+  }
+  .varlegend .vlk {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--accent);
+    min-width: 56px;
+  }
+  .varlegend .vlk sub { font-size: 0.7em; vertical-align: -0.18em; color: var(--accent); opacity: 0.7; }
+  .varlegend .vlv { color: var(--ink); }
+  table.matrix tr.subsys-row td {
+    background: var(--ink);
+    color: var(--bg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-weight: 600;
+    padding: 4px 14px;
+    border: none;
+  }
+  table.matrix tr.subsys-row td span.kicker { color: var(--warm); margin-right: 16px; }
+
+  /* Costs table */
+  table.costs {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Inter Tight', sans-serif;
+    margin-top: 30px;
+  }
+  table.costs th, table.costs td {
+    text-align: left;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  table.costs th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--muted);
+    border-bottom: 1.5px solid var(--ink);
+  }
+  table.costs td.id { font-family:'JetBrains Mono', monospace; color:var(--accent); font-weight:600; font-size:22px; width:80px; }
+  table.costs td.comp { font-size:28px; font-weight:500; }
+  table.costs td.cost { font-family:'JetBrains Mono', monospace; font-size:24px; }
+  table.costs td.cost.corrective { color:var(--warm); font-weight:600; }
+  table.costs td.life { font-family:'JetBrains Mono', monospace; font-size:22px; color:var(--ink-soft); }
+
+  /* Drivers grid */
+  .drivers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; margin-top: 50px; }
+  .drivers-col h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.22em;
+    color: var(--warm);
+    margin: 0 0 8px;
+  }
+  .drivers-col .col-sub {
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 22px;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+  .driver {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 18px;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .driver .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px; font-weight: 600;
+    color: var(--ink-soft);
+    letter-spacing: 0.1em;
+  }
+  .driver .name {
+    font-family: 'Newsreader', serif;
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  /* Coupling matrix (slide 6) */
+  .coupling-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 36px;
+    margin-top: 22px;
+    align-items: start;
+  }
+  table.coupling {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Inter Tight', sans-serif;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+  }
+  table.coupling thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 12px 10px;
+    border-bottom: 1.5px solid var(--ink);
+    text-align: center;
+  }
+  table.coupling thead .affecthead {
+    text-align: left;
+    padding-left: 18px;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  table.coupling thead th .cn {
+    display: block;
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  table.coupling thead th.rowhead {
+    text-align: left;
+    padding-left: 16px;
+    width: 220px;
+  }
+  table.coupling td {
+    padding: 11px 10px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    border-bottom: 1px solid var(--rule-soft);
+    color: var(--ink);
+  }
+  table.coupling tbody tr:last-child td { border-bottom: none; }
+  table.coupling td.rowlbl {
+    text-align: left;
+    padding-left: 16px;
+    font-family: 'Newsreader', serif;
+    font-size: 19px;
+    color: var(--ink);
+    border-right: 1px solid var(--rule-soft);
+    background: var(--bg);
+  }
+  table.coupling td.rowlbl .cid {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-right: 10px;
+    letter-spacing: 0.1em;
+  }
+  table.coupling td.self {
+    color: var(--muted);
+    background: repeating-linear-gradient(45deg, transparent, transparent 4px, var(--rule-soft) 4px, var(--rule-soft) 5px);
+  }
+  table.coupling td.m1 { color: var(--ink-soft); }
+  table.coupling td.m2 { color: var(--accent); font-weight: 500; background: rgba(26, 58, 255, 0.06); }
+  table.coupling td.m3 { color: var(--paper); font-weight: 600; background: var(--accent); }
+  table.coupling td.none { color: var(--rule-soft); font-weight: 300; }
+
+  .coupling-side { display: flex; flex-direction: column; gap: 18px; }
+  .cside-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .cascade {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 18px;
+    row-gap: 4px;
+    padding: 10px 0 14px;
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .cascade:last-child { border-bottom: none; }
+  .cflow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+    grid-row: 1;
+  }
+  .cf-arrow { color: var(--muted); font-weight: 300; }
+  .cf-to { color: var(--accent); }
+  .cmult {
+    font-family: 'Newsreader', serif;
+    font-size: 38px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    grid-row: 1;
+    text-align: right;
+  }
+  .cnote {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-family: 'Inter Tight', sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+
+  /* Method stages */
+  .stages { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 60px; align-items: stretch; }
+  .stage {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 36px 32px 40px;
+    display: flex; flex-direction: column;
+    border-radius: 4px;
+    position: relative;
+  }
+  .stage.active { background: var(--ink); color: var(--bg); }
+  .stage.active .stage-num, .stage.active .stage-tag { color: var(--bg); }
+  .stage.active .stage-name { color: var(--bg); }
+  .stage.active .stage-meta { color: var(--rule-soft); border-color: var(--rule-soft); }
+  .stage.active .stage-desc { color: var(--rule-soft); }
+  .stage-num { font-family:'JetBrains Mono',monospace; font-size:14px; letter-spacing:0.22em; text-transform:uppercase; color:var(--muted); }
+  .stage-tag {
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px; font-weight:600;
+    letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--accent);
+    margin-top: 8px;
+  }
+  .stage-name {
+    font-family:'Newsreader',serif;
+    font-weight:400;
+    font-size:64px;
+    line-height:0.95;
+    letter-spacing:-0.025em;
+    color:var(--ink);
+    margin: 18px 0 28px;
+  }
+  .stage-name em { font-style: italic; font-weight: 300; }
+  .stage-meta {
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px; font-weight:600;
+    letter-spacing:0.18em; text-transform:uppercase;
+    color: var(--ink-soft);
+    padding: 8px 0;
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    margin-bottom: 24px;
+  }
+  .stage-desc {
+    font-family:'Inter Tight',sans-serif;
+    font-size:21px;
+    line-height:1.45;
+    color:var(--ink-soft);
+    flex: 1;
+  }
+  .stage-arrow {
+    position: absolute;
+    right: -32px; top: 50%;
+    transform: translateY(-50%);
+    font-family: 'JetBrains Mono',monospace;
+    font-size: 28px;
+    color: var(--ink);
+    z-index: 5;
+  }
+
+  /* Impact */
+  .impact-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 80px;
+    margin-top: 60px;
+    flex: 1;
+  }
+  .impact-chart {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 40px;
+    display: flex; flex-direction: column;
+    border-radius: 4px;
+  }
+  .chart-title {
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px; letter-spacing:0.2em; text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom: 30px;
+  }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 140px;
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .bar-label {
+    font-family:'Newsreader',serif;
+    font-size:30px;
+    color:var(--ink);
+    letter-spacing:-0.01em;
+  }
+  .bar-track { height: 38px; background: var(--bg); position: relative; border: 1px solid var(--rule-soft); }
+  .bar-fill { position:absolute; top:0; left:0; bottom:0; }
+  .bar-fill.baseline { width: 100%; background: repeating-linear-gradient(45deg, #1a3aff, #1a3aff 6px, #5b7eff 6px, #5b7eff 12px); }
+  .bar-fill.optimal { width: 48.5%; background: var(--ink); }
+  .bar-value {
+    font-family:'JetBrains Mono',monospace;
+    font-size:24px; font-weight:600;
+    color:var(--ink);
+    text-align: right;
+  }
+  .bar-value.warm { color: var(--warm); }
+  .impact-stats { display: flex; flex-direction: column; gap: 50px; }
+  .impact-stat .stat-label {
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px; letter-spacing:0.22em; text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom: 16px;
+  }
+  .impact-stat .stat-value {
+    font-family:'Newsreader',serif;
+    font-weight:400;
+    font-size:120px;
+    line-height:0.9;
+    letter-spacing:-0.04em;
+    color:var(--ink);
+  }
+  .impact-stat .stat-value.accent { color: var(--accent); }
+  .impact-stat .stat-sub {
+    font-family:'Inter Tight',sans-serif;
+    font-size:22px;
+    color:var(--ink-soft);
+    margin-top: 12px;
+  }
+
+  /* End slide */
+  .end-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    padding-top: 60px;
+  }
+  .end-bottom {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 60px;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 40px;
+  }
+  .end-card .end-label {
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px; letter-spacing:0.22em; text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom: 14px;
+  }
+  .end-card .end-value {
+    font-family:'JetBrains Mono',monospace;
+    font-size:28px; font-weight:500;
+    color: var(--ink);
+  }
+
+  /* Diagram slide wrapper */
+  .diagram-frame {
+    flex: 1;
+    margin-top: 30px;
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 40px 40px;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .diagram-frame svg { max-width: 1500px; width: 100%; max-height: 100%; height: auto; display: block; }
+  .diagram-legend {
+    position: absolute;
+    top: 30px; left: 40px; right: 40px;
+    display: flex; justify-content: space-between;
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; letter-spacing:0.18em; text-transform:uppercase;
+    color: var(--muted);
+  }
+
+  /* Flow diagram (slide 3) */
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1.2fr auto 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+    margin-top: 40px;
+  }
+  .flow-node {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 28px 22px;
+    border-radius: 4px;
+    display: flex; flex-direction: column;
+    min-height: 200px;
+  }
+  .flow-node.dark { background: var(--ink); color: var(--bg); }
+  .flow-node .fn-label {
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; letter-spacing:0.22em; text-transform:uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .flow-node.dark .fn-label { color: var(--rule-soft); }
+  .flow-node .fn-name {
+    font-family:'Newsreader',serif;
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 16px;
+  }
+  .flow-node.dark .fn-name { color: var(--bg); }
+  .flow-node .fn-list { font-family:'Inter Tight',sans-serif; font-size:18px; line-height:1.5; color: var(--ink-soft); }
+  .flow-node.dark .fn-list { color: var(--rule-soft); }
+  .flow-arrow {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink); font-family:'JetBrains Mono',monospace; font-size: 22px;
+    padding: 0 16px;
+  }
+
+  /* Failure types */
+  .failure-types { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 36px; }
+  .failure-card {
+    border: 1.5px solid var(--ink);
+    padding: 28px 32px;
+    border-radius: 4px;
+    background: var(--paper);
+  }
+  .failure-card.warm-card { background: #eef0fb; border-color: var(--warm); }
+  .failure-card .ftype {
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px; letter-spacing:0.22em; text-transform:uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .failure-card.warm-card .ftype { color: var(--warm); }
+  .failure-card .fname {
+    font-family:'Newsreader',serif;
+    font-size: 38px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 14px;
+    line-height: 1;
+  }
+  .failure-card .fdesc {
+    font-family:'Inter Tight',sans-serif;
+    font-size: 19px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+  .failure-card .fdesc b { color: var(--ink); font-weight: 600; }
+
+  /* Quote */
+  .pull {
+    font-family: 'Newsreader', serif;
+    font-size: 38px;
+    line-height: 1.3;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--ink);
+    letter-spacing: -0.015em;
+    border-left: 3px solid var(--accent);
+    padding-left: 28px;
+    margin-top: 30px;
+    max-width: 900px;
+  }
+
+  /* Slide 1 background motif */
+  .cover-mark {
+    position: absolute;
+    bottom: 130px; right: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.8;
+  }
+  .cover-mark .big {
+    font-family: 'Newsreader', serif;
+    font-size: 56px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    text-transform: none;
+    line-height: 1;
+    margin-bottom: 8px;
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  /* Diagram styles override */
+  .diagram-frame svg.binder { max-width: 1500px; }
+  /* Animations from binder jetting */
+  @keyframes pistonUp { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  @keyframes pistonDown { 0%,100%{transform:translateY(0);} 50%{transform:translateY(10px);} }
+  @keyframes rollerSweep { 0%{transform:translateX(0);} 45%{transform:translateX(120px);} 55%{transform:translateX(120px);} 100%{transform:translateX(0);} }
+  @keyframes headSweep { 0%{transform:translateX(-90px);} 50%{transform:translateX(90px);} 100%{transform:translateX(-90px);} }
+  @keyframes dropFall { 0%{transform:translateY(-6px);opacity:0;} 20%{opacity:1;} 100%{transform:translateY(120px);opacity:0;} }
+  @keyframes heatRise { 0%{transform:translateY(0);opacity:0;} 25%{opacity:1;} 100%{transform:translateY(-22px);opacity:0;} }
+  @keyframes arrowPulse { 0%,100%{opacity:0.4;} 50%{opacity:1;} }
+  .piston-up{animation:pistonUp 3.6s ease-in-out infinite;transform-origin:center;}
+  .piston-down{animation:pistonDown 3.6s ease-in-out infinite;transform-origin:center;}
+  .roller-group{animation:rollerSweep 4.2s ease-in-out infinite;}
+  .head-group{animation:headSweep 2.8s ease-in-out infinite;}
+  .drop{animation:dropFall 1.4s linear infinite;transform-origin:center;}
+  .drop.d2{animation-delay:0.35s;}
+  .drop.d3{animation-delay:0.7s;}
+  .drop.d4{animation-delay:1.05s;}
+  .heat-wave{animation:heatRise 2.2s ease-out infinite;transform-origin:center;}
+  .heat-wave.h2{animation-delay:0.4s;}
+  .heat-wave.h3{animation-delay:0.8s;}
+  .heat-wave.h4{animation-delay:1.2s;}
+  .heat-wave.h5{animation-delay:1.6s;}
+  .arrow-pulse{animation:arrowPulse 2s ease-in-out infinite;}
+  .svg-label{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:38px;fill:#0e0f10;letter-spacing:-0.005em;}
+  .svg-label-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;fill:#1a3aff;letter-spacing:0.22em;text-transform:uppercase;}
+
+  /* AGENT SLIDE — graph schema */
+  .agent-grid {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 32px;
+    flex: 1;
+    min-height: 0;
+  }
+  .agent-graph {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    padding: 18px 20px;
+    display: flex;
+    align-items: stretch;
+  }
+  .agent-graph svg { width: 100%; height: auto; display: block; }
+
+  /* SVG text styles */
+  .ag-cluster-label { font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; letter-spacing:0.18em; fill:#8a857a; text-transform:uppercase; }
+  .ag-tool-tag { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; letter-spacing:0.14em; fill:#8a857a; }
+  .ag-tool-name { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600; fill:#0e0f10; }
+  .ag-tool-desc { font-family:'Inter Tight',sans-serif; font-size:13px; fill:#8a857a; }
+  .ag-node-num { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; letter-spacing:0.16em; fill:#1a3aff; }
+  .ag-node-name { font-family:'Newsreader',serif; font-size:24px; font-weight:500; fill:#0e0f10; font-style:italic; }
+  .ag-node-role { font-family:'Inter Tight',sans-serif; font-size:14px; font-weight:500; fill:#0e0f10; }
+  .ag-node-detail { font-family:'JetBrains Mono',monospace; font-size:12px; fill:#2a2c2e; }
+  .ag-edge-label { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500; letter-spacing:0.1em; fill:#8a857a; text-transform:uppercase; }
+  .ag-end-label { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; letter-spacing:0.14em; fill:#fafaf7; text-transform:uppercase; }
+  .ag-end-sub { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500; letter-spacing:0.08em; fill:#8a857a; }
+  .ag-pp-name { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; fill:#0e0f10; }
+  .ag-pp-detail { font-family:'Inter Tight',sans-serif; font-size:12px; fill:#2a2c2e; }
+
+  /* RIGHT panel — DiagnosticReport */
+  .agent-side {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .agent-side-eyebrow {
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; font-weight:600;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .agent-side-title {
+    font-family:'Newsreader', serif;
+    font-size:42px; font-weight:400;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .agent-side-sub {
+    font-family:'Inter Tight', sans-serif;
+    font-size:15px;
+    color: var(--ink-soft);
+    margin-top: 8px;
+    padding-bottom: 16px;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .agent-fields {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+  }
+  .agent-field {
+    display: grid;
+    grid-template-columns: 180px 90px 1fr;
+    gap: 12px;
+    align-items: baseline;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .agent-field.af-validated {
+    background: linear-gradient(to right, rgba(26,58,255,0.06), transparent 80%);
+    margin: 0 -10px;
+    padding: 12px 10px;
+    border-bottom: 1px dashed var(--rule-soft);
+  }
+  .af-key {
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px; font-weight:600;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .af-type {
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px; font-weight:500;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .af-note {
+    font-family:'Inter Tight',sans-serif;
+    font-size:14px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .af-chip {
+    display: inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border: 1px solid var(--rule-soft);
+    color: var(--ink-soft);
+    background: var(--bg);
+  }
+  .af-chip-strong {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+  }
+  .agent-side-foot {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1.5px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .asf-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .asf-k {
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; font-weight:600;
+    letter-spacing:0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .asf-v {
+    font-family:'Inter Tight',sans-serif;
+    font-size:14px;
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+  <!-- ============ SLIDE 1 — COVER ============ -->
+  <section class="slide" data-label="01 Cover">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HACKUPC 2026 / HP CHALLENGE</span></div>
+      <div class="right" style="display:flex; align-items:center; gap:18px;">
+        <span>01 / 10</span>
+        <img src="assets/hp-logo.png" alt="HP" style="height:34px; width:34px; display:block;">
+      </div>
+    </div>
+
+    <div class="cover-grid">
+      <div>
+        <div class="cover-eyebrow" style="margin-top:60px;">INTRODUCING <em></em></div>
+        <h1 class="title">Predictive<br>maintenance,<br><em>re-engineered.</em></h1>
+        <div class="lead" style="margin-top:48px; max-width:1100px;">
+          
+        </div>
+      </div>
+
+      <div class="cover-bottom">
+        <div></div>
+        <div class="machine" style="display:flex; align-items:center; gap:14px;">
+          <img src="assets/hp-logo.png" alt="HP" style="height:22px; width:22px; display:block; opacity:0.85;">
+          <span>HP METAL JET S100</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-mark">
+      <img src="assets/hp-logo.png" alt="HP" style="height:140px; width:140px; display:block; margin-bottom:18px;">
+      <div>Pitch deck · 2026.04</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 2 — BINDER JETTING DIAGRAM ============ -->
+  <section class="slide" data-label="02 Binder Jetting" style="padding-bottom: 40px;">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">02 / 10</div>
+    </div>
+
+    <div style="padding-top: 28px;">
+      <div class="section-num">01 — MODEL</div>
+      <h2 class="title" style="font-size:72px;">Binder jetting</h2>
+    </div>
+
+    <div class="diagram-frame" style="margin-bottom: 90px;">
+      <div class="diagram-legend">
+        <span>SCHEMATIC · NOT TO SCALE</span>
+        <span>
+</span>
+      </div>
+      <svg class="binder" viewBox="0 0 1500 1000" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="dropGrad" cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stop-color="#5b7dff"/>
+            <stop offset="100%" stop-color="#1a3aff"/>
+          </radialGradient>
+          <linearGradient id="powderGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e6dfd0"/>
+            <stop offset="100%" stop-color="#c9c3b6"/>
+          </linearGradient>
+          <linearGradient id="partGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1a3aff"/>
+            <stop offset="100%" stop-color="#0a1f99"/>
+          </linearGradient>
+          <linearGradient id="binderGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#a8b9ff"/>
+            <stop offset="100%" stop-color="#1a3aff"/>
+          </linearGradient>
+          <linearGradient id="heaterGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#525252"/>
+            <stop offset="100%" stop-color="#0e0f10"/>
+          </linearGradient>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0e0f10"/></marker>
+          <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1a3aff"/></marker>
+          <marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0a2080"/></marker>
+          <clipPath id="powderTankClip"><rect x="155" y="430" width="170" height="200"/></clipPath>
+          <clipPath id="buildBedClip"><rect x="640" y="380" width="520" height="320"/></clipPath>
+        </defs>
+
+        <g>
+          <text class="svg-label-num" x="60" y="40">SUBSYSTEM 01</text>
+          <text class="svg-label" x="60" y="85">Recoating system</text>
+          <text class="svg-label-num" x="700" y="40">SUBSYSTEM 02</text>
+          <text class="svg-label" x="700" y="85">Printhead system</text>
+          <text class="svg-label-num" x="1440" y="40" text-anchor="end">SUBSYSTEM 03</text>
+          <text class="svg-label" x="1440" y="85" text-anchor="end">Thermal system</text>
+        </g>
+        <g transform="translate(0, 100)">
+        <g stroke="#c9c3b6" stroke-width="1" fill="none">
+          <path d="M 200 105 L 200 215"/>
+          <path d="M 1240 105 L 1240 360"/>
+        </g>
+
+        <line x1="380" y1="260" x2="1260" y2="260" stroke="#0e0f10" stroke-width="3"/>
+        <rect x="372" y="252" width="14" height="16" fill="#0e0f10"/>
+        <rect x="1254" y="252" width="14" height="16" fill="#0e0f10"/>
+
+        <g>
+          <path d="M 160 430 L 160 700 L 320 700 L 320 430" fill="none" stroke="#0e0f10" stroke-width="3" stroke-linejoin="round"/>
+          <g clip-path="url(#powderTankClip)">
+            <g class="piston-up">
+              <rect x="163" y="455" width="154" height="270" fill="url(#powderGrad)"/>
+              <path d="M 163 458 Q 200 452 240 458 T 317 456 L 317 470 L 163 470 Z" fill="#d4ccba"/>
+              <rect x="163" y="720" width="154" height="14" fill="#374151"/>
+              <rect x="230" y="734" width="20" height="120" fill="#374151"/>
+            </g>
+          </g>
+          <g class="arrow-pulse"><line x1="240" y1="820" x2="240" y2="755" stroke="#0e0f10" stroke-width="3" marker-end="url(#arrow)"/></g>
+        </g>
+
+        <g class="roller-group">
+          <line x1="240" y1="280" x2="240" y2="395" stroke="#0e0f10" stroke-width="3"/>
+          <circle cx="240" cy="415" r="22" fill="#0e0f10"/>
+          <circle cx="240" cy="415" r="8" fill="#fafafa"/>
+          <path d="M 262 432 Q 290 408 330 422 Q 370 436 410 422 Q 440 412 470 426" fill="none" stroke="#1a3aff" stroke-width="3" stroke-linecap="round"/>
+          <path d="M 262 442 Q 300 426 350 438 Q 400 450 450 438" fill="none" stroke="#a8b9ff" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <g class="arrow-pulse"><line x1="350" y1="380" x2="560" y2="380" stroke="#0e0f10" stroke-width="3" marker-end="url(#arrow)"/></g>
+
+        <g>
+          <rect x="700" y="170" width="180" height="80" rx="4" fill="url(#binderGrad)" stroke="#0e0f10" stroke-width="2.5"/>
+          <path d="M 710 195 Q 745 188 790 193 T 870 192" stroke="#0a1f99" stroke-width="1.5" fill="none" opacity="0.5"/>
+          <rect x="775" y="158" width="30" height="14" fill="#0e0f10"/>
+          <path d="M 880 210 L 970 210 L 970 248" fill="none" stroke="#1a3aff" stroke-width="4" stroke-linejoin="round"/>
+        </g>
+        <g class="head-group">
+          <rect x="940" y="248" width="80" height="34" rx="3" fill="#1f2937" stroke="#0e0f10" stroke-width="2"/>
+          <rect x="948" y="282" width="64" height="22" rx="2" fill="#0e0f10"/>
+          <polygon points="958,304 1002,304 990,322 970,322" fill="#0b1220"/>
+          <g>
+            <line x1="930" y1="265" x2="900" y2="265" stroke="#0e0f10" stroke-width="2.5" marker-end="url(#arrow)"/>
+            <line x1="1030" y1="265" x2="1060" y2="265" stroke="#0e0f10" stroke-width="2.5" marker-end="url(#arrow)"/>
+          </g>
+          <g>
+            <circle class="drop" cx="975" cy="328" r="4.5" fill="url(#dropGrad)"/>
+            <circle class="drop d2" cx="985" cy="328" r="4" fill="url(#dropGrad)"/>
+            <circle class="drop d3" cx="995" cy="328" r="4.5" fill="url(#dropGrad)"/>
+            <circle class="drop d4" cx="980" cy="328" r="3.5" fill="url(#dropGrad)"/>
+          </g>
+        </g>
+
+        <g>
+          <rect x="1100" y="345" width="180" height="22" rx="3" fill="url(#heaterGrad)" stroke="#0e0f10" stroke-width="2"/>
+          <g stroke="#0a2080" stroke-width="1.5" opacity="0.85"><line x1="1110" y1="362" x2="1270" y2="362"/></g>
+          <line x1="1190" y1="345" x2="1190" y2="278" stroke="#0e0f10" stroke-width="2"/>
+          <g>
+            <g class="heat-wave"><path d="M 1115 380 q 6 -8 12 0 t 12 0 t 12 0" fill="none" stroke="#0a2080" stroke-width="2.5" stroke-linecap="round"/></g>
+            <g class="heat-wave h2"><path d="M 1155 380 q 6 -8 12 0 t 12 0 t 12 0" fill="none" stroke="#2a4cc9" stroke-width="2.5" stroke-linecap="round"/></g>
+            <g class="heat-wave h3"><path d="M 1195 380 q 6 -8 12 0 t 12 0 t 12 0" fill="none" stroke="#0a2080" stroke-width="2.5" stroke-linecap="round"/></g>
+            <g class="heat-wave h4"><path d="M 1230 380 q 6 -8 12 0 t 12 0 t 12 0" fill="none" stroke="#2a4cc9" stroke-width="2.5" stroke-linecap="round"/></g>
+            <g class="heat-wave h5"><path d="M 1135 380 q 6 -8 12 0 t 12 0 t 12 0" fill="none" stroke="#5b7eff" stroke-width="2.5" stroke-linecap="round"/></g>
+          </g>
+          <g stroke="#0a2080" stroke-width="2">
+            <line x1="1125" y1="370" x2="1125" y2="408" marker-end="url(#arrowOrange)"/>
+            <line x1="1170" y1="370" x2="1170" y2="408" marker-end="url(#arrowOrange)"/>
+            <line x1="1215" y1="370" x2="1215" y2="408" marker-end="url(#arrowOrange)"/>
+            <line x1="1260" y1="370" x2="1260" y2="408" marker-end="url(#arrowOrange)"/>
+          </g>
+        </g>
+
+        <g>
+          <path d="M 640 430 L 640 700 L 1160 700 L 1160 430" fill="none" stroke="#0e0f10" stroke-width="3" stroke-linejoin="round"/>
+          <g clip-path="url(#buildBedClip)">
+            <g class="piston-down">
+              <rect x="643" y="445" width="514" height="255" fill="url(#powderGrad)"/>
+              <path d="M 780 700 L 780 560 L 830 560 L 830 510 L 900 510 L 900 470 L 980 470 L 980 540 L 1030 540 L 1030 600 L 1000 600 L 1000 700 Z" fill="url(#partGrad)" stroke="#0a1f99" stroke-width="1.5" stroke-linejoin="round"/>
+              <g stroke="#0a1f99" stroke-width="0.8" opacity="0.4">
+                <line x1="785" y1="585" x2="995" y2="585"/>
+                <line x1="785" y1="615" x2="995" y2="615"/>
+                <line x1="785" y1="645" x2="995" y2="645"/>
+                <line x1="785" y1="675" x2="995" y2="675"/>
+              </g>
+              <path d="M 643 448 Q 700 442 780 448 T 900 446 T 1020 448 T 1157 446 L 1157 460 L 643 460 Z" fill="#d4ccba" opacity="0.7"/>
+              <rect x="643" y="700" width="514" height="14" fill="#374151"/>
+              <rect x="880" y="714" width="22" height="140" fill="#374151"/>
+            </g>
+          </g>
+          <g class="arrow-pulse"><line x1="891" y1="770" x2="891" y2="845" stroke="#0e0f10" stroke-width="3" marker-end="url(#arrow)"/></g>
+        </g>
+
+        <!-- ============ COMPONENT TAGS C1–C6 ============ -->
+        <style>
+          .ctag-bg { fill: #1a3aff; }
+          .ctag-bg.warm { fill: #0a2080; }
+          .ctag-text { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; fill: #ffffff; letter-spacing: 0.06em; }
+          .ctag-name { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 20px; fill: #0e0f10; letter-spacing: 0.06em; text-transform: uppercase; }
+          .ctag-line { stroke: #1a3aff; stroke-width: 1.6; stroke-dasharray: 4 4; fill: none; }
+          .ctag-line.warm { stroke: #0a2080; }
+        </style>
+
+        <!-- C1 — Recoater blade (roller in recoating system) -->
+        <g>
+          <path class="ctag-line" d="M 240 415 L 130 415 L 130 540"/>
+          <circle class="ctag-bg" cx="118" cy="560" r="26"/>
+          <text class="ctag-text" x="118" y="567" text-anchor="middle">C1</text>
+          <text class="ctag-name" x="84" y="565" text-anchor="end">RECOATER BLADE</text>
+        </g>
+
+        <!-- C2 — Linear guide (rail) -->
+        <g>
+          <path class="ctag-line" d="M 600 260 L 600 195 L 540 195"/>
+          <circle class="ctag-bg" cx="518" cy="195" r="26"/>
+          <text class="ctag-text" x="518" y="202" text-anchor="middle">C2</text>
+          <text class="ctag-name" x="485" y="170" text-anchor="end">LINEAR GUIDE</text>
+        </g>
+
+        <!-- C3 — Nozzle plate (printhead nozzle) -->
+        <g>
+          <path class="ctag-line" d="M 980 320 L 1090 320 L 1090 220"/>
+          <circle class="ctag-bg" cx="1090" cy="200" r="26"/>
+          <text class="ctag-text" x="1090" y="207" text-anchor="middle">C3</text>
+          <text class="ctag-name" x="1124" y="205">NOZZLE PLATE</text>
+        </g>
+
+        <!-- C4 — TIJ resistors (above binder tank, between subsystem titles and printer) -->
+        <g>
+          <path class="ctag-line" d="M 790 170 L 790 145"/>
+          <circle class="ctag-bg" cx="790" cy="125" r="26"/>
+          <text class="ctag-text" x="790" y="132" text-anchor="middle">C4</text>
+          <text class="ctag-name" x="824" y="130">TIJ RESISTORS</text>
+        </g>
+
+        <!-- C5 — Heating elements (heater plate) -->
+        <g>
+          <path class="ctag-line warm" d="M 1280 356 L 1410 356 L 1410 240"/>
+          <circle class="ctag-bg warm" cx="1410" cy="218" r="26"/>
+          <text class="ctag-text" x="1410" y="225" text-anchor="middle">C5</text>
+          <text class="ctag-name" x="1444" y="223">HEATING ELEMENTS</text>
+        </g>
+
+        <!-- C6 — Insulation panels (chamber walls) -->
+        <g>
+          <path class="ctag-line warm" d="M 1160 600 L 1320 600 L 1320 700"/>
+          <circle class="ctag-bg warm" cx="1340" cy="720" r="26"/>
+          <text class="ctag-text" x="1340" y="727" text-anchor="middle">C6</text>
+          <text class="ctag-name" x="1374" y="725">INSULATION PANELS</text>
+        </g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+        <div class="stat"><span>SUBSYSTEMS</span>3</div>
+        <div class="stat"><span>COMPONENTS</span>6</div>
+      </div>
+      <div>SOURCE · HP METAL JET S100 SCHEMATIC</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 3 — DEGRADATION MODEL ============ -->
+  <section class="slide" data-label="03 Degradation Model">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">03 / 10</div>
+    </div>
+
+    <div style="padding-top: 50px;">
+      <div class="section-num">01 — MODEL</div>
+      <h2 class="title">Degradation and Failure Models</h2>
+      <div class="lead" style="margin-top:24px;">A deterministic core driven by stochastic inputs. </div>
+    </div>
+
+    <div class="flow" style="margin-top: 50px;">
+      <div class="flow-node">
+        <div class="fn-label">INPUTS</div>
+        <div class="fn-name">Drivers</div>
+        <div class="fn-list">Temperature<br>Humidity<br>Operating load<br>Cycles since maintenance<br>...</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node dark">
+        <div class="fn-label">CORE</div>
+        <div class="fn-name">Degradation rate</div>
+        <div class="fn-list" style="font-size: 22px; line-height: 1.6; margin-top: 8px;">
+          $\lambda_i = \lambda_{0,i} \cdot \alpha_i \cdot f_{\text{ext}} \cdot f_{\text{int}} \cdot f_{\text{cross}}$
+          <div style="margin-top:14px;">$H_i(t+1) = H_i(t) - \lambda_i$</div>
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="fn-label">STATE</div>
+        <div class="fn-name">Health Index</div>
+        <div class="fn-list">$H_i \in [0, 1]$<br>Per component, per step (day).<br>Persisted to historian.</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="fn-label">OUTPUT</div>
+        <div class="fn-name" style="color:var(--warm);">Failure</div>
+        <div class="fn-list">End-of-life threshold<br>or random shock event</div>
+      </div>
+    </div>
+
+    <div class="failure-types">
+      <div class="failure-card">
+        <div class="ftype">Type I · Wear-out</div>
+        <div class="fname">End of useful life.</div>
+        <div class="fdesc">Health index drops below a critical threshold. <b>Natural component wear</b>, fully predicted by the model.</div>
+      </div>
+      <div class="failure-card warm-card">
+        <div class="ftype">Type II · Operational shock</div>
+        <div class="fname">Negligence event.</div>
+        <div class="fdesc">Probability <b>1 in 300 prints</b>. A random component fails regardless of its current state — captures the unmodelable.</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+        <div class="stat"><span>$\alpha$</span>Normal(1.0, 0.05)</div>
+        <div class="stat"><span>SHOCK RATE</span>1 / 300</div>
+      </div>
+      <div>03 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 4 — COMPONENT FORMULAS ============ -->
+  <section class="slide" data-label="04 Component Formulas">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">04 / 10</div>
+    </div>
+
+    <div style="padding-top: 16px;">
+      <div class="section-num">01 — MODEL</div>
+      <h2 class="title" style="font-size:60px;">Six components, <em>six rate laws.</em></h2>
+    </div>
+
+    <table class="matrix" style="margin-top:8px;">
+      <thead>
+        <tr>
+          <th style="width:70px;">ID</th>
+          <th style="width:280px;">Component</th>
+          <th>Degradation rate $\lambda_i$</th>
+          <th style="width:300px;">Dominant variables</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="subsys-row"><td colspan="4"><span class="kicker">SUB · 01</span>RECOATING SYSTEM</td></tr>
+        <tr>
+          <td class="id">C1</td>
+          <td class="comp">Recoater blade</td>
+          <td class="eq">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{0.4} \cdot (H/H_r)^{0.6} \cdot (1 + N_c/N_{\text{nom}})^{1.2} \cdot (1 + L/L_{\text{nom}})^{0.8} \cdot f_{\text{cross}}$</td>
+          <td class="notes">Abrasive wear · humidity & cycles dominate</td>
+        </tr>
+        <tr>
+          <td class="id">C2</td>
+          <td class="comp">Linear guide</td>
+          <td class="eq">$\lambda_0 \cdot \alpha \cdot (1 + N_c/N_{\text{nom}})^{1.5} \cdot (1 + \tau/\tau_{\text{nom}})^{0.6} \cdot (H/H_r)^{0.3} \cdot f_{\text{cross}}$</td>
+          <td class="notes">Mechanical fatigue · cycle-driven</td>
+        </tr>
+
+        <tr class="subsys-row"><td colspan="4"><span class="kicker">SUB · 02</span>PRINTHEAD SYSTEM</td></tr>
+        <tr>
+          <td class="id">C3</td>
+          <td class="comp">Nozzle plate</td>
+          <td class="eq">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{0.9} \cdot (1 + N_f/N_{\text{nom}})^{1.4} \cdot (1 + \tau/\tau_{\text{nom}})^{0.7} \cdot f_{\text{cross}}$</td>
+          <td class="notes">Clogging + thermal fatigue · firing-driven</td>
+        </tr>
+        <tr>
+          <td class="id">C4</td>
+          <td class="comp">TIJ resistors</td>
+          <td class="eq">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{1.6} \cdot (1 + N_f/N_{\text{nom}})^{1.0} \cdot (1 + L/L_{\text{nom}})^{0.9} \cdot f_{\text{cross}}$</td>
+          <td class="notes">Electrical degradation · temperature-dominated</td>
+        </tr>
+
+        <tr class="subsys-row"><td colspan="4"><span class="kicker">SUB · 03</span>THERMAL SYSTEM</td></tr>
+        <tr>
+          <td class="id">C5</td>
+          <td class="comp">Heating elements</td>
+          <td class="eq">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{1.8} \cdot (1 + L/L_{\text{nom}})^{1.1} \cdot (1 + \tau/\tau_{\text{nom}})^{0.5} \cdot f_{\text{cross}}$</td>
+          <td class="notes">Weibull degradation · temperature-dominated</td>
+        </tr>
+        <tr>
+          <td class="id">C6</td>
+          <td class="comp">Insulation panels</td>
+          <td class="eq">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{0.7} \cdot (H/H_r)^{0.5} \cdot (1 + L/L_{\text{nom}})^{1.0} \cdot f_{\text{cross}}$</td>
+          <td class="notes">Slow thermal cycling · environment-coupled</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="varlegend">
+      <div class="vlitem"><span class="vlk">$\lambda_0$</span><span class="vlv">calibrated constant</span></div>
+      <div class="vlitem"><span class="vlk">$\alpha$</span><span class="vlv">Normal(1, 0.05) per machine</span></div>
+      <div class="vlitem"><span class="vlk">$T,\ H$</span><span class="vlv">weather API / climate sim</span></div>
+      <div class="vlitem"><span class="vlk">$N_c,\ N_f$</span><span class="vlv">Gamma(2, 2) cycle counters</span></div>
+      <div class="vlitem"><span class="vlk">$\tau$</span><span class="vlv">hours since maintenance</span></div>
+      <div class="vlitem"><span class="vlk">$L$</span><span class="vlv">cumulative operating hours</span></div>
+      <div class="vlitem"><span class="vlk">$f_{\text{cross}}$</span><span class="vlv">cross-component coupling</span></div>
+    </div>
+
+    <div class="footer" style="bottom: 30px;">
+      <div class="stats"></div>
+      <div>04 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 5 — SCOPE / 6 SUBSYSTEMS COSTS ============ -->
+  <section class="slide" data-label="05 Scope">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">05 / 10</div>
+    </div>
+
+    <div style="padding-top: 40px;">
+      <div class="section-num">01 - MODEL</div>
+      <h2 class="title" style="font-size:96px;">Six subsystems.<br><em>The economics of failure.</em></h2>
+    </div>
+
+    <table class="costs">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Component</th>
+          <th>Maintenance</th>
+          <th>Failure</th>
+          <th>Nominal lifetime</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="id">C1</td><td class="comp">Recoater blade</td><td class="cost">€250</td><td class="cost corrective">€3,500</td><td class="life">33 d</td></tr>
+        <tr><td class="id">C2</td><td class="comp">Linear guide</td><td class="cost">€400</td><td class="cost corrective">€8,500</td><td class="life">750 d</td></tr>
+        <tr><td class="id">C3</td><td class="comp">Nozzle plate</td><td class="cost">€2,500</td><td class="cost corrective">€12,000</td><td class="life">50 d</td></tr>
+        <tr><td class="id">C4</td><td class="comp">TIJ resistors</td><td class="cost">€2,500</td><td class="cost corrective">€12,000</td><td class="life">208 d</td></tr>
+        <tr><td class="id">C5</td><td class="comp">Heating elements</td><td class="cost">€900</td><td class="cost corrective">€8,000</td><td class="life">500 d</td></tr>
+        <tr><td class="id">C6</td><td class="comp">Insulation panels</td><td class="cost">€1,500</td><td class="cost corrective">€7,000</td><td class="life">2,500 d</td></tr>
+      </tbody>
+    </table>
+
+    <div style="font-family:'Inter Tight',sans-serif; font-size:18px; color:var(--muted); margin-top:18px; font-style: italic;">
+      
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+      </div>
+      <div>05 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 6 — COMPONENT RELATIONSHIPS ============ -->
+  <section class="slide" data-label="06 Coupling">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">06 / 10</div>
+    </div>
+
+    <div style="padding-top: 36px;">
+      <div class="section-num">01 - MODEL</div>
+      <h2 class="title" style="font-size: 76px; margin-bottom: 0;">When one part ages,<br><em>the rest pay for it.</em></h2>
+      <div style="margin-top: 14px; font-family:'Inter Tight', sans-serif; font-size: 19px; color: var(--ink-soft); max-width: 1500px;">
+        Each row reads:&nbsp;<span style="font-size:18px; color:var(--ink); background:var(--paper); padding:2px 7px; border:1px solid var(--rule-soft);">if $C_i$ is degraded</span>&nbsp;→&nbsp;wear rate of every other component is multiplied by the value in that cell.
+      </div>
+    </div>
+
+    <div class="coupling-grid">
+      <table class="coupling">
+        <thead>
+          <tr>
+            <th class="rowhead"></th>
+            <th colspan="6" class="affecthead">EFFECT ON&nbsp;→&nbsp;<span style="color:var(--muted);">wear-rate multiplier</span></th>
+          </tr>
+          <tr>
+            <th class="rowhead">DEGRADED&nbsp;↓</th>
+            <th>C1<br><span class="cn">Recoater</span></th>
+            <th>C2<br><span class="cn">Linear&nbsp;guide</span></th>
+            <th>C3<br><span class="cn">Nozzle&nbsp;plate</span></th>
+            <th>C4<br><span class="cn">TIJ&nbsp;resistors</span></th>
+            <th>C5<br><span class="cn">Heating&nbsp;elem.</span></th>
+            <th>C6<br><span class="cn">Insulation</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="rowlbl"><span class="cid">C1</span> Recoater blade</td>
+            <td class="self">1.00</td>
+            <td class="m2">×1.40</td>
+            <td class="m3">×2.00</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+          </tr>
+          <tr>
+            <td class="rowlbl"><span class="cid">C2</span> Linear guide</td>
+            <td class="m2">×1.40</td>
+            <td class="self">1.00</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+          </tr>
+          <tr>
+            <td class="rowlbl"><span class="cid">C3</span> Nozzle plate</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="self">1.00</td>
+            <td class="m2">×1.40</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+          </tr>
+          <tr>
+            <td class="rowlbl"><span class="cid">C4</span> TIJ resistors</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="m3">×1.50</td>
+            <td class="self">1.00</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+          </tr>
+          <tr>
+            <td class="rowlbl"><span class="cid">C5</span> Heating elements</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="self">1.00</td>
+            <td class="m3">×1.60</td>
+          </tr>
+          <tr>
+            <td class="rowlbl"><span class="cid">C6</span> Insulation panels</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="none">—</td>
+            <td class="m3">×1.70</td>
+            <td class="self">1.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="coupling-side" hidden>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+      </div>
+      <div>06 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 7 — METHOD ============ -->
+  <section class="slide" data-label="07 Method">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">07 / 10</div>
+    </div>
+
+    <div style="padding-top: 50px;">
+      <div class="section-num">02 - SIMULATION</div>
+      <h2 class="title">From reactive,<br><em>to predictive.</em></h2>
+    </div>
+
+    <div class="stages">
+      <div class="stage">
+        <div class="stage-num">STAGE 01</div>
+        <div class="stage-tag">REFERENCE</div>
+        <div class="stage-name">Baseline.</div>
+        <div class="stage-meta">NO ML</div>
+        <div class="stage-desc">Fixed maintenance schedule from manufacturer guidelines. Blind to actual wear — every printer treated identically.</div>
+        <div class="stage-arrow">→</div>
+      </div>
+      <div class="stage">
+        <div class="stage-num">STAGE 02</div>
+        <div class="stage-tag">PERCEPTION</div>
+        <div class="stage-name">Self-<em>supervised.</em></div>
+        <div class="stage-meta">SSL</div>
+        <div class="stage-desc">Pre-training on synthetic telemetry from our digital twin. Learns degradation signatures without labels.</div>
+        <div class="stage-arrow">→</div>
+      </div>
+      <div class="stage active">
+        <div class="stage-num">STAGE 03</div>
+        <div class="stage-tag" style="color:#fff;">DECISION</div>
+        <div class="stage-name">SSL <em>+ RL.</em></div>
+        <div class="stage-meta">REINFORCEMENT ON TOP</div>
+        <div class="stage-desc">An RL agent acts on the SSL embeddings — choosing when to maintain to minimise long-run cost.</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+        <div class="stat"><span>PIPELINE</span>3 stages</div>
+        <div class="stat"><span>OPTIMIZATION TARGET</span>Lifetime cost</div>
+        <div class="stat"><span>EPISODES</span>$10^{4}$+</div>
+      </div>
+      <div>07 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 8 — IMPACT ============ -->
+  <section class="slide" data-label="08 Impact">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">08 / 10</div>
+    </div>
+
+    <div style="padding-top: 50px;">
+      <div class="section-num">02 - SIMULATION</div>
+      <h2 class="title">The optimum, <em>priced.</em></h2>
+    </div>
+
+    <div class="impact-grid">
+      <div class="impact-chart">
+        <div class="chart-title">ANNUAL MAINTENANCE COST · PER PRINTER · EUROS</div>
+        <div class="bar-row">
+          <div class="bar-label">Baseline</div>
+          <div class="bar-track"><div class="bar-fill baseline"></div></div>
+          <div class="bar-value warm">€3,620</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">SSL + RL</div>
+          <div class="bar-track"><div class="bar-fill optimal"></div></div>
+          <div class="bar-value">€1,370</div>
+        </div>
+        <div style="border-top:1px solid var(--rule-soft); margin-top:30px; padding-top:20px;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:14px; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); margin-bottom:8px;">
+</div>
+          <div style="font-family:'Newsreader',serif; font-size:54px; letter-spacing:-0.025em; color:var(--ink);">
+</div>
+        </div>
+      </div>
+
+      <div class="impact-stats">
+        <div class="impact-stat">
+          <div class="stat-label">ANNUAL SAVINGS</div>
+          <div class="stat-value accent">€2250</div>
+          <div class="stat-sub">per printer · vs. baseline</div>
+        </div>
+        <div class="impact-stat">
+          <div class="stat-label">COST REDUCTION</div>
+          <div class="stat-value">63%</div>
+          <div class="stat-sub">Monte Carlo · 5-year horizon</div>
+        </div>
+        <div class="impact-stat">
+          <div class="stat-label">
+</div>
+          <div class="stat-value" style="font-size:80px;">
+</div>
+          <div class="stat-sub">
+</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+        <div class="stat"><span>METHOD</span>Monte Carlo + RL</div>
+      </div>
+      <div>08 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 9 — INTERACTION / AGENT SCHEMA ============ -->
+  <section class="slide" data-label="09 Interaction">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HP METAL JET S100 / CO-PILOT</span></div>
+      <div class="right">09 / 10</div>
+    </div>
+
+    <div style="padding-top: 36px;">
+      <div class="section-num">03 — INTERACTION</div>
+      <h2 class="title" style="font-size: 76px; margin-bottom: 0;">A graph, not a chatbot.</h2>
+      <div style="margin-top: 14px; font-family:'Inter Tight', sans-serif; font-size: 19px; color: var(--ink-soft); max-width: 1500px;">
+        LangGraph state machine — Pattern C (Agentic Diagnosis). Five nodes, three tools, one Pydantic contract. Grounding is enforced in code, not the prompt.
+      </div>
+    </div>
+
+    <!-- Diagram + side panel grid -->
+    <div class="agent-grid">
+      <!-- LEFT: graph diagram -->
+      <div class="agent-graph">
+        <svg viewBox="0 0 1180 640" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#0e0f10"/>
+            </marker>
+            <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#1a3aff"/>
+            </marker>
+            <marker id="arr-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#8a857a"/>
+            </marker>
+          </defs>
+
+          <!-- Tool cluster (top-left) -->
+          <g class="ag-tools">
+            <rect x="20" y="20" width="320" height="172" fill="#fafaf7" stroke="#d8d4ca" stroke-dasharray="4 4" rx="2"/>
+            <text x="34" y="42" class="ag-cluster-label">TOOLS · BOUND TO GATHERER</text>
+
+            <g class="ag-tool">
+              <rect x="34" y="60" width="292" height="34" fill="#ffffff" stroke="#1a1b1c"/>
+              <text x="50" y="82" class="ag-tool-tag">FN</text>
+              <text x="92" y="82" class="ag-tool-name">think</text>
+              <text x="160" y="82" class="ag-tool-desc">— scratchpad, no I/O</text>
+            </g>
+            <g class="ag-tool">
+              <rect x="34" y="102" width="292" height="34" fill="#ffffff" stroke="#1a1b1c"/>
+              <text x="50" y="124" class="ag-tool-tag">FN</text>
+              <text x="92" y="124" class="ag-tool-name">get_existing_runs</text>
+              <text x="232" y="124" class="ag-tool-desc">— catalog</text>
+            </g>
+            <g class="ag-tool">
+              <rect x="34" y="144" width="292" height="34" fill="#ffffff" stroke="#1a3aff" stroke-width="1.4"/>
+              <text x="50" y="166" class="ag-tool-tag" fill="#1a3aff">SQL</text>
+              <text x="92" y="166" class="ag-tool-name">query_database</text>
+              <text x="220" y="166" class="ag-tool-desc">— SQLite rows</text>
+            </g>
+          </g>
+
+          <!-- Node 1: gatherer -->
+          <g class="ag-node">
+            <rect x="430" y="44" width="280" height="120" fill="#ffffff" stroke="#1a1b1c" stroke-width="1.6"/>
+            <text x="450" y="72" class="ag-node-num">01</text>
+            <text x="498" y="72" class="ag-node-name">gatherer</text>
+            <text x="450" y="100" class="ag-node-role">ReAct loop · binds tools</text>
+            <text x="450" y="124" class="ag-node-detail">Must call get_existing_runs</text>
+            <text x="450" y="142" class="ag-node-detail">before any query_database</text>
+          </g>
+
+          <!-- ReAct loop: gatherer ↔ tools -->
+          <path d="M430,90 C 380,90 360,90 340,90" fill="none" stroke="#1a3aff" stroke-width="1.4" marker-end="url(#arr-blue)"/>
+          <path d="M340,140 C 380,140 400,140 430,140" fill="none" stroke="#1a3aff" stroke-width="1.4" marker-end="url(#arr-blue)"/>
+          <text x="354" y="208" class="ag-edge-label" fill="#1a3aff">ReAct · loop until done</text>
+
+          <!-- Node 2: extract_telemetry -->
+          <g class="ag-node">
+            <rect x="800" y="44" width="280" height="120" fill="#ffffff" stroke="#1a1b1c" stroke-width="1.6"/>
+            <text x="820" y="72" class="ag-node-num">02</text>
+            <text x="868" y="72" class="ag-node-name">extract_telemetry</text>
+            <text x="820" y="100" class="ag-node-role">Pure function · no LLM</text>
+            <text x="820" y="124" class="ag-node-detail">Copies last ToolMessage →</text>
+            <text x="820" y="142" class="ag-node-detail">canonical state.telemetry</text>
+          </g>
+
+          <!-- gatherer → extract_telemetry -->
+          <path d="M710,104 L800,104" fill="none" stroke="#0e0f10" stroke-width="1.6" marker-end="url(#arr)"/>
+
+          <!-- Node 3: synthesizer -->
+          <g class="ag-node">
+            <rect x="800" y="232" width="280" height="120" fill="#ffffff" stroke="#1a1b1c" stroke-width="1.6"/>
+            <text x="820" y="260" class="ag-node-num">03</text>
+            <text x="868" y="260" class="ag-node-name">synthesizer</text>
+            <text x="820" y="288" class="ag-node-role">Reasons over telemetry</text>
+            <text x="820" y="312" class="ag-node-detail">Two-phase: think → emit</text>
+            <text x="820" y="330" class="ag-node-detail">via with_structured_output</text>
+          </g>
+
+          <!-- extract → synthesizer -->
+          <path d="M940,164 L940,232" fill="none" stroke="#0e0f10" stroke-width="1.6" marker-end="url(#arr)"/>
+
+          <!-- Node 4: guardrail -->
+          <g class="ag-node">
+            <rect x="430" y="232" width="280" height="120" fill="#ffffff" stroke="#1a3aff" stroke-width="1.8"/>
+            <rect x="430" y="232" width="280" height="22" fill="#1a3aff"/>
+            <text x="450" y="248" class="ag-node-num" fill="#ffffff" style="letter-spacing: 0.16em;">04 · CONTRACT</text>
+            <text x="450" y="282" class="ag-node-name">guardrail</text>
+            <text x="450" y="308" class="ag-node-detail">Regex: ISO timestamp + run_id</text>
+            <text x="450" y="326" class="ag-node-detail">Enum: severity · priority</text>
+            <text x="450" y="344" class="ag-node-detail">Reject → targeted correction</text>
+          </g>
+
+          <!-- synthesizer → guardrail -->
+          <path d="M800,292 L710,292" fill="none" stroke="#0e0f10" stroke-width="1.6" marker-end="url(#arr)"/>
+
+          <!-- guardrail retry → synthesizer (curve up) -->
+          <path d="M620,232 C 620,200 760,200 800,238" fill="none" stroke="#8a857a" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#arr-muted)"/>
+          <text x="675" y="200" class="ag-edge-label" text-anchor="middle">retry · MAX = 3</text>
+
+          <!-- guardrail → END -->
+          <path d="M570,352 L570,418" fill="none" stroke="#0e0f10" stroke-width="1.6" marker-end="url(#arr)"/>
+
+          <!-- END node -->
+          <g class="ag-node">
+            <rect x="430" y="418" width="280" height="56" fill="#0e0f10"/>
+            <text x="570" y="441" class="ag-end-label" text-anchor="middle">END</text>
+            <text x="570" y="462" class="ag-end-sub" text-anchor="middle">returns DiagnosticReport</text>
+          </g>
+
+          <!-- Proactive monitoring band (bottom) -->
+          <line x1="20" y1="510" x2="1160" y2="510" stroke="#d8d4ca" stroke-dasharray="2 4"/>
+          <text x="20" y="538" class="ag-cluster-label">PROACTIVE PATH · /telemetry watchdog</text>
+
+          <g>
+            <rect x="20" y="552" width="220" height="64" fill="#ffffff" stroke="#1a1b1c"/>
+            <text x="36" y="578" class="ag-pp-name">POST /telemetry</text>
+            <text x="36" y="600" class="ag-pp-detail">status ∈ {CRITICAL, FAILED}</text>
+          </g>
+          <path d="M240,584 L304,584" fill="none" stroke="#0e0f10" stroke-width="1.4" marker-end="url(#arr)"/>
+
+          <g>
+            <rect x="304" y="552" width="240" height="64" fill="#ffffff" stroke="#1a1b1c"/>
+            <text x="320" y="578" class="ag-pp-name">FastAPI BackgroundTask</text>
+            <text x="320" y="600" class="ag-pp-detail">analyze_and_notify( record )</text>
+          </g>
+          <path d="M544,584 L608,584" fill="none" stroke="#0e0f10" stroke-width="1.4" marker-end="url(#arr)"/>
+
+          <g>
+            <rect x="608" y="552" width="200" height="64" fill="#ffffff" stroke="#1a1b1c"/>
+            <text x="624" y="578" class="ag-pp-name">Run agent graph</text>
+            <text x="624" y="600" class="ag-pp-detail">same 5-node pipeline ↑</text>
+          </g>
+          <path d="M808,584 L872,584" fill="none" stroke="#1a3aff" stroke-width="1.4" marker-end="url(#arr-blue)"/>
+
+          <g>
+            <rect x="872" y="552" width="288" height="64" fill="#ffffff" stroke="#1a3aff" stroke-width="1.4"/>
+            <text x="888" y="578" class="ag-pp-name" fill="#1a3aff">WS /ws/notifications</text>
+            <text x="888" y="600" class="ag-pp-detail">broadcast PROACTIVE_ALERT → UI</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- RIGHT: DiagnosticReport contract -->
+      <div class="agent-side">
+        <div class="agent-side-eyebrow">OUTPUT CONTRACT</div>
+        <div class="agent-side-title">DiagnosticReport</div>
+        <div class="agent-side-sub">Pydantic schema · returned via <span style="font-family:'JetBrains Mono',monospace;">with_structured_output</span></div>
+
+        <div class="agent-fields">
+          <div class="agent-field">
+            <div class="af-key">grounded_text</div>
+            <div class="af-type">str</div>
+            <div class="af-note">Plain-language explanation</div>
+          </div>
+          <div class="agent-field af-validated">
+            <div class="af-key">evidence_citation</div>
+            <div class="af-type">str · regex</div>
+            <div class="af-note">
+              <span class="af-chip">ISO-8601 timestamp</span>
+              <span class="af-chip">run_id&nbsp;<span style="font-family:'JetBrains Mono',monospace;">R\d+</span></span>
+            </div>
+          </div>
+          <div class="agent-field">
+            <div class="af-key">severity_indicator</div>
+            <div class="af-type">enum</div>
+            <div class="af-note">
+              <span class="af-chip">INFO</span>
+              <span class="af-chip">WARNING</span>
+              <span class="af-chip af-chip-strong">CRITICAL</span>
+            </div>
+          </div>
+          <div class="agent-field">
+            <div class="af-key">priority_level</div>
+            <div class="af-type">enum</div>
+            <div class="af-note">
+              <span class="af-chip">LOW</span>
+              <span class="af-chip">MEDIUM</span>
+              <span class="af-chip af-chip-strong">HIGH</span>
+            </div>
+          </div>
+          <div class="agent-field">
+            <div class="af-key">recommended_actions</div>
+            <div class="af-type">list[str]</div>
+            <div class="af-note">≥ 1 entry, validated</div>
+          </div>
+        </div>
+
+        <div class="agent-side-foot">
+          <div class="asf-row"><span class="asf-k">PROVIDER</span><span class="asf-v">GitHub Models → Gemini → Groq</span></div>
+          <div class="asf-row"><span class="asf-k">CHECKPOINT</span><span class="asf-v">MemorySaver · per thread_id</span></div>
+          <div class="asf-row"><span class="asf-k">VERIFIED BY</span><span class="asf-v">e2e test on live LLM call</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="stats">
+        <div class="stat"><span>NODES</span>5</div>
+        <div class="stat"><span>TOOLS</span>3</div>
+        <div class="stat"><span>RETRIES</span>≤ 3</div>
+        <div class="stat"><span>PATTERN</span>C · agentic</div>
+      </div>
+      <div>09 / 10</div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDE 10 — END ============ -->
+  <section class="slide" data-label="10 End">
+    <div class="meta">
+      <div class="left"><span class="dot"></span><span>HACKUPC 2026 / HP CHALLENGE</span></div>
+      <div class="right">10 / 10</div>
+    </div>
+
+    <div class="end-grid">
+      <div style="padding-top: 80px;">
+        <div class="section-num">END</div>
+        <h1 class="title" style="font-size:200px;">Thank you.</h1>
+        <div class="lead" style="margin-top:32px; font-size:34px; font-style: italic; font-family:'Newsreader',serif;">Questions?</div>
+      </div>
+
+      <div class="end-bottom">
+        <div class="end-card">
+          <div class="end-label">REPO</div>
+          <div class="end-value">github.com/&lt;org&gt;/hackupc2026</div>
+        </div>
+        <div class="end-card">
+          <div class="end-label">DEMO</div>
+          <div class="end-value">$ make demo-e2e</div>
+        </div>
+        <div class="end-card">
+          <div class="end-label">STACK</div>
+          <div class="end-value" style="color:var(--accent);">BRAIN / CLOCK / VOICE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</deck-stage>
+
+<!-- Tweaks -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<div id="tweaks-root"></div>
+<script type="text/babel">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "bg": "#f4f1ea",
+    "ink": "#0e0f10",
+    "accent": "#1a3aff",
+    "warm": "#0a2080",
+    "headingFont": "Newsreader",
+    "italicTitles": true
+  }/*EDITMODE-END*/;
+
+  function applyTweaks(t) {
+    const r = document.documentElement.style;
+    r.setProperty('--bg', t.bg);
+    r.setProperty('--ink', t.ink);
+    r.setProperty('--accent', t.accent);
+    r.setProperty('--warm', t.warm);
+    // Heading font
+    document.querySelectorAll('h1.title, h2.title, .stage-name, .fname, .fn-name, .bar-label, .stat-value, .cover-mark .big').forEach(el => {
+      el.style.fontFamily = `'${t.headingFont}', serif`;
+    });
+    // Italics
+    document.querySelectorAll('h1.title em, h2.title em, .stage-name em').forEach(el => {
+      el.style.fontStyle = t.italicTitles ? 'italic' : 'normal';
+      el.style.fontWeight = t.italicTitles ? '300' : '400';
+    });
+  }
+
+  function App() {
+    const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakSelect, TweakToggle } = window.TweaksPanelKit;
+    const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => applyTweaks(tweaks), [tweaks]);
+
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Palette">
+          <TweakColor label="Background" value={tweaks.bg} onChange={v => setTweak('bg', v)} />
+          <TweakColor label="Ink" value={tweaks.ink} onChange={v => setTweak('ink', v)} />
+          <TweakColor label="Accent (cool)" value={tweaks.accent} onChange={v => setTweak('accent', v)} />
+          <TweakColor label="Accent (warm)" value={tweaks.warm} onChange={v => setTweak('warm', v)} />
+        </TweakSection>
+        <TweakSection title="Typography">
+          <TweakSelect label="Heading face" value={tweaks.headingFont} onChange={v => setTweak('headingFont', v)}
+            options={[
+              {label:'Newsreader (elegant serif)', value:'Newsreader'},
+              {label:'Inter Tight (minimal sans)', value:'Inter Tight'},
+              {label:'JetBrains Mono', value:'JetBrains Mono'}
+            ]} />
+          <TweakToggle label="Italic emphasis in titles" value={tweaks.italicTitles} onChange={v => setTweak('italicTitles', v)} />
+        </TweakSection>
+        <TweakSection title="Presets">
+          <button onClick={() => { setTweak({bg:'#f4f1ea', ink:'#0e0f10', accent:'#1a3aff', warm:'#0a2080'}); }}
+            style={{padding:'10px 14px', background:'#f4f1ea', border:'1px solid #0e0f10', cursor:'pointer', fontFamily:'JetBrains Mono, monospace', fontSize:12, letterSpacing:'0.18em', textTransform:'uppercase'}}>
+            Editorial cream
+          </button>
+          <button onClick={() => { setTweak({bg:'#0e0f10', ink:'#f4f1ea', accent:'#7c8fff', warm:'#ff7a4a'}); }}
+            style={{padding:'10px 14px', background:'#0e0f10', color:'#f4f1ea', border:'1px solid #0e0f10', cursor:'pointer', fontFamily:'JetBrains Mono, monospace', fontSize:12, letterSpacing:'0.18em', textTransform:'uppercase', marginTop:6}}>
+            Inverted dark
+          </button>
+          <button onClick={() => { setTweak({bg:'#fafaf7', ink:'#0a0a0a', accent:'#0067b8', warm:'#0a2080'}); }}
+            style={{padding:'10px 14px', background:'#ffffff', border:'1px solid #0a0a0a', cursor:'pointer', fontFamily:'JetBrains Mono, monospace', fontSize:12, letterSpacing:'0.18em', textTransform:'uppercase', marginTop:6}}>
+            HP corporate
+          </button>
+        </TweakSection>
+      </TweaksPanel>
+    );
+  }
+
+  // wait for tweaks-panel.jsx to load
+  function mount() {
+    if (!window.TweaksPanelKit) return setTimeout(mount, 50);
+    ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+  }
+  mount();
+</script>
+
+<script type="application/json" id="speaker-notes">
+[
+  "Welcome. Today we're presenting a digital co-pilot for the HP Metal Jet S100. The headline: predictive maintenance, re-engineered. Our system finds the optimal maintenance cadence for industrial 3D printers and prices it.",
+  "Quick context on binder jetting. Three subsystems carry all the wear: the recoating system spreads powder, the printhead deposits binder, and the thermal system cures it. Six components in total — and that's where our model lives.",
+  "Here's the model. A deterministic core driven by stochastic inputs. Lambda is the degradation rate per component, computed from a base rate, a per-machine variability factor, and three multiplicative factors for environment, internal use, and cross-component effects. Failures come in two flavors: natural end-of-life, and a one-in-three-hundred operational shock. That second one keeps us honest.",
+  "The math, made explicit. Each of our six components has its own rate law — same skeleton, different exponents. The recoater blade is humidity-dominated, the heating elements are temperature-dominated, the linear guide is cycle-dominated. Every exponent is calibrated against reference values from the machine spec.",
+  "The economics. Six components, two failure modes per component — preventive and corrective. The corrective costs are an order of magnitude higher. That spread is why this problem is worth solving.",
+  "Coupling. This is the slide everyone underestimates. Components don't fail in isolation — every row of this matrix says: if this part is degraded, every other part wears faster by this multiplier. The biggest one is C1 to C3, two-times: a worn blade dumps debris into the powder bed and the nozzle pays for it. Then the thermal feedback loop — heater and insulation drag each other down at one-point-six and one-point-seven. Replacing one part early is cheap. Letting it cascade through the others is what we are actually pricing.",
+  "Method. Three stages. Baseline is the manufacturer's fixed schedule — blind to actual wear. SSL pre-trains on synthetic telemetry from our twin to learn degradation signatures without labels. Then RL acts on those embeddings to choose when to maintain.",
+  "Results. Across a fleet of 100 printers over 5 years, we cut annual maintenance cost by 51.5% per printer — sixty-five thousand six hundred euros per machine per year. Optimal cadence stretches from the baseline 96 hours to 142.",
+  "Interaction.",
+  "Thank you. Repo and demo are on screen — we have a one-command end-to-end demo ready. Questions?"
+]
+</script>
+
+</body>
+</html>
