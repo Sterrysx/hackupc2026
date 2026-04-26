@@ -19,11 +19,11 @@ from starlette.concurrency import run_in_threadpool
 import base64
 import logging
 
-from stt.transcriber import SpeechToText
-from tts.speaker import TextToSpeech
-from Ai_Agent.db import insert_telemetry, init_db
-from Ai_Agent.trace import build_reasoning_trace
-from Ai_Agent import twin_data, forecast, predictions
+from backend.voice.stt.transcriber import SpeechToText
+from backend.voice.tts.speaker import TextToSpeech
+from backend.agent.db import insert_telemetry, init_db
+from backend.agent.trace import build_reasoning_trace
+from backend.agent import twin_data, forecast, predictions
 
 # Chat-agent stack imports the langchain/langgraph stack, which currently
 # pulls in ``langchain_protocol`` — a transitive dep that may not be
@@ -34,7 +34,7 @@ from Ai_Agent import twin_data, forecast, predictions
 logger = logging.getLogger(__name__)
 try:
     from langchain_core.messages import HumanMessage, AIMessage, BaseMessage  # type: ignore
-    from Ai_Agent.graph import build_graph  # type: ignore
+    from backend.agent.graph import build_graph  # type: ignore
     _CHAT_AGENT_AVAILABLE = True
     _CHAT_AGENT_IMPORT_ERROR = None
 except Exception as _exc:  # broad: ImportError, attribute errors from broken deps
@@ -403,9 +403,9 @@ async def twin_predictions_timeline(
     day_from: Optional[int] = None,
     day_to: Optional[int] = None,
 ):
-    """Per-day predicted trajectory from `data/validation/fleet_2026_2035.parquet`.
+    """Per-day predicted trajectory from `data/prediction/fleet_2026_2035.parquet`.
 
-    Same shape as `/twin/timeline` but reads the forward-projected validation
+    Same shape as `/twin/timeline` but reads the forward-projected prediction
     fleet. Use for analytics tiles that animate the model's prediction as the
     operator scrubs through time.
     """

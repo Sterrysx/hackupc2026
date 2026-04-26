@@ -23,8 +23,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 # conftest.py pre-stubs the native audio deps so `import app` is safe.
-from app import app
-from Ai_Agent import twin_data
+from backend.app import app
+from backend.agent import twin_data
 
 pytestmark = [
     pytest.mark.live,

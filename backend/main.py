@@ -1,5 +1,5 @@
 from langchain_core.messages import HumanMessage
-from Ai_Agent.graph import build_graph
+from backend.agent.graph import build_graph
 
 
 def main():

@@ -3,7 +3,7 @@ import os
 import tempfile
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-from app import app
+from backend.app import app
 
 client = TestClient(app)
 
@@ -14,7 +14,7 @@ def test_health_check():
     assert body["status"] == "ok"
     assert isinstance(body.get("agent_ready"), bool)
 
-@patch("app.transcriber.transcribe")
+@patch("backend.app.transcriber.transcribe")
 def test_transcribe_audio(mock_transcribe):
     # Mock the transcription result
     mock_transcribe.return_value = "Hello this is a test transcription."
@@ -29,7 +29,7 @@ def test_transcribe_audio(mock_transcribe):
     assert response.json() == {"text": "Hello this is a test transcription."}
     mock_transcribe.assert_called_once()
 
-@patch("app.agent_graph.invoke")
+@patch("backend.app.agent_graph.invoke")
 def test_query_agent(mock_invoke):
     # Mock the agent graph response with structured data
     mock_invoke.return_value = {
@@ -58,7 +58,7 @@ def test_query_agent(mock_invoke):
     mock_invoke.assert_called_once()
 
 def test_query_agent_minimal_payload():
-    with patch("app.agent_graph.invoke") as mock_invoke:
+    with patch("backend.app.agent_graph.invoke") as mock_invoke:
         mock_invoke.return_value = {
             "final_report": {
                 "grounded_text": "Basic report.",
@@ -77,7 +77,7 @@ def test_query_agent_minimal_payload():
         assert data["grounded_text"] == "Basic report."
         assert data["priority_level"] == "LOW"
 
-@patch("app.speaker.generate_speech")
+@patch("backend.app.speaker.generate_speech")
 def test_tts_speak(mock_generate):
     # Mock the returned path to a dummy file
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
@@ -102,8 +102,8 @@ def test_websocket_connection():
         # Connection should be accepted
         pass
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_add_telemetry_triggers_watchdog(mock_analyze, mock_insert):
     mock_insert.return_value = 42
     

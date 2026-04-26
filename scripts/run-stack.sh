@@ -56,7 +56,7 @@ if [ ! -d "frontend/node_modules" ]; then
 fi
 
 echo "[run-stack] starting backend  → http://127.0.0.1:8000"
-uv run --no-sync uvicorn app:app --reload --port 8000 &
+uv run --no-sync uvicorn backend.app:app --reload --port 8000 &
 BACKEND_PID=$!
 
 echo "[run-stack] starting frontend → http://127.0.0.1:5173"

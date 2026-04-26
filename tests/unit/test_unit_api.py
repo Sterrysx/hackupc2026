@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-import app as app_module
-from app import app
+import backend.app as app_module
+from backend.app import app
 
 
 client = TestClient(app)
@@ -152,8 +152,8 @@ def _telemetry_payload(*, status: str = "FUNCTIONAL") -> dict:
     }
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_critical_status_schedules_watchdog(mock_analyze, mock_insert):
     mock_insert.return_value = 99
     response = client.post("/telemetry", json=_telemetry_payload(status="CRITICAL"))
@@ -164,8 +164,8 @@ def test_telemetry_critical_status_schedules_watchdog(mock_analyze, mock_insert)
     mock_analyze.assert_called_once()
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_failed_status_schedules_watchdog(mock_analyze, mock_insert):
     mock_insert.return_value = 100
     response = client.post("/telemetry", json=_telemetry_payload(status="FAILED"))
@@ -174,8 +174,8 @@ def test_telemetry_failed_status_schedules_watchdog(mock_analyze, mock_insert):
     mock_analyze.assert_called_once()
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_functional_status_does_not_schedule_watchdog(mock_analyze, mock_insert):
     mock_insert.return_value = 101
     response = client.post("/telemetry", json=_telemetry_payload(status="FUNCTIONAL"))
@@ -184,8 +184,8 @@ def test_telemetry_functional_status_does_not_schedule_watchdog(mock_analyze, mo
     mock_analyze.assert_not_called()
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_degraded_does_not_schedule_watchdog(mock_analyze, mock_insert):
     """Only CRITICAL / FAILED should fire the proactive watchdog."""
     mock_insert.return_value = 102

@@ -16,9 +16,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app import app
+from backend.app import app
 
-_PARQUET_PATH = Path("data") / "fleet_baseline.parquet"
+_PARQUET_PATH = Path("data") / "train" / "fleet_baseline.parquet"
 
 
 @pytest.fixture(scope="module")
@@ -178,8 +178,8 @@ _BASE_TELEMETRY = {
 }
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_critical_status_schedules_watchdog(
     mock_analyze: MagicMock,
     mock_insert: MagicMock,
@@ -197,8 +197,8 @@ def test_telemetry_critical_status_schedules_watchdog(
     mock_insert.assert_called_once()
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_failed_status_also_schedules_watchdog(
     mock_analyze: MagicMock,
     mock_insert: MagicMock,
@@ -213,8 +213,8 @@ def test_telemetry_failed_status_also_schedules_watchdog(
     mock_analyze.assert_called_once()
 
 
-@patch("app.insert_telemetry")
-@patch("app.analyze_and_notify")
+@patch("backend.app.insert_telemetry")
+@patch("backend.app.analyze_and_notify")
 def test_telemetry_functional_status_does_not_schedule_watchdog(
     mock_analyze: MagicMock,
     mock_insert: MagicMock,

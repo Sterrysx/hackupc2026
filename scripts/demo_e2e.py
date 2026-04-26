@@ -36,16 +36,20 @@ if str(ROOT) not in sys.path:
 import types
 
 for modname, cls, extra in (
-    ("stt.transcriber", "SpeechToText", {}),
-    ("tts.speaker", "TextToSpeech", {"voice": None}),
+    ("backend.voice.stt.transcriber", "SpeechToText", {}),
+    ("backend.voice.tts.speaker", "TextToSpeech", {"voice": None}),
 ):
     if modname in sys.modules:
         continue
     try:
         __import__(modname)
     except Exception:
-        parent = modname.split(".")[0]
-        sys.modules.setdefault(parent, types.ModuleType(parent))
+        # Stub every ancestor up to (but not including) the leaf, so
+        # ``import backend.voice.stt.transcriber`` resolves end-to-end.
+        parts = modname.split(".")
+        for i in range(1, len(parts)):
+            ancestor = ".".join(parts[:i])
+            sys.modules.setdefault(ancestor, types.ModuleType(ancestor))
         stub = types.ModuleType(modname)
         Cls = type(cls, (), {
             "__init__": lambda self, *a, **kw: [setattr(self, k, v) for k, v in extra.items()],
@@ -112,7 +116,7 @@ def is_grounded(citation: str) -> tuple[bool, bool]:
 
 def act_seed_check() -> bool:
     banner(1, "SEED CHECK  ·  historian SQLite is real")
-    from Ai_Agent.tools import get_existing_runs
+    from backend.agent.tools import get_existing_runs
 
     raw = get_existing_runs.invoke({})
     data = json.loads(raw)
@@ -127,7 +131,7 @@ def act_seed_check() -> bool:
 
 def act_parquet_ground_truth(client) -> bool:
     banner(2, "PARQUET GROUND TRUTH  ·  UI numbers == simulator parquet")
-    from Ai_Agent import twin_data
+    from backend.agent import twin_data
 
     city = "Barcelona"
     day = 200
@@ -306,7 +310,7 @@ def main() -> int:
         return 2
 
     from fastapi.testclient import TestClient
-    from app import app
+    from backend.app import app
 
     client = TestClient(app)
 

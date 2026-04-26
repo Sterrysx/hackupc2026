@@ -21,8 +21,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-import app as app_module
-from app import app
+import backend.app as app_module
+from backend.app import app
 
 
 _VALID_REPORT_SHAPE = {
