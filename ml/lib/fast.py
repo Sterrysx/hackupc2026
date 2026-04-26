@@ -1,11 +1,11 @@
 """Run-time knobs for the ML training pipeline.
 
-Two env vars drive everything in ``ml_models/`` notebooks:
+Two env vars drive everything in ``ml/`` notebooks:
 
-* ``FAST_MODE=1`` — switch every notebook to a smaller, faster set of
-  hyperparameters. Useful for the first pass on a new machine or a sanity
-  check. Quality drops but the full pipeline finishes in a fraction of the
-  time. Default: off (production-quality values).
+* ``FAST_MODE=1`` — switch every notebook to a minutes-scale smoke profile.
+  This is useful for hackathon iteration and end-to-end artifact generation.
+  Quality drops because we use fewer schedules, folds, trials, printers,
+  dates, PPO updates, and seeds. Default: off (production-quality values).
 
 * ``TRAIN_PARALLEL=N`` — number of parallel workers used by Optuna and by
   the per-printer simulator loops in Stage 01, 02-00, and 02-03. ``0`` or
@@ -54,32 +54,60 @@ else:
 # Stage 01 — Optuna baseline τ search (sdg/core/simulator.py inside trial).
 # 200 trials gives a strong TPE result; 60 still covers the space well thanks
 # to the median pruner on warm-up steps.
-N_OPTUNA_TRIALS: int = 60 if FAST_MODE else 200
+N_OPTUNA_TRIALS: int = 40 if FAST_MODE else 200
 
-# Stage 02-00 — number of LHS-sampled τ schedules in the SSL pretrain corpus.
-# Each schedule = ~21 MB on disk, 70 printers × 10 yr of rows. K=20 is the
-# minimum that gives the encoder a useful τ-conditioned view; K=60 is the
-# committed corpus that ships in the repo.
-N_LHS_SCHEDULES: int = 20 if FAST_MODE else 60
+# Stage 02-00 — number of LHS-sampled tau schedules in the SSL pretrain corpus.
+# Fast mode writes to data/policy_runs_fast so smoke artifacts cannot poison
+# the full data/policy_runs cache.
+N_LHS_SCHEDULES: int = 4 if FAST_MODE else 60
+POLICY_RUN_PRINTER_LIMIT: int | None = 12 if FAST_MODE else None
 
 # Stage 02-01 — PatchTST self-supervised pretraining.
-PRETRAIN_EPOCHS: int = 8 if FAST_MODE else 20
+PRETRAIN_EPOCHS: int = 2 if FAST_MODE else 20
 
 # Stage 02-02 — supervised RUL fine-tuning. Per-fold epoch count.
-FINETUNE_EPOCHS: int = 2 if FAST_MODE else 3
+FINETUNE_EPOCHS: int = 1 if FAST_MODE else 3
+FINETUNE_BATCH_SIZE: int = 256 if FAST_MODE else 128
+FINETUNE_FOLDS: int = 1 if FAST_MODE else 4
+FINETUNE_VARIANTS: tuple[str, ...] = ("ssl_frozen",) if FAST_MODE else ("ssl_frozen", "scratch")
 
-# Stage 02-03 — Optuna over the smooth surrogate (cheap; trials are <1ms).
-SURROGATE_OPTUNA_TRIALS: int = 200 if FAST_MODE else 500
+# Stage 02-03 — Optuna over the simulator-backed surrogate.
+SURROGATE_OPTUNA_TRIALS: int = 48 if FAST_MODE else 500
+SURROGATE_TOP_K: int = 2 if FAST_MODE else 5
+SURROGATE_DAYS: int | None = 730 if FAST_MODE else None
+SURROGATE_TEST_PRINTER_LIMIT: int | None = 5 if FAST_MODE else None
 
 # Stage 03-00 — sanity rollouts (random τ on a small printer subset).
-SANITY_TRIALS: int = 30 if FAST_MODE else 100
+SANITY_TRIALS: int = 5 if FAST_MODE else 100
+SANITY_PRINTER_LIMIT: int = 2 if FAST_MODE else 5
+SANITY_DAYS: int | None = 730 if FAST_MODE else None
 
 # Stage 03-01 — bandit PPO.
-BANDIT_PPO_TIMESTEPS: int = 1_000 if FAST_MODE else 2_000
+BANDIT_PPO_TIMESTEPS: int = 192 if FAST_MODE else 2_000
+BANDIT_TRAIN_DAYS: int = 365 if FAST_MODE else 730
+BANDIT_VAL_DAYS: int | None = 730 if FAST_MODE else None
+BANDIT_TEST_DAYS: int | None = 730 if FAST_MODE else None
+BANDIT_TRAIN_PRINTER_LIMIT: int = 8 if FAST_MODE else 30
+BANDIT_VAL_PRINTER_LIMIT: int | None = 3 if FAST_MODE else None
+BANDIT_TEST_PRINTER_LIMIT: int | None = 5 if FAST_MODE else None
+BANDIT_PPO_EPOCHS: int = 2 if FAST_MODE else 8
+BANDIT_NET_ARCH: tuple[int, ...] = (64,) if FAST_MODE else (128, 128)
 
 # Stage 03-04 — per-tick recurrent PPO (the runtime tentpole).
-PERTICK_TIMESTEPS: int = 8_000 if FAST_MODE else 20_000
-PERTICK_SEEDS: tuple[int, ...] = (0, 1) if FAST_MODE else (0, 1, 2)
+PERTICK_TIMESTEPS: int = 360 if FAST_MODE else 20_000
+PERTICK_SEEDS: tuple[int, ...] = (0,) if FAST_MODE else (0, 1, 2)
+PERTICK_TRAIN_DAYS: int = 365 if FAST_MODE else 730
+PERTICK_VAL_DAYS: int = 365 if FAST_MODE else 1460
+PERTICK_TEST_DAYS: int | None = 730 if FAST_MODE else None
+PERTICK_TRAIN_PRINTER_LIMIT: int = 6 if FAST_MODE else 20
+PERTICK_VAL_PRINTER_LIMIT: int = 2 if FAST_MODE else 5
+PERTICK_TEST_PRINTER_LIMIT: int | None = 5 if FAST_MODE else None
+PERTICK_N_STEPS: int = 90 if FAST_MODE else 180
+PERTICK_BATCH_SIZE: int = 30 if FAST_MODE else 60
+PERTICK_PPO_EPOCHS: int = 2 if FAST_MODE else 6
+PERTICK_FEATURES_DIM: int = 32 if FAST_MODE else 64
+PERTICK_HIDDEN_DIMS: tuple[int, ...] = (64,) if FAST_MODE else (128, 128)
+PERTICK_BOOTSTRAP_RESAMPLES: int = 1000 if FAST_MODE else 10_000
 
 
 # ---- Hardware preference -------------------------------------------------- #
@@ -108,7 +136,7 @@ def banner() -> None:
         f"[fast] mode={mode} · parallel={PARALLEL} · "
         f"trials={N_OPTUNA_TRIALS}/{SURROGATE_OPTUNA_TRIALS} · "
         f"K={N_LHS_SCHEDULES} · "
-        f"epochs={PRETRAIN_EPOCHS}/{FINETUNE_EPOCHS} · "
+        f"epochs={PRETRAIN_EPOCHS}/{FINETUNE_EPOCHS} · folds={FINETUNE_FOLDS} · "
         f"ppo_ts={BANDIT_PPO_TIMESTEPS}/{PERTICK_TIMESTEPS} · "
         f"seeds={PERTICK_SEEDS}"
     )

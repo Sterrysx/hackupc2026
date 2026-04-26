@@ -1,6 +1,6 @@
 """Cost and availability metrics derived from event booleans.
 
-The objective function follows ai-context/CONTEXT.md §10:
+The objective function follows CONTEXT.md §10:
     minimize  E[per-printer annual cost]
     subject to availability >= 95%
 """
@@ -119,4 +119,26 @@ def scalar_objective(
         "deficit": deficit,
         "horizon_days": costs["horizon_days"],
         "n_printers": costs["n_printers"],
+    }
+
+
+def compute_business_cost(
+    score: dict,
+    downtime_loss_eur_per_day: float,
+) -> dict:
+    """Extend a ``scalar_objective`` result with explicit downtime business loss.
+
+    Returns a dict with maintenance_cost, availability, downtime_days_per_year,
+    downtime_loss, and business_cost — the canonical metric for business_demo.
+    """
+    availability = float(score["availability"])
+    maintenance_cost = float(score["annual_cost"])
+    downtime_days_per_year = max(0.0, 1.0 - availability) * DAYS_PER_YEAR
+    downtime_loss = downtime_days_per_year * float(downtime_loss_eur_per_day)
+    return {
+        "maintenance_cost": maintenance_cost,
+        "availability": availability,
+        "downtime_days_per_year": downtime_days_per_year,
+        "downtime_loss": downtime_loss,
+        "business_cost": maintenance_cost + downtime_loss,
     }

@@ -70,17 +70,17 @@ default_eta_seconds() {
   if (( FAST_MODE_FLAG == 1 )); then
     case "$1" in
       "ml/00_eda/eda_fleet_baseline.ipynb")             echo 45     ;;
-      "ml/01_baseline/search.ipynb")                    echo 1200   ;;
-      "ml/02_ssl/00_generate_policy_runs.ipynb")        echo 600    ;;
-      "ml/02_ssl/01_pretrain.ipynb")                    echo 900    ;;
-      "ml/02_ssl/02_finetune_rul.ipynb")                echo 480    ;;
-      "ml/02_ssl/03_surrogate_search.ipynb")            echo 360    ;;
-      "ml/03_rl/00_setup_and_sanity.ipynb")         echo 600    ;;
-      "ml/03_rl/01_train_ppo.ipynb")                echo 2400   ;;
-      "ml/03_rl/02_eval_test.ipynb")                echo 900    ;;
-      "ml/03_rl/03_compare.ipynb")                  echo 60     ;;
-      "ml/03_rl/04_per_tick_recurrent_ppo.ipynb")   echo 5400   ;;
-      "ml/04_models/results/compare_01_02_03.ipynb")           echo 60     ;;
+      "ml/01_baseline/search.ipynb")                    echo 300    ;;
+      "ml/02_ssl/00_generate_policy_runs.ipynb")        echo 30     ;;
+      "ml/02_ssl/01_pretrain.ipynb")                    echo 30     ;;
+      "ml/02_ssl/02_finetune_rul.ipynb")                echo 240    ;;
+      "ml/02_ssl/03_surrogate_search.ipynb")            echo 60     ;;
+      "ml/03_rl/00_setup_and_sanity.ipynb")         echo 30     ;;
+      "ml/03_rl/01_train_ppo.ipynb")                echo 60     ;;
+      "ml/03_rl/02_eval_test.ipynb")                echo 60     ;;
+      "ml/03_rl/03_compare.ipynb")                  echo 30     ;;
+      "ml/03_rl/04_per_tick_recurrent_ppo.ipynb")   echo 90     ;;
+      "ml/04_models/results/compare_01_02_03.ipynb")           echo 30     ;;
       *)                                                       echo 300    ;;
     esac
   else
@@ -107,6 +107,10 @@ usage() {
 Usage:
   ./train.sh                  Run all stages: 00, 01, 02, 03, 04
   ./train.sh all              Run all stages
+  ./train.sh business-demo    Run clean 70/15/15 business-cost demo
+  ./train.sh business-fast    Run clean 14/3/3 business-cost smoke demo
+  ./train.sh cost-demo        Run the cost-only Stage 01/02/03 demo
+                              (~10-20 min target; writes Stage 04 cost_demo)
   ./train.sh 0|1|2|3|4        Run a single stage
   ./train.sh from N           Run stage N through 4 (resume after a crash)
   ./train.sh delete           Wipe ALL generated training artifacts (SSL
@@ -269,7 +273,8 @@ delete_artifacts() {
     "ml/01_baseline/results/study.db"
     "ml/01_baseline/results/best_tau.yaml"
     # Stage 02 SSL corpus, encoders, RUL head, surrogate τ
-    "ml/02_ssl/data/policy_runs"
+    "data/policy_runs"
+    "data/policy_runs_fast"
     "ml/02_ssl/models"
     "ml/02_ssl/results"
     # Stage 03 PPO policies + per-printer τ tables + plots
@@ -278,6 +283,8 @@ delete_artifacts() {
     # Stage 04 final report + figures + KPI tables
     "ml/04_models/results/REPORT.md"
     "ml/04_models/results/figures"
+    "ml/04_models/results/business_demo"
+    "ml/04_models/results/cost_demo"
     # Persisted ETA caches (regenerated on next successful run)
     ".train_timings.json"
     ".train_timings.fast.json"
@@ -440,6 +447,62 @@ run_stage() {
   done
 }
 
+run_cost_demo() {
+  printf '%s' "$BOLD"
+  line '#'
+  printf 'HackUPC 2026 cost-only demo\n'
+  line '#'
+  printf '%s' "$RESET"
+  printf 'Metric          : annual cost per printer-year\n'
+  printf 'Command         : uv run python -u -m ml.cost_demo\n'
+  printf 'Output          : %sml/04_models/results/cost_demo%s\n' "$DIM" "$RESET"
+  printf 'Hardware        : %s\n' "$(hardware_fingerprint)"
+  if (( DRY_RUN == 1 )); then
+    printf '%sDRY RUN — cost demo will not execute%s\n' "$YELLOW" "$RESET"
+    return 0
+  fi
+
+  local started ended
+  started="$(date +%s)"
+  uv run python -u -m ml.cost_demo
+  ended="$(date +%s)"
+  printf '\n%s' "$BOLD"
+  line '#'
+  printf '%sCost demo completed in %s%s\n' \
+    "$GREEN" "$(human_duration "$((ended - started))")" "$RESET"
+  line '#'
+  printf '%s' "$RESET"
+}
+
+run_business_demo() {
+  local profile="$1"
+  printf '%s' "$BOLD"
+  line '#'
+  printf 'HackUPC 2026 business-cost demo\n'
+  line '#'
+  printf '%s' "$RESET"
+  printf 'Metric          : maintenance cost + downtime business loss\n'
+  printf 'Profile         : %s\n' "$profile"
+  printf 'Command         : uv run python -u -m ml.business_demo --profile %s\n' "$profile"
+  printf 'Output          : %sml/04_models/results/business_demo%s\n' "$DIM" "$RESET"
+  printf 'Hardware        : %s\n' "$(hardware_fingerprint)"
+  if (( DRY_RUN == 1 )); then
+    printf '%sDRY RUN — business demo will not execute%s\n' "$YELLOW" "$RESET"
+    return 0
+  fi
+
+  local started ended
+  started="$(date +%s)"
+  uv run python -u -m ml.business_demo --profile "$profile"
+  ended="$(date +%s)"
+  printf '\n%s' "$BOLD"
+  line '#'
+  printf '%sBusiness demo completed in %s%s\n' \
+    "$GREEN" "$(human_duration "$((ended - started))")" "$RESET"
+  line '#'
+  printf '%s' "$RESET"
+}
+
 print_top_banner() {
   local stages_str="$1" total_stages="$2" total_notebooks="$3" total_eta="$4"
 
@@ -542,6 +605,21 @@ main() {
 
   local -a stages=()
   case "$target" in
+    business-demo)
+      TARGET_LABEL="business-demo"
+      run_business_demo final100
+      exit 0
+      ;;
+    business-fast)
+      TARGET_LABEL="business-fast"
+      run_business_demo fast20
+      exit 0
+      ;;
+    cost-demo)
+      TARGET_LABEL="cost-demo"
+      run_cost_demo
+      exit 0
+      ;;
     all|"")     stages=(0 1 2 3 4) ;;
     0|00)       stages=(0) ;;
     1|01)       stages=(1) ;;

@@ -44,9 +44,9 @@ class PPOConfig:
     n_steps: int = 64
     batch_size: int = 64
     n_epochs: int = 10
-    learning_rate: float = 3e-4
+    learning_rate: float = 1e-4
     clip_range: float = 0.2
-    ent_coef: float = 0.01
+    ent_coef: float = 0.1
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
     gamma: float = 1.0  # one-shot bandit — no discount

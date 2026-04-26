@@ -131,6 +131,7 @@ class MaintenancePerTickEnv(gym.Env):
         availability_threshold: float = 0.95,
         downtime_lambda: float = 100.0,
         cost_scale: float = 1e3,
+        downtime_loss_eur_per_day: float = 0.0,
         use_ssl_observation: bool = False,
         max_steps: int | None = None,
     ) -> None:
@@ -152,6 +153,7 @@ class MaintenancePerTickEnv(gym.Env):
         self._availability_threshold = float(availability_threshold)
         self._downtime_lambda = float(downtime_lambda)
         self._cost_scale = float(cost_scale)
+        self._downtime_loss_eur_per_day = float(downtime_loss_eur_per_day)
         self._max_steps = int(max_steps) if max_steps is not None else len(self._dates)
         if self._max_steps > len(self._dates):
             raise ValueError("max_steps cannot exceed len(dates)")
@@ -350,9 +352,14 @@ class MaintenancePerTickEnv(gym.Env):
         self._cum_preventive += n_pm
         self._cum_corrective += n_cm
 
-        # Reward shaping: per-day cost in € + fractional downtime, scaled.
+        # Reward: per-day contribution to business cost.
+        # downtime_loss_eur_per_day converts downtime days to EUR on the same
+        # scale as maintenance invoices so PPO directly minimises business cost.
+        # downtime_lambda is kept for backward compat (old notebooks); when
+        # downtime_loss_eur_per_day > 0 both terms stack (or set lambda=0).
         reward = -(
-            (daily_preventive_cost + daily_corrective_cost) / self._cost_scale
+            (daily_preventive_cost + daily_corrective_cost
+             + self._downtime_loss_eur_per_day * daily_downtime_days) / self._cost_scale
             + self._downtime_lambda * daily_downtime_days
         )
 
@@ -386,6 +393,9 @@ class MaintenancePerTickEnv(gym.Env):
             availability = max(0.0, min(1.0, (n_days - self._cum_downtime_days) / max(n_days, 1)))
             years = n_days / 365.25
             annual_cost = float(self._cum_cost / max(years, 1e-9))
+            downtime_loss_per_year = (
+                max(0.0, 1.0 - availability) * 365.25 * self._downtime_loss_eur_per_day
+            )
             info["episode_summary"] = {
                 "annual_cost": annual_cost,
                 "availability": availability,
@@ -393,6 +403,8 @@ class MaintenancePerTickEnv(gym.Env):
                 "n_preventive": int(self._cum_preventive),
                 "n_corrective": int(self._cum_corrective),
                 "horizon_days": n_days,
+                "business_cost": annual_cost + downtime_loss_per_year,
+                "downtime_loss_per_year": downtime_loss_per_year,
             }
         return obs, float(reward), terminated, truncated, info
 
