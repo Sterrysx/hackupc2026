@@ -8,8 +8,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from Ai_Agent import forecast, twin_data
-from Ai_Agent.component_map import COMPONENTS
+from backend.agent import forecast, twin_data
+from backend.agent.component_map import COMPONENTS
 
 
 # ----------------------------------------------------------------- unit math

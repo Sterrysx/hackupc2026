@@ -72,8 +72,8 @@ The `/telemetry` endpoint in `app.py` triggers a background agent analysis whene
 
 ### Voice I/O
 
-- **Speech-to-text**: Faster Whisper (`stt/transcriber.py`) — upload audio, get transcript.
-- **Text-to-speech**: `tts/speaker.py` — send text, get MP3 back.
+- **Speech-to-text**: Faster Whisper (`backend/voice/stt/transcriber.py`) — upload audio, get transcript.
+- **Text-to-speech**: `backend/voice/tts/speaker.py` — send text, get MP3 back.
 
 Both are wired into the FastAPI app as independent endpoints (`/stt/transcribe`, `/tts/speak`).
 

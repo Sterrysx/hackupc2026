@@ -13,7 +13,7 @@ import sqlite3
 import pandas as pd
 import pytest
 
-from Ai_Agent import historian_seed
+from backend.agent import historian_seed
 
 
 @pytest.fixture(scope="module")
@@ -117,7 +117,7 @@ def test_init_db_populates_from_parquet(tmp_path, monkeypatch) -> None:
     """End-to-end: ``init_db`` against an empty file must produce the
     same row count as ``build_seed_rows`` — proving the wiring goes
     through the parquet path, not the fallback fixtures."""
-    from Ai_Agent import db as db_module
+    from backend.agent import db as db_module
 
     db_path = tmp_path / "historian.db"
     monkeypatch.setattr(db_module, "DB_PATH", db_path)

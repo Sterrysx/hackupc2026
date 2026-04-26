@@ -13,7 +13,7 @@ import sqlite3
 
 import pytest
 
-from Ai_Agent import db as db_module
+from backend.agent import db as db_module
 
 
 # ----------------------------------------------------------- fixtures

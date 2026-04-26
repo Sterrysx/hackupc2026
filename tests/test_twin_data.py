@@ -1,10 +1,10 @@
-"""Tests for Ai_Agent/twin_data.py — parquet-backed snapshot/timeline accessors."""
+"""Tests for backend/agent/twin_data.py — parquet-backed snapshot/timeline accessors."""
 from __future__ import annotations
 
 import pytest
 
-from Ai_Agent import twin_data
-from Ai_Agent.component_map import COMPONENTS
+from backend.agent import twin_data
+from backend.agent.component_map import COMPONENTS
 
 
 @pytest.fixture(scope="module", autouse=True)

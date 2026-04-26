@@ -63,7 +63,7 @@ def compiled_graph():
     Importing langchain/langgraph here (inside the fixture) avoids paying
     that cost during ``pytest --collect-only`` on offline runs.
     """
-    from Ai_Agent.graph import build_graph
+    from backend.agent.graph import build_graph
     return build_graph()
 
 

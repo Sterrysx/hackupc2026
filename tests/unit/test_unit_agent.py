@@ -13,8 +13,8 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from Ai_Agent import component_map, forecast, twin_data
-from Ai_Agent.schemas import DiagnosticReport
+from backend.agent import component_map, forecast, twin_data
+from backend.agent.schemas import DiagnosticReport
 
 
 # -------------------------------------------------------------- fixtures

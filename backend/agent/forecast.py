@@ -34,10 +34,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from Ai_Agent import twin_data
-from Ai_Agent.component_map import COMPONENTS, map_status
-from Ai_Agent.derived_metrics import predicted_metrics
-from sdg.schema import COMPONENT_IDS
+from . import twin_data
+from .component_map import COMPONENTS, map_status
+from .derived_metrics import predicted_metrics
+from backend.simulator.schema import COMPONENT_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ _CRITICAL_HORIZON_D    = 2 * 365   # ~2 years
 # Stage 2 artefact paths. The encoder + scaler come from `01_pretrain.ipynb`;
 # the RUL head comes from `02_finetune_rul.ipynb` (or
 # `ml_models/02_ssl/train_rul_head.py`).
-_SSL_DIR = Path("ml_models") / "02_ssl" / "models"
+_SSL_DIR = Path("ml") / "02_ssl" / "models"
 _RUL_HEAD_PATH = _SSL_DIR / "rul_head_ssl.pt"
 _SSL_ENCODER_PATH = _SSL_DIR / "ssl_encoder.pt"
 _SSL_CONFIG_PATH = _SSL_DIR / "ssl_config.json"
@@ -97,7 +97,7 @@ class _ModelBundle:
 
         import torch
 
-        from ml_models.lib.features import build_feature_matrix  # noqa: F401 (validates import)
+        from ml.lib.features import build_feature_matrix  # noqa: F401 (validates import)
 
         cfg = json.loads(_SSL_CONFIG_PATH.read_text())
         patch_cfg_dict = cfg["patch_cfg"]
@@ -125,7 +125,7 @@ class _ModelBundle:
         # 37 input channels — order set by `build_feature_matrix.base_feature_columns`.
         self.feature_cols: list[str] = list(scaler.get("feature_cols", []))
         if not self.feature_cols:
-            from ml_models.lib.features import base_feature_columns
+            from ml.lib.features import base_feature_columns
             self.feature_cols = base_feature_columns()
 
 
@@ -312,7 +312,7 @@ def _build_window(
     Returns ``None`` when the printer doesn't have enough history yet (early
     days < context_length); the analytic fallback handles those cases.
     """
-    from ml_models.lib.features import build_feature_matrix
+    from ml.lib.features import build_feature_matrix
 
     mask = (
         (df["city"] == city)
@@ -457,7 +457,7 @@ def active_path() -> str:
     bundle = _get_bundle()
     if bundle is None:
         return "analytic"
-    from ml_models.lib.features import base_feature_columns
+    from ml.lib.features import base_feature_columns
     if bundle.channel_mean.shape[0] != len(base_feature_columns()):
         # Trained head's feature width is stale vs. the current schema.
         return "analytic"

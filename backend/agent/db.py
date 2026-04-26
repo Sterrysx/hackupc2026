@@ -3,7 +3,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent.parent / "data" / "historian.db"
+DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "historian.db"
 
 _logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def _load_parquet_seed_rows() -> list[tuple] | None:
     The warning log makes the fallback visible when it happens in a real
     deployment."""
     try:
-        from Ai_Agent.historian_seed import build_seed_rows
+        from .historian_seed import build_seed_rows
         return build_seed_rows()
     except Exception as exc:
         _logger.warning(

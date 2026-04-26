@@ -17,11 +17,11 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from Ai_Agent.component_map import COMPONENTS, map_status
-from Ai_Agent.derived_metrics import compute_metrics, primary_metric_key
-from sdg.schema import COMPONENT_IDS
+from .component_map import COMPONENTS, map_status
+from .derived_metrics import compute_metrics, primary_metric_key
+from backend.simulator.schema import COMPONENT_IDS
 
-DEFAULT_PARQUET_PATH = os.path.join("data", "fleet_baseline.parquet")
+DEFAULT_PARQUET_PATH = os.path.join("data", "train", "fleet_baseline.parquet")
 # Forecast horizon in DAYS — projection window used by `forecast.py`. The
 # simulator advances 1 day per tick, so a 1-day horizon makes "predicted
 # health" mean "where will this part be tomorrow". The frontend can query a

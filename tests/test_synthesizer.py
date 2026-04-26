@@ -1,7 +1,7 @@
 from langchain_core.messages import HumanMessage
 
-from Ai_Agent.nodes import synthesizer_node
-from Ai_Agent.schemas import DiagnosticReport
+from backend.agent.nodes import synthesizer_node
+from backend.agent.schemas import DiagnosticReport
 
 
 class _FakeBoundTools:
@@ -31,7 +31,7 @@ class _FakeLlm:
 
 
 def test_synthesizer_falls_back_to_structured_output_on_tool_validation_error(monkeypatch):
-    monkeypatch.setattr("Ai_Agent.nodes.get_llm", lambda: _FakeLlm())
+    monkeypatch.setattr("backend.agent.nodes.get_llm", lambda: _FakeLlm())
 
     state = {
         "messages": [HumanMessage(content="Diagnose this run")],

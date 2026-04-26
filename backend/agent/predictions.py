@@ -1,5 +1,5 @@
-"""Read-only accessor for the forward-projected validation parquet
-(``data/validation/fleet_2026_2035.parquet``).
+"""Read-only accessor for the forward-projected prediction parquet
+(``data/prediction/fleet_2026_2035.parquet``).
 
 The validation parquet is a 10-year forward simulation of the operator-facing
 fleet (10 cities, 100 printers, 2026-01-01 .. 2035-12-31, ~365 200 rows). It
@@ -25,10 +25,10 @@ from typing import Iterable
 
 import pandas as pd
 
-from sdg.schema import COMPONENT_IDS
+from backend.simulator.schema import COMPONENT_IDS
 
 DEFAULT_VALIDATION_PARQUET_PATH = os.path.join(
-    "data", "validation", "fleet_2026_2035.parquet"
+    "data", "prediction", "fleet_2026_2035.parquet"
 )
 
 

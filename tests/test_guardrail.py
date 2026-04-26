@@ -1,7 +1,7 @@
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
-from Ai_Agent.nodes import guardrail_node, MAX_VALIDATION_ATTEMPTS
-from Ai_Agent.schemas import DiagnosticReport
+from backend.agent.nodes import guardrail_node, MAX_VALIDATION_ATTEMPTS
+from backend.agent.schemas import DiagnosticReport
 
 
 def _state(report, attempts=0):

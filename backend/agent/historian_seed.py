@@ -41,10 +41,10 @@ from typing import Iterable
 
 import pandas as pd
 
-from Ai_Agent.component_map import COMPONENTS, map_status
-from sdg.schema import COMPONENT_IDS
+from .component_map import COMPONENTS, map_status
+from backend.simulator.schema import COMPONENT_IDS
 
-_DEFAULT_PARQUET = Path(__file__).resolve().parent.parent / "data" / "fleet_baseline.parquet"
+_DEFAULT_PARQUET = Path(__file__).resolve().parent.parent.parent / "data" / "train" / "fleet_baseline.parquet"
 
 # (run_id, printer_id, day_from, day_to) windows. Picked from the parquet to
 # showcase a full cascade leading to a corrective failure event — the agent
