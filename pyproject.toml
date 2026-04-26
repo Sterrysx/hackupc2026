@@ -7,13 +7,10 @@ build-backend = "setuptools.build_meta"
 # Note `ml_models/03_rl+ssl/` is intentionally NOT a package — `+` is invalid in Python module names.
 # Importable Stage 03 code lives under `ml_models.lib.rl`.
 packages = [
-    "Ai_Agent",
-    "stt",
-    "tts",
-    "sdg", "sdg.config", "sdg.core", "sdg.weather",
-    "ml_models", "ml_models.lib", "ml_models.lib.rl",
+    "backend", "backend.agent", "backend.voice", "backend.voice.stt", "backend.voice.tts",
+    "backend.simulator", "backend.simulator.config", "backend.simulator.core", "backend.simulator.weather",
+    "ml", "ml.lib", "ml.lib.rl",
 ]
-py-modules = ["app"]
 
 [tool.pytest.ini_options]
 # Live tests hit the real Groq LLM; keep them out of the default run so
