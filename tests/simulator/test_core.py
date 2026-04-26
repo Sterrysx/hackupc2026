@@ -5,11 +5,11 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from sdg.core.component import Component
-from sdg.core.degradation import compute_cross_factors, compute_lambda
-from sdg.core.simulator import apply_maintenance_and_safety, run_printer
-from sdg.generate import load_configs
-from sdg.schema import COMPONENT_IDS, FINAL_SCHEMA
+from backend.simulator.core.component import Component
+from backend.simulator.core.degradation import compute_cross_factors, compute_lambda
+from backend.simulator.core.simulator import apply_maintenance_and_safety, run_printer
+from backend.simulator.generate import load_configs
+from backend.simulator.schema import COMPONENT_IDS, FINAL_SCHEMA
 
 
 def test_nominal_driver_values_match_base_lambda() -> None:
@@ -187,7 +187,7 @@ def test_hours_since_failure_resets_on_failure_event() -> None:
 
 
 def test_alpha_sigma_is_validated() -> None:
-    from sdg.core.degradation import validate_components_config
+    from backend.simulator.core.degradation import validate_components_config
 
     components_cfg, _couplings_cfg, _cities_cfg = load_configs()
     # Spec is valid as-is.

@@ -11,11 +11,11 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from sdg.weather.download import download_all
-from sdg.weather.transform import build_city_frame
+from .download import download_all
+from .transform import build_city_frame
 
-ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "sdg" / "config" / "cities_climate.yaml"
+ROOT = Path(__file__).resolve().parents[3]
+CONFIG_PATH = ROOT / "backend" / "simulator" / "config" / "cities_climate.yaml"
 RAW_DIR = ROOT / "data" / "raw"
 OUT_PATH = ROOT / "data" / "weather_data.parquet"
 

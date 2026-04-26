@@ -7,10 +7,10 @@ from typing import MutableMapping
 
 import numpy as np
 
-from sdg.core.component import Component
-from sdg.core.degradation import compute_cross_factors, compute_lambda
-from sdg.core.weather import get_drivers
-from sdg.schema import COMPONENT_IDS
+from .component import Component
+from .degradation import compute_cross_factors, compute_lambda
+from .weather import get_drivers
+from ..schema import COMPONENT_IDS
 
 # Per-day cap on health drop. Above this is non-physical jitter.
 MAX_DH_PER_DAY = 1.2

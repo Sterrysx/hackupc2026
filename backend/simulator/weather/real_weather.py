@@ -2,7 +2,7 @@
 
 Outputs:
   data/train/weather_real.parquet            2016-2025 fab conditions (T_fab, H_fab, P_fab)
-  data/validation/weather_projected.parquet  2026-2035 (cycled from real, leap days clamped)
+  data/prediction/weather_projected.parquet  2026-2035 (cycled from real, leap days clamped)
 """
 from __future__ import annotations
 
@@ -14,13 +14,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from sdg.weather.transform import apply_transfer_functions
+from .transform import apply_transfer_functions
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = ROOT / "data" / "raw"
 TRAIN_DIR = ROOT / "data" / "train"
-VALIDATION_DIR = ROOT / "data" / "validation"
-CLIMATE_CFG_PATH = ROOT / "sdg" / "config" / "cities_climate.yaml"
+PREDICTION_DIR = ROOT / "data" / "prediction"
+CLIMATE_CFG_PATH = ROOT / "backend" / "simulator" / "config" / "cities_climate.yaml"
 
 
 def _load_climate_cfg() -> tuple[dict, dict]:
@@ -110,7 +110,7 @@ def _save(df: pd.DataFrame, path: Path) -> None:
 
 def build_and_save(
     train_dir: Path = TRAIN_DIR,
-    validation_dir: Path = VALIDATION_DIR,
+    prediction_dir: Path = PREDICTION_DIR,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     print("Building real weather (2016-2025)...")
     real_df = build_real_weather()
@@ -118,7 +118,7 @@ def build_and_save(
 
     print("Building projected weather (2026-2035)...")
     proj_df = build_projected_weather(real_df)
-    _save(proj_df, validation_dir / "weather_projected.parquet")
+    _save(proj_df, prediction_dir / "weather_projected.parquet")
 
     return real_df, proj_df
 

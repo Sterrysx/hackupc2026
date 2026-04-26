@@ -1,14 +1,14 @@
-"""Tests for Ai_Agent/component_map.py — the C1..C6 ↔ frontend id mapping."""
+"""Tests for backend/agent/component_map.py — the C1..C6 ↔ frontend id mapping."""
 import pytest
 
-from Ai_Agent.component_map import (
+from backend.agent.component_map import (
     COMPONENTS,
     all_components,
     by_frontend_id,
     by_sim_id,
     map_status,
 )
-from sdg.schema import COMPONENT_IDS
+from backend.simulator.schema import COMPONENT_IDS
 
 
 def test_six_components_aligned_with_simulator():

@@ -29,8 +29,8 @@ if str(REPO_ROOT) not in sys.path:
 
 import yaml
 
-from sdg.core.component import Component
-from sdg.core.degradation import (
+from backend.simulator.core.component import Component
+from backend.simulator.core.degradation import (
     compute_cross_factors,
     compute_lambda,
     validate_components_config,
@@ -38,7 +38,7 @@ from sdg.core.degradation import (
     _life_factor,
     _variable_product,
 )
-from sdg.schema import COMPONENT_IDS
+from backend.simulator.schema import COMPONENT_IDS
 
 # --- knobs -----------------------------------------------------------------
 

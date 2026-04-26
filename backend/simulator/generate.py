@@ -8,17 +8,17 @@ import pandas as pd
 import pyarrow.parquet as pq
 import yaml
 
-from sdg.core.degradation import validate_components_config
-from sdg.core.simulator import run_printer
-from sdg.core.weather import clear_real_lookup, init_real_lookup
-from sdg.labels import add_rul_labels
-from sdg.schema import CITY_CATEGORIES, CLIMATE_CATEGORIES, COMPONENT_IDS, FINAL_SCHEMA, RAW_SCHEMA
-from sdg.schema import table_from_rows
-from sdg.weather.real_weather import build_and_save as build_weather, load_lookup
+from .core.degradation import validate_components_config
+from .core.simulator import run_printer
+from .core.weather import clear_real_lookup, init_real_lookup
+from .labels import add_rul_labels
+from .schema import CITY_CATEGORIES, CLIMATE_CATEGORIES, COMPONENT_IDS, FINAL_SCHEMA, RAW_SCHEMA
+from .schema import table_from_rows
+from .weather.real_weather import build_and_save as build_weather, load_lookup
 
 TRAIN_DIR = Path("data/train")
-VALIDATION_DIR = Path("data/validation")
-DEFAULT_OUTPUT_PATH = Path("data/fleet_baseline.parquet")
+PREDICTION_DIR = Path("data/prediction")
+DEFAULT_OUTPUT_PATH = Path("data/train/fleet_baseline.parquet")
 
 REAL_START = "2016-01-01"
 REAL_END = "2025-12-31"
@@ -111,24 +111,24 @@ def generate_all() -> None:
 
     Layout: real-weather period (2016-2025) lands in ``data/train/`` and is
     used for ML training. Projected period (2026-2035) lands in
-    ``data/validation/`` so it's kept out of the training corpus and is
+    ``data/prediction/`` so it's kept out of the training corpus and is
     available as a forward-looking holdout / what-if dataset.
     """
     TRAIN_DIR.mkdir(parents=True, exist_ok=True)
-    VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
+    PREDICTION_DIR.mkdir(parents=True, exist_ok=True)
 
     print("=== Step 1: build weather parquets ===")
-    build_weather(TRAIN_DIR, validation_dir=VALIDATION_DIR)
+    build_weather(TRAIN_DIR, prediction_dir=PREDICTION_DIR)
 
     real_wp = TRAIN_DIR / "weather_real.parquet"
-    proj_wp = VALIDATION_DIR / "weather_projected.parquet"
+    proj_wp = PREDICTION_DIR / "weather_projected.parquet"
 
     print("\n=== Step 2: fleet 2016-2025 (real weather)  ->  data/train/ ===")
     out_real = TRAIN_DIR / "fleet_2016_2025.parquet"
     main(out_real, REAL_START, REAL_END, real_wp)
 
-    print("\n=== Step 3: fleet 2026-2035 (projected weather)  ->  data/validation/ ===")
-    out_proj = VALIDATION_DIR / "fleet_2026_2035.parquet"
+    print("\n=== Step 3: fleet 2026-2035 (projected weather)  ->  data/prediction/ ===")
+    out_proj = PREDICTION_DIR / "fleet_2026_2035.parquet"
     main(out_proj, PROJ_START, PROJ_END, proj_wp)
 
     # Keep fleet_baseline.parquet pointing at the real 2016-2025 dataset for API compatibility

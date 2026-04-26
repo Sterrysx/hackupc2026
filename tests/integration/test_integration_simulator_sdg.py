@@ -18,10 +18,10 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from sdg.core.simulator import run_printer
-from sdg.core.weather import clear_real_lookup
-from sdg.generate import load_configs
-from sdg.schema import COMPONENT_IDS, RAW_SCHEMA, raw_column_names, table_from_rows
+from backend.simulator.core.simulator import run_printer
+from backend.simulator.core.weather import clear_real_lookup
+from backend.simulator.generate import load_configs
+from backend.simulator.schema import COMPONENT_IDS, RAW_SCHEMA, raw_column_names, table_from_rows
 
 _FLEET_SIZE = 5
 _DAYS = 30

@@ -3,8 +3,8 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
-from sdg.core.component import Component
-from sdg.schema import COMPONENT_IDS
+from .component import Component
+from ..schema import COMPONENT_IDS
 
 
 def compute_cross_factors(

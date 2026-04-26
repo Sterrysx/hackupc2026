@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from Ai_Agent import forecast, twin_data
+from backend.agent import forecast, twin_data
 
 # Match the frontend telemetry contract (`frontend/src/types/telemetry.ts`).
 _VALID_STATUSES = {"FUNCTIONAL", "DEGRADED", "CRITICAL", "FAILED"}
@@ -31,7 +31,7 @@ _EXPECTED_FORECAST_KEYS = {
     "daysUntilCritical", "daysUntilFailure", "rationale", "confidence",
 }
 
-_PARQUET_PATH = Path("data") / "fleet_baseline.parquet"
+_PARQUET_PATH = Path("data") / "train" / "fleet_baseline.parquet"
 
 
 @pytest.fixture(scope="module")

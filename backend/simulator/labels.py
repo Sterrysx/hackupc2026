@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
-from sdg.schema import COMPONENT_IDS, FINAL_SCHEMA, table_from_dataframe
+from .schema import COMPONENT_IDS, FINAL_SCHEMA, table_from_dataframe
 
 
 def add_rul_labels(parquet_path: str | Path) -> None:

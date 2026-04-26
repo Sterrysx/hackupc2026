@@ -4,14 +4,14 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from sdg.core import simulator
-from sdg.core.component import Component
-from sdg.core.degradation import (
+from backend.simulator.core import simulator
+from backend.simulator.core.component import Component
+from backend.simulator.core.degradation import (
     compute_cross_factors,
     compute_lambda,
     validate_components_config,
 )
-from sdg.schema import COMPONENT_IDS, coerce_dataframe
+from backend.simulator.schema import COMPONENT_IDS, coerce_dataframe
 
 
 # ---------------------------------------------------------------- helpers

@@ -7,10 +7,10 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pytest
 
-from sdg.core.weather import get_drivers
-from sdg.generate import CITY_PRINTER_COUNTS, EXPECTED_DAYS, EXPECTED_ROWS, main
-from sdg.labels import compute_rul_columns
-from sdg.schema import COMPONENT_IDS, FINAL_SCHEMA
+from backend.simulator.core.weather import get_drivers
+from backend.simulator.generate import CITY_PRINTER_COUNTS, EXPECTED_DAYS, EXPECTED_ROWS, main
+from backend.simulator.labels import compute_rul_columns
+from backend.simulator.schema import COMPONENT_IDS, FINAL_SCHEMA
 
 
 @pytest.fixture(scope="session")
