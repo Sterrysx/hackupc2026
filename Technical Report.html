@@ -1,0 +1,1248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Digital Twin Predictive Maintenance — Technical Report</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      tags: 'ams'
+    },
+    svg: { fontCache: 'global' },
+    chtml: { scale: 1.0 }
+  };
+</script>
+<script async id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+
+<style>
+  :root {
+    --paper:        oklch(0.985 0.005 85);
+    --paper-rule:   oklch(0.92 0.008 80);
+    --ink:          oklch(0.20 0.012 270);
+    --ink-soft:     oklch(0.42 0.012 270);
+    --ink-faint:    oklch(0.62 0.010 270);
+    --accent:       oklch(0.45 0.080 250);
+    --accent-soft:  oklch(0.94 0.020 250);
+    --ochre:        oklch(0.55 0.090 70);
+    --ochre-soft:   oklch(0.96 0.025 80);
+    --rule:         oklch(0.88 0.008 80);
+
+    --serif: "EB Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    background: oklch(0.94 0.008 80);
+    color: var(--ink);
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.55;
+    font-feature-settings: "kern", "liga", "onum", "pnum";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .page {
+    background: var(--paper);
+    max-width: 1080px;
+    margin: 32px auto;
+    padding: 88px 96px 120px;
+    box-shadow:
+      0 1px 0 oklch(0.88 0.01 80),
+      0 24px 60px -32px oklch(0.55 0.03 80 / 0.35),
+      0 60px 120px -60px oklch(0.55 0.03 80 / 0.35);
+    position: relative;
+  }
+
+  .page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 0% 0%, oklch(0.92 0.012 80 / 0.35), transparent 50%),
+      radial-gradient(ellipse at 100% 100%, oklch(0.92 0.012 80 / 0.3), transparent 50%);
+  }
+
+  /* ============ Header ============ */
+  header.title-block {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    padding: 22px 0 28px;
+    margin-bottom: 56px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px 32px;
+    align-items: end;
+  }
+
+  .eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .eyebrow .sep { margin: 0 10px; color: var(--ink-faint); }
+
+  h1.doc-title {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 46px;
+    line-height: 1.05;
+    letter-spacing: -0.012em;
+    margin: 14px 0 4px;
+    text-wrap: balance;
+  }
+  .doc-subtitle {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    color: var(--ink-soft);
+    line-height: 1.3;
+    margin-top: 6px;
+    text-wrap: balance;
+  }
+
+  .meta {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    text-align: right;
+    min-width: 200px;
+  }
+  .meta dt {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .meta dd {
+    margin: 0 0 0;
+    color: var(--ink);
+    font-feature-settings: "tnum";
+  }
+  .meta dd.mono { font-family: var(--mono); font-size: 10.5px; }
+
+  /* ============ Abstract ============ */
+  .abstract {
+    margin: 0 0 56px;
+    padding: 0 0 0 28px;
+    border-left: 3px solid var(--accent);
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .abstract .label {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .abstract p { margin: 0 0 10px; }
+  .abstract p:last-child { margin-bottom: 0; }
+
+  .keywords {
+    margin-top: 18px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .keywords strong { color: var(--ink); font-weight: 600; }
+
+  /* ============ Sections ============ */
+  section.part { margin: 64px 0 0; }
+  section.part:first-of-type { margin-top: 0; }
+
+  h2.part-title {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+    margin: 0 0 4px;
+    text-wrap: balance;
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+  }
+  h2.part-title .num {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    flex: 0 0 auto;
+    transform: translateY(-2px);
+  }
+  .part-tag {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink-soft);
+    margin: 0 0 24px;
+  }
+
+  h3.subsec {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 21px;
+    margin: 36px 0 10px;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  h3.subsec .num {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin-right: 10px;
+    font-feature-settings: "tnum";
+  }
+
+  h4.subsubsec {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 22px 0 6px;
+  }
+
+  p { margin: 0 0 12px; }
+  p + p { text-indent: 1.4em; }
+
+  .lead { font-size: 19px; line-height: 1.5; color: var(--ink); margin-bottom: 16px; }
+  .lead + p { text-indent: 0; }
+
+  /* small caps style for first words after section */
+  .smallcaps {
+    font-variant: small-caps;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+  }
+
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  code {
+    background: oklch(0.96 0.008 80);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--rule);
+    color: var(--ink);
+  }
+
+  /* ============ Lists ============ */
+  ul.tight, ol.tight {
+    margin: 8px 0 14px;
+    padding-left: 22px;
+  }
+  ul.tight li, ol.tight li { margin-bottom: 4px; }
+  ul.tight li::marker { color: var(--ink-faint); }
+
+  ul.dash {
+    list-style: none;
+    padding-left: 0;
+    margin: 8px 0 14px;
+  }
+  ul.dash li {
+    padding-left: 22px;
+    position: relative;
+    margin-bottom: 6px;
+  }
+  ul.dash li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  /* ============ Equations ============ */
+  .eq {
+    margin: 18px 0;
+    padding: 16px 22px 14px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: oklch(0.98 0.006 80);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 16px;
+  }
+  .eq .body { overflow-x: auto; }
+  .eq .tag {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-feature-settings: "tnum";
+    letter-spacing: 0.04em;
+  }
+
+  /* ============ Definition / inline tables ============ */
+  .deflist {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 22px;
+    margin: 14px 0 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .deflist dt {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    padding-top: 1px;
+  }
+  .deflist dd {
+    margin: 0;
+    font-size: 16px;
+  }
+
+  /* status pills */
+  .status-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 18px;
+    font-size: 15px;
+  }
+  .status-table th, .status-table td {
+    text-align: left;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .status-table thead th {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-soft);
+    font-weight: 600;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .status-table td.range { font-family: var(--mono); font-size: 13.5px; color: var(--ink); }
+  .pill {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+  }
+  .pill.ok       { color: oklch(0.42 0.10 150); background: oklch(0.96 0.03 150); }
+  .pill.warn     { color: oklch(0.50 0.11 80);  background: oklch(0.96 0.04 80); }
+  .pill.crit     { color: oklch(0.50 0.14 40);  background: oklch(0.96 0.04 40); }
+  .pill.fail     { color: oklch(0.40 0.12 25);  background: oklch(0.95 0.04 25); }
+
+  /* formula table */
+  .formula-table {
+    margin: 18px 0 22px;
+    border-top: 2px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .formula-table .group-header {
+    display: grid;
+    grid-template-columns: 60px 180px 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0 8px;
+    border-bottom: 1px solid var(--rule);
+    background: oklch(0.97 0.008 80);
+  }
+  .formula-table .group-header .sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.14em;
+    text-align: center;
+  }
+  .formula-table .group-header .group-name {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .formula-table .group-header .rate-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  .formula-table .col-headers {
+    display: grid;
+    grid-template-columns: 60px 180px 1fr;
+    gap: 16px;
+    padding: 8px 0 6px;
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    font-weight: 600;
+    border-bottom: 1px solid var(--ink);
+  }
+  .formula-table .col-headers .h-id { text-align: center; }
+  .formula-table .formula-row {
+    display: grid;
+    grid-template-columns: 60px 180px 1fr;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .formula-table .formula-row:last-child { border-bottom: none; }
+  .formula-table .formula-row .id {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: center;
+    letter-spacing: 0.06em;
+  }
+  .formula-table .formula-row .name {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .formula-table .formula-row .rate {
+    font-size: 14px;
+    overflow-x: auto;
+    color: var(--ink);
+  }
+
+  /* component table */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0 18px;
+  }
+  .comp-card {
+    border: 1px solid var(--rule);
+    background: oklch(0.99 0.004 80);
+    padding: 14px 16px 14px;
+    border-radius: 2px;
+    position: relative;
+  }
+  .comp-card .id {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+  }
+  .comp-card .name {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 600;
+    margin-top: 2px;
+    line-height: 1.2;
+  }
+  .comp-card .sys {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+
+  /* callouts */
+  .callout {
+    margin: 22px 0;
+    padding: 18px 22px;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ochre);
+    background: var(--ochre-soft);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .callout .label {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    color: var(--ochre);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .callout.accent {
+    border-left-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .callout.accent .label { color: var(--accent); }
+
+  /* ============ Figures ============ */
+  figure {
+    margin: 28px 0;
+    padding: 0;
+  }
+  .placeholder {
+    width: 100%;
+    height: 280px;
+    border: 1px solid var(--rule);
+    background-image:
+      repeating-linear-gradient(135deg,
+        oklch(0.96 0.008 80) 0 14px,
+        oklch(0.93 0.012 80) 14px 28px);
+    display: grid;
+    place-items: center;
+    position: relative;
+    border-radius: 2px;
+  }
+  .placeholder.tall { height: 360px; }
+  .placeholder.short { height: 200px; }
+  .placeholder .tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: oklch(0.30 0.012 270);
+    background: var(--paper);
+    padding: 8px 14px;
+    border: 1px solid var(--rule);
+    text-align: center;
+    max-width: 70%;
+  }
+  .placeholder .tag .k {
+    font-weight: 600;
+    color: var(--accent);
+    margin-right: 8px;
+  }
+
+  figcaption {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    padding-left: 14px;
+    border-left: 2px solid var(--accent);
+  }
+  figcaption .figlabel {
+    font-weight: 700;
+    color: var(--ink);
+    margin-right: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ============ Code block ============ */
+  pre.code {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    background: oklch(0.97 0.006 80);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ink);
+    padding: 14px 18px;
+    overflow-x: auto;
+    margin: 16px 0;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+  pre.code .c { color: var(--ink-faint); font-style: italic; }
+  pre.code .k { color: var(--accent); font-weight: 600; }
+  pre.code .s { color: oklch(0.45 0.10 30); }
+  pre.code .n { color: var(--ochre); }
+
+  /* ============ Coupling diagram ============ */
+  .coupling {
+    margin: 18px 0 22px;
+    padding: 18px 20px;
+    background: oklch(0.98 0.006 80);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  .coupling h5 {
+    margin: 0 0 10px;
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .coupling-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr auto;
+    gap: 10px 14px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 0;
+    border-top: 1px dashed var(--rule);
+  }
+  .coupling-row:first-of-type { border-top: none; }
+  .coupling-row .src, .coupling-row .dst {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .coupling-row .arrow { color: var(--accent); font-weight: 600; }
+  .coupling-row .mult {
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+    font-size: 12.5px;
+    justify-self: end;
+  }
+  .coupling-row .desc {
+    font-family: var(--serif);
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  /* stage cards */
+  .stages {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 18px 0 22px;
+  }
+  .stage {
+    border: 1px solid var(--rule);
+    padding: 16px 16px 18px;
+    background: var(--paper);
+    border-radius: 2px;
+    position: relative;
+  }
+  .stage::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0.25;
+  }
+  .stage:nth-child(2)::before { opacity: 0.55; }
+  .stage:nth-child(3)::before { opacity: 1; }
+  .stage .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+  .stage .name {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 4px 0 6px;
+  }
+  .stage .desc {
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+  .stage .meth {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--rule);
+  }
+
+  /* pipeline */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin: 18px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .pipe-node {
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 10px 8px;
+    text-align: center;
+    border-radius: 2px;
+    position: relative;
+  }
+  .pipe-node .n {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .pipe-node .lbl {
+    color: var(--ink);
+    font-weight: 500;
+    font-size: 11.5px;
+    line-height: 1.3;
+  }
+  .pipe-node + .pipe-node::before {
+    content: "→";
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-faint);
+    background: var(--paper);
+    padding: 0 1px;
+    font-size: 13px;
+  }
+
+  /* footnotes / running */
+  .running-foot {
+    margin-top: 80px;
+    padding-top: 18px;
+    border-top: 1px solid var(--ink);
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 0.04em;
+  }
+
+  /* page break separator visual */
+  .rule-ornament {
+    text-align: center;
+    margin: 36px 0;
+    font-family: var(--serif);
+    color: var(--ink-faint);
+    font-size: 18px;
+    letter-spacing: 1em;
+  }
+
+  /* takeaway */
+  .takeaway {
+    margin: 32px 0 0;
+    padding: 28px 32px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    position: relative;
+  }
+  .takeaway .label {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .takeaway .quote {
+    font-family: var(--serif);
+    font-size: 24px;
+    font-style: italic;
+    line-height: 1.3;
+    color: var(--ink);
+    text-wrap: balance;
+    margin: 0;
+  }
+  .takeaway .quote::before { content: "“"; color: var(--accent); margin-right: 2px; }
+  .takeaway .quote::after  { content: "”"; color: var(--accent); margin-left: 2px; }
+
+  /* contents (TOC) */
+  .toc {
+    margin: 0 0 56px;
+    padding: 18px 0 18px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: max-content 1fr max-content;
+    gap: 4px 16px;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .toc .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .toc .ttl { color: var(--ink); }
+  .toc .pg  { color: var(--ink-faint); font-feature-settings: "tnum"; font-family: var(--mono); }
+  .toc .h1 { font-weight: 700; padding-top: 4px; }
+  .toc .h1 .ttl { color: var(--ink); }
+
+  /* MathJax tweaks */
+  mjx-container[display="true"] { margin: 6px 0 !important; }
+  mjx-container { font-size: 105% !important; }
+
+  @media (max-width: 900px) {
+    .page { padding: 56px 36px 80px; margin: 0; }
+    .comp-grid, .stages { grid-template-columns: 1fr; }
+    .pipeline { grid-template-columns: 1fr 1fr; }
+    h1.doc-title { font-size: 34px; }
+    header.title-block { grid-template-columns: 1fr; }
+    .meta { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<article class="page" data-screen-label="Technical Report">
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="title-block">
+    <div>
+      <div class="eyebrow">
+        Technical Report
+        <span class="sep">·</span> v1.0
+        <span class="sep">·</span> Predictive Maintenance &amp; Digital Twins
+      </div>
+      <h1 class="doc-title">Grounding AI in Physical Reality:<br/>A Digital Twin for Metal&nbsp;Jet Printer Fleets</h1>
+      <div class="doc-subtitle">A physics-informed simulation, self-supervised surrogate, and agentic RAG architecture for predictive maintenance optimization.</div>
+    </div>
+    <dl class="meta">
+      <dt>Project</dt>     <dd>HackUPC&nbsp;2026</dd>
+      <dt>Track</dt>       <dd>Industrial AI</dd>
+      <dt>Date</dt>        <dd>26&nbsp;April&nbsp;2026</dd>
+      <dt>Authors</dt>     <dd>Team&nbsp;Twin</dd>
+      <dt>Reference</dt>   <dd class="mono">DTPM-2026-001</dd>
+    </dl>
+  </header>
+
+  <!-- ===================== ABSTRACT ===================== -->
+  <section class="abstract">
+    <span class="label">Abstract</span>
+    <p>We present a three-layer Digital Twin for the predictive maintenance of metal-jet additive manufacturing fleets. A <em>stateless degradation engine</em> computes per-component health updates from physics-informed rate laws; a <em>three-stage simulation harness</em> evolves maintenance policies from constant-interval baselines through self-supervised surrogates to PPO ensembles; and an <em>agentic RAG layer</em> built on LangGraph delivers traceable diagnostics with a hard no-hallucinations contract.</p>
+    <p>The system is engineered around a single thesis: that grounding is a structural property of the orchestration graph &mdash; not an emergent property of the prompt. We report the architecture, the rate-law family, the optimization objective with its $10^9$ infeasibility floor, and the dual-agent diagnostic pipeline that enforces evidence citation and structural validity.</p>
+    <div class="keywords">
+      <strong>Keywords —</strong> digital twin, predictive maintenance, physics-informed simulation, self-supervised representations, proximal policy optimization, agentic RAG, LangGraph, traceability.
+    </div>
+  </section>
+
+  <!-- ===================== TOC ===================== -->
+  <div class="toc">
+    <div class="num h1">§1</div><div class="ttl h1">Model — The Degradation Engine</div><div class="pg h1">03</div>
+    <div class="num">1.1</div><div class="ttl">Printer decomposition &amp; health index</div><div class="pg">03</div>
+    <div class="num">1.2</div><div class="ttl">Master rate law &amp; Euler integration</div><div class="pg">04</div>
+    <div class="num">1.3</div><div class="ttl">Component-specific physics</div><div class="pg">05</div>
+    <div class="num">1.4</div><div class="ttl">Coupling and cascading failures</div><div class="pg">06</div>
+    <div class="num h1">§2</div><div class="ttl h1">Simulation — Evolution &amp; Benchmarking</div><div class="pg h1">07</div>
+    <div class="num">2.1</div><div class="ttl">Three-stage policy architecture</div><div class="pg">07</div>
+    <div class="num">2.2</div><div class="ttl">Objective, reward, and infeasibility floor</div><div class="pg">08</div>
+    <div class="num h1">§3</div><div class="ttl h1">Interaction — Agentic RAG</div><div class="pg h1">09</div>
+    <div class="num">3.1</div><div class="ttl">LangGraph Pattern&nbsp;C pipeline</div><div class="pg">09</div>
+    <div class="num">3.2</div><div class="ttl">Gatherer / Synthesizer dual agents</div><div class="pg">10</div>
+    <div class="num">3.3</div><div class="ttl">The no-hallucinations contract</div><div class="pg">10</div>
+    <div class="num h1">§4</div><div class="ttl h1">Conclusion &amp; takeaway</div><div class="pg h1">11</div>
+  </div>
+
+  <!-- ===================== SECTION 1 ===================== -->
+  <section class="part" id="sec-model">
+    <h2 class="part-title"><span class="num">§ 1</span> Model — The Degradation Engine</h2>
+    <p class="part-tag">The stateless brain. A pure function from <em>(state, drivers, dt)</em> to <em>state′</em>.</p>
+
+    <p class="lead"><span class="smallcaps">The degradation engine</span> is the single source of truth for the entire simulation loop. It is deliberately <em>stateless</em>: given a current health vector, an environmental driver vector, and a timestep, it returns the next health vector. No hidden buffers, no accumulators, no implicit memory. Everything that persists across ticks lives in the simulation harness, not the brain. This separation is what allows the same engine to back deterministic Monte&nbsp;Carlo rollouts, RL training environments, and live what-if queries from the diagnostic agent.</p>
+
+    <h3 class="subsec"><span class="num">1.1</span> Printer Decomposition &amp; Health Index</h3>
+
+    <p>The metal-jet binder-jetting platform under study is decomposed into <strong>three subsystems</strong> covering <strong>six tracked components</strong>. The decomposition is deliberately coarse: each component must (i)&nbsp;have a credible standalone failure mode, (ii)&nbsp;be addressable by a discrete maintenance action, and (iii)&nbsp;couple to at least one other component physically.</p>
+
+    <div class="comp-grid">
+      <div class="comp-card">
+        <div class="id">C1</div>
+        <div class="name">Recoater Blade</div>
+        <div class="sys">Recoating system</div>
+      </div>
+      <div class="comp-card">
+        <div class="id">C2</div>
+        <div class="name">Linear Guide</div>
+        <div class="sys">Recoating system</div>
+      </div>
+      <div class="comp-card">
+        <div class="id">C3</div>
+        <div class="name">Nozzle Plate</div>
+        <div class="sys">Printing array</div>
+      </div>
+      <div class="comp-card">
+        <div class="id">C4</div>
+        <div class="name">TIJ Resistors</div>
+        <div class="sys">Printing array</div>
+      </div>
+      <div class="comp-card">
+        <div class="id">C5</div>
+        <div class="name">Heating Elements</div>
+        <div class="sys">Thermal control</div>
+      </div>
+      <div class="comp-card">
+        <div class="id">C6</div>
+        <div class="name">Insulation Panels</div>
+        <div class="sys">Thermal control</div>
+      </div>
+    </div>
+
+    <p>For each component $i \in \{1,\dots,6\}$ we define a scalar <em>Health Index</em> $H_i \in [0,1]$, where $H_i = 1$ denotes pristine condition and $H_i = 0$ denotes confirmed failure. The index is deliberately abstract — it is <em>not</em> a direct physical observable, but a latent quantity inferred from telemetry and reified by the rate law. Health maps to a four-level operational status used throughout the dashboard, the reward function, and the diagnostic agent.</p>
+
+    <table class="status-table">
+      <thead>
+        <tr><th>Status</th><th>Range</th><th>Operational meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill ok">OK</span></td>
+          <td class="range">$H &gt; 0.7$</td>
+          <td>Nominal. No intervention required; component within design envelope.</td>
+        </tr>
+        <tr>
+          <td><span class="pill warn">WARNING</span></td>
+          <td class="range">$0.4 &lt; H \le 0.7$</td>
+          <td>Drift detected. Eligible for opportunistic maintenance during scheduled stops.</td>
+        </tr>
+        <tr>
+          <td><span class="pill crit">CRITICAL</span></td>
+          <td class="range">$0.1 &lt; H \le 0.4$</td>
+          <td>Active risk. Activates cross-component multipliers; preempt before downstream cascade.</td>
+        </tr>
+        <tr>
+          <td><span class="pill fail">FAILED</span></td>
+          <td class="range">$H \le 0.1$</td>
+          <td>Hard stop. Printer offline; availability penalty accrues until repair.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="subsec"><span class="num">1.2</span> The Master Rate Law</h3>
+
+    <p>All six components share a common functional form for their instantaneous degradation rate $\lambda_i$ (units: $\text{health}\,\cdot\,\text{day}^{-1}$). The form is multiplicative across three classes of factors: an intrinsic baseline, an asset-specific calibration, a product of physical <em>driver terms</em>, and a cross-coupling term that captures cascading effects from neighbouring components.</p>
+
+    <div class="eq">
+      <div class="body">
+        $$ \lambda_i \;=\; \lambda_{0,i} \,\cdot\, \alpha_i \,\cdot\, \underbrace{\prod_{k} g_k\!\left(d_k(t)\right)}_{\text{driver terms}} \,\cdot\, f_{\text{cross},\,i}\!\left(\mathbf{H}_{-i}(t)\right) $$
+      </div>
+      <div class="tag">(1)</div>
+    </div>
+
+    <dl class="deflist">
+      <dt>$\lambda_{0,i}$</dt>     <dd>Population-level baseline rate from manufacturer reliability data and field MTBF priors.</dd>
+      <dt>$\alpha_i$</dt>          <dd>Per-asset calibration learned from the SSL encoder (§2.1, Stage&nbsp;2); captures unit-to-unit variance.</dd>
+      <dt>$g_k(d_k)$</dt>          <dd>Monotone driver responses (humidity, layer count, peak temperature, particulate load…).</dd>
+      <dt>$f_{\text{cross},\,i}$</dt><dd>Cross-component coupling — discrete multipliers and continuous feedback (§1.4).</dd>
+    </dl>
+
+    <p>Health updates are integrated with explicit forward Euler, with timestep $\Delta t = 1\,\text{day}$ matched to the dominant driver granularity. Aggressive sub-stepping was rejected as a premature optimization: the rate law is already piecewise-smooth in the drivers and the per-day cap below contains numerical blow-ups at regime transitions.</p>
+
+    <div class="eq">
+      <div class="body">
+        $$ H_i(t + \Delta t) \;=\; \max\!\Big(\,0,\; H_i(t) - \mathrm{clip}\big(\lambda_i(t) \cdot \Delta t,\;\; 0,\;\; \mathit{MAX\_DH}\big)\Big), \qquad \mathit{MAX\_DH}=1.2 $$
+      </div>
+      <div class="tag">(2)</div>
+    </div>
+
+    <p>The cap $\mathit{MAX\_DH} = 1.2$ is intentionally above the natural saturation point ($H \in [0,1]$). Its role is purely numerical: it short-circuits pathological excursions when a learned $\alpha_i$ and a stacked driver multiplier conspire to produce a one-tick rate that would overshoot zero by an unphysical margin. In practice the clip activates on $\sim\!0.03\%$ of ticks across calibrated runs.</p>
+
+    <h3 class="subsec"><span class="num">1.3</span> Component Rate Laws (Physics-Informed)</h3>
+
+    <p>Each component instantiates the master rate law of Equation&nbsp;(1) with a subsystem-appropriate driver product. Drivers are normalized to nominal operating conditions — temperature ratio $T/T_r$, humidity ratio $H/H_r$, recoat-cycle ratio $N_c/N_\text{nom}$, jet-firing-count ratio $N_f/N_\text{nom}$, layer-count ratio $L/L_\text{nom}$, and time-since-maintenance ratio $\tau/\tau_\text{nom}$ — so the exponents read directly as <em>elasticities</em>: the local sensitivity of $\lambda_i$ to a relative change in that driver. Higher exponent $\Rightarrow$ stronger physical coupling.</p>
+
+    <div class="formula-table">
+
+      <div class="group-header">
+        <div class="sub">SUB 01</div>
+        <div class="group-name">Recoating system</div>
+        <div class="rate-label">Degradation rate $\lambda_i$</div>
+      </div>
+      <div class="col-headers">
+        <div class="h-id">ID</div>
+        <div>Component</div>
+        <div>Rate law</div>
+      </div>
+      <div class="formula-row">
+        <div class="id">C1</div>
+        <div class="name">Recoater blade</div>
+        <div class="rate">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{0.4} \cdot (H/H_r)^{0.6} \cdot (1 + N_c/N_\text{nom})^{1.2} \cdot (1 + L/L_\text{nom})^{0.8} \cdot f_\text{cross}$</div>
+      </div>
+      <div class="formula-row">
+        <div class="id">C2</div>
+        <div class="name">Linear guide</div>
+        <div class="rate">$\lambda_0 \cdot \alpha \cdot (1 + N_c/N_\text{nom})^{1.5} \cdot (1 + \tau/\tau_\text{nom})^{0.6} \cdot (H/H_r)^{0.3} \cdot f_\text{cross}$</div>
+      </div>
+
+      <div class="group-header">
+        <div class="sub">SUB 02</div>
+        <div class="group-name">Printhead system</div>
+        <div class="rate-label">Degradation rate $\lambda_i$</div>
+      </div>
+      <div class="col-headers">
+        <div class="h-id">ID</div>
+        <div>Component</div>
+        <div>Rate law</div>
+      </div>
+      <div class="formula-row">
+        <div class="id">C3</div>
+        <div class="name">Nozzle plate</div>
+        <div class="rate">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{0.9} \cdot (1 + N_f/N_\text{nom})^{1.4} \cdot (1 + \tau/\tau_\text{nom})^{0.7} \cdot f_\text{cross}$</div>
+      </div>
+      <div class="formula-row">
+        <div class="id">C4</div>
+        <div class="name">TIJ resistors</div>
+        <div class="rate">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{1.6} \cdot (1 + N_f/N_\text{nom})^{1.0} \cdot (1 + L/L_\text{nom})^{0.9} \cdot f_\text{cross}$</div>
+      </div>
+
+      <div class="group-header">
+        <div class="sub">SUB 03</div>
+        <div class="group-name">Thermal system</div>
+        <div class="rate-label">Degradation rate $\lambda_i$</div>
+      </div>
+      <div class="col-headers">
+        <div class="h-id">ID</div>
+        <div>Component</div>
+        <div>Rate law</div>
+      </div>
+      <div class="formula-row">
+        <div class="id">C5</div>
+        <div class="name">Heating elements</div>
+        <div class="rate">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{1.8} \cdot (1 + L/L_\text{nom})^{1.1} \cdot (1 + \tau/\tau_\text{nom})^{0.5} \cdot f_\text{cross}$</div>
+      </div>
+      <div class="formula-row">
+        <div class="id">C6</div>
+        <div class="name">Insulation panels</div>
+        <div class="rate">$\lambda_0 \cdot \alpha \cdot (T/T_r)^{0.7} \cdot (H/H_r)^{0.5} \cdot (1 + L/L_\text{nom})^{1.0} \cdot f_\text{cross}$</div>
+      </div>
+
+    </div>
+
+    <h4 class="subsubsec">Reading the exponents</h4>
+    <p>The strongest single sensitivity in the fleet is the heating elements' temperature exponent ($1.8$ on $T/T_r$), consistent with their near-Arrhenius wear-out and the Weibull-shaped tail observed in field-incident data. Second is the TIJ resistors at $1.6$ on $T/T_r$, again temperature-dominated through electromigration. The recoater blade (C1) is the only component with a meaningful humidity elasticity ($0.6$) because powder cohesion is humidity-mediated; the insulation panels carry a weaker but non-trivial humidity dependence ($0.5$) through condensation effects on the panel face.</p>
+
+    <p>Throughput drivers split cleanly across subsystems: $N_c$ (recoat cycles) appears only on the recoating components (C1, C2); $N_f$ (jet firings) appears only on the printhead components (C3, C4); the layer count $L$ couples broadly because every layer touches every subsystem. The maintenance-clock ratio $\tau/\tau_\text{nom}$ appears wherever lubricant or seal aging is dominant (C2, C3, C5) — these are exactly the components for which post-maintenance health resets are most consequential, and where a dynamic policy (§2.1, Stage&nbsp;3) gains the most over a constant interval.</p>
+
+    <h3 class="subsec"><span class="num">1.4</span> Coupling &amp; Cascading Failures</h3>
+
+    <p>Real fleets do not fail one component at a time. A worn blade puts particulates in the chamber; particulates clog nozzles; clogged nozzles drive resistors hotter; hot resistors fatigue the plate. The engine encodes this with two distinct mechanisms — one discrete, one continuous — that together populate $f_{\text{cross},\,i}$ in Equation&nbsp;(1).</p>
+
+    <h4 class="subsubsec">Mechanism A — Critical Multipliers (discrete)</h4>
+    <p>When a source component $j$ enters CRITICAL state, a fixed multiplier is applied to the rate of the affected target $i$. The multipliers were tuned against the field-incident database; the most consequential are:</p>
+
+    <div class="coupling">
+      <h5>Discrete multipliers (active when source is CRITICAL)</h5>
+      <div class="coupling-row">
+        <span class="src">C1</span><span class="desc">contaminates print chamber</span>
+        <span class="arrow">→</span><span class="dst">C3</span><span class="mult">× 2.0</span>
+      </div>
+      <div class="coupling-row">
+        <span class="src">C3</span><span class="desc">misfires raise local resistor load</span>
+        <span class="arrow">→</span><span class="dst">C4</span><span class="mult">× 1.7</span>
+      </div>
+      <div class="coupling-row">
+        <span class="src">C6</span><span class="desc">heat loss raises element duty</span>
+        <span class="arrow">→</span><span class="dst">C5</span><span class="mult">× 1.8</span>
+      </div>
+      <div class="coupling-row">
+        <span class="src">C2</span><span class="desc">guide chatter forces recoat retries</span>
+        <span class="arrow">→</span><span class="dst">C1</span><span class="mult">× 1.5</span>
+      </div>
+    </div>
+
+    <h4 class="subsubsec">Mechanism B — Continuous Physical Cascade</h4>
+    <p>Mechanism A is sharp but brittle: it activates only on a discrete state transition. Real degradation is gradual. We therefore augment it with continuous feedback through <em>shared drivers</em>, where the health of one component modulates a physical quantity that shows up in another's rate law. Two canonical channels:</p>
+
+    <ul class="dash">
+      <li>The blade health $H_{C1}$ modulates particulate concentration $c_p$ in the chamber: $c_p = c_{p,0}\,(1 + \gamma\,(1-H_{C1}))$, which feeds directly into $\Lambda_{C3}$ via Equation&nbsp;(4).</li>
+      <li>The insulation health $H_{C6}$ modulates effective heat demand $Q$ on the heating elements: $Q = Q_{0}\,(1 + \delta\,(1-H_{C6}))$, raising the operating $T$ that drives $\Lambda_{C5}$ in Equation&nbsp;(6).</li>
+    </ul>
+
+    <div class="callout accent">
+      <span class="label">Why both mechanisms</span>
+      Mechanism&nbsp;A reproduces the operational <em>shock</em> a field engineer recognises — “the blade went red and we lost three nozzles by Friday.” Mechanism&nbsp;B reproduces the <em>creep</em> that a constant-interval policy will systematically underestimate. Together they make the policy-search problem genuinely non-trivial: the optimal $\tau$ for any one component depends on the historical state of the others.
+    </div>
+
+  </section>
+
+  <div class="rule-ornament">· · ·</div>
+
+  <!-- ===================== SECTION 2 ===================== -->
+  <section class="part" id="sec-sim">
+    <h2 class="part-title"><span class="num">§ 2</span> Simulation — Evolution &amp; Benchmarking</h2>
+    <p class="part-tag">From a global constant to a dynamic ensemble policy &mdash; in three deliberate stages.</p>
+
+    <p class="lead"><span class="smallcaps">The simulation harness</span> wraps the degradation engine in a maintenance-decision loop, an episodic accountant for cost and availability, and a comparison rig that lets us benchmark policies of very different shape on a level playing field. The architecture is intentionally evolutionary: each stage exists to answer a specific question that the previous stage left open.</p>
+
+    <h3 class="subsec"><span class="num">2.1</span> The Three-Stage Architecture</h3>
+
+    <div class="stages">
+      <div class="stage">
+        <div class="num">STAGE 01</div>
+        <div class="name">Naive Baseline — Optuna constant&nbsp;$\tau$</div>
+        <div class="desc">Global Bayesian search over a single static maintenance interval $\tau_i$ per component. Establishes the floor: what does textbook time-based maintenance achieve?</div>
+        <div class="meth">method · Optuna · TPE sampler</div>
+      </div>
+      <div class="stage">
+        <div class="num">STAGE 02</div>
+        <div class="name">SSL/SPR Surrogate</div>
+        <div class="desc">Self-Supervised Learning with Self-Predictive Representations on unlabeled telemetry. Yields a state encoder $\phi$ and a learned cost surrogate $\hat V_\theta$ that bypasses full simulation.</div>
+        <div class="meth">method · SPR · transformer encoder</div>
+      </div>
+      <div class="stage">
+        <div class="num">STAGE 03</div>
+        <div class="name">Agentic RL — PPO Ensemble</div>
+        <div class="desc">A K-policy ensemble trained with PPO on the calibrated simulator. Per-tick decisions, per-component, conditioned on $\phi$. Ensemble vote stabilizes early-training regret.</div>
+        <div class="meth">method · PPO · K=5 · GAE λ=0.95</div>
+      </div>
+    </div>
+
+    <h4 class="subsubsec">The “Surrogate Gap”</h4>
+    <p>An honest accounting of Stage&nbsp;2 reveals an instructive failure: in our initial benchmarks the SSL surrogate, used in isolation as a static policy selector, was <em>outperformed</em> by the Stage-1 Optuna baseline. This is not a bug — it is a structural property of the setup, and worth dwelling on.</p>
+
+    <p>For a static policy, the cost landscape is a deterministic function of a low-dimensional parameter vector $\boldsymbol\tau$. The simulator <em>is</em> the cost function. Any learned approximator $\hat V_\theta$ — no matter how clean its representations — introduces an irreducible approximation error $\varepsilon_\theta$ that the direct simulation does not pay. For static $\boldsymbol\tau$, you are competing with yourself with one hand tied behind your back.</p>
+
+    <p>The surrogate only earns its keep when the policy class becomes <em>dynamic</em>: when actions are selected per-tick, per-component, conditional on a state vector that lives in a space too large to grid-search. At that point the simulator is no longer a function of a few knobs; it is the inner loop of a credit-assignment problem, and the SSL encoder $\phi$ pays for itself by giving PPO a stable, low-variance state representation. This is the bridge to Stage&nbsp;3.</p>
+
+    <figure>
+      <img src="figures/fig02-maintenance-interval.png" alt="Maintenance interval comparison: per-component bar chart across Stages 1, 2, 3 with 95% bootstrap CIs." style="width:100%; height:auto; display:block; border:1px solid var(--rule); border-radius:2px;" />
+      <figcaption><span class="figlabel">Figure 1.</span> Per-component maintenance interval (days), seed-mean across 64 seeds with 95&thinsp;% bootstrap confidence intervals on the mean. Stage&nbsp;3 (RL) systematically lengthens intervals on every component &mdash; most dramatically on C5 (heating elements, $+45\%$ vs. baseline) &mdash; without violating the availability constraint, indicating the dynamic policy substitutes condition-aware deferral for blanket calendar maintenance.</figcaption>
+    </figure>
+
+    <h3 class="subsec"><span class="num">2.2</span> Mathematical Objective &amp; Reward</h3>
+
+    <p>All three stages optimize the same scalar objective: minimize per-printer expected annual cost subject to a hard fleet availability constraint.</p>
+
+    <div class="eq">
+      <div class="body">
+        $$ \min_{\pi}\;\; \mathbb{E}_{\,\xi \sim \mathcal D}\!\left[\, C_\text{ann}(\pi;\xi) \,\right] \quad\text{s.t.}\quad A(\pi) \;\ge\; 0.95 $$
+      </div>
+      <div class="tag">(7)</div>
+    </div>
+
+    <p>where $\pi$ is a policy (a constant interval, a surrogate-greedy selector, or a PPO actor), $\xi$ is a sampled fleet trajectory, $C_\text{ann}$ aggregates parts cost, labor cost, and lost-throughput cost over a one-year horizon, and $A$ is the time-averaged fraction of fleet hours in non-FAILED status.</p>
+
+    <h4 class="subsubsec">The $10^9$ Infeasibility Floor</h4>
+    <p>Constrained optimization is supplied to the optimizer through a piecewise scalarization. Rather than a soft Lagrangian penalty, we use a <em>step function</em> that hard-separates feasible from infeasible regimes:</p>
+
+    <div class="eq">
+      <div class="body">
+        $$ V(\pi) \;=\; \begin{cases} \,C_\text{ann}(\pi) & \text{if } A(\pi) \ge 0.95, \\[6pt] \,10^{9} \,+\, \lambda_\text{pen}\,\big(0.95 - A(\pi)\big) & \text{if } A(\pi) &lt; 0.95. \end{cases} $$
+      </div>
+      <div class="tag">(8)</div>
+    </div>
+
+    <p>The $10^9$ floor is large enough to dominate any plausible cost-side gradient, so the search is structurally forbidden from “buying” cost wins by sacrificing availability. The residual $\lambda_\text{pen}\,(0.95 - A)$ inside the infeasible regime preserves a usable gradient for Optuna and PPO so they can <em>climb out</em> of infeasibility along the steepest local direction. Without that residual the infeasible region is a flat plateau and the optimizer wanders.</p>
+
+    <figure>
+      <img src="figures/fig03-pareto-front.png" alt="Cost-availability Pareto front. Stage clouds with non-dominated frontier; red dashed threshold marks feasibility a >= 0.92." style="width:100%; height:auto; display:block; border:1px solid var(--rule); border-radius:2px;" />
+      <figcaption><span class="figlabel">Figure 2.</span> Cost&ndash;availability frontier across all three stages. Each point is one configuration; outlined markers form the per-stage non-dominated frontier (lower-left dominated, upper-left preferred). The Stage&nbsp;3 cloud collapses up and to the left, with its frontier hugging the feasibility threshold at $a \ge 0.92$ &mdash; the RL agent learns to operate <em>at</em> the constraint, converting the slack that Stages&nbsp;1&ndash;2 leave on the table directly into cost savings.</figcaption>
+    </figure>
+
+  </section>
+
+  <div class="rule-ornament">· · ·</div>
+
+  <!-- ===================== SECTION 3 ===================== -->
+  <section class="part" id="sec-interaction">
+    <h2 class="part-title"><span class="num">§ 3</span> Interaction — Agentic RAG</h2>
+    <p class="part-tag">A graph, not a prompt. Five nodes, two agents, one contract.</p>
+
+    <p class="lead"><span class="smallcaps">The interaction layer</span> exposes the digital twin to a human operator through natural-language diagnostics. We deliberately rejected the “one-shot RAG” pattern — retrieve-once, generate-once — because it conflates retrieval, reasoning, and validation into a single LLM call where errors at any stage are indistinguishable in the output. Instead we adopt LangGraph <em>Pattern&nbsp;C: Agentic Diagnosis</em>, a five-node directed pipeline with explicit handoffs and an explicit retry edge.</p>
+
+    <h3 class="subsec"><span class="num">3.1</span> Architecture — LangGraph Pattern C</h3>
+
+    <div class="pipeline">
+      <div class="pipe-node"><span class="n">N1</span><span class="lbl">Intake &amp; route</span></div>
+      <div class="pipe-node"><span class="n">N2</span><span class="lbl">Gatherer (ReAct)</span></div>
+      <div class="pipe-node"><span class="n">N3</span><span class="lbl">Synthesizer</span></div>
+      <div class="pipe-node"><span class="n">N4</span><span class="lbl">Guardrail</span></div>
+      <div class="pipe-node"><span class="n">N5</span><span class="lbl">Emit / alert</span></div>
+    </div>
+
+    <p>Each node has a typed contract on its inputs and outputs. State flows forward; only the Guardrail (N4) can route backward — and only to the Synthesizer (N3), with a bounded retry counter. The graph is intentionally shallow: every transition is auditable, and the entire trace for a diagnostic event fits on a single dashboard row.</p>
+
+    <h3 class="subsec"><span class="num">3.2</span> The Dual-Agent Logic</h3>
+
+    <p>The orchestration splits a diagnostic query into two agents with disjoint responsibilities. The Gatherer is allowed to act on the world (read-only); the Synthesizer is forbidden from acting on the world. This separation is what makes citation enforceable downstream.</p>
+
+    <h4 class="subsubsec">Gatherer Agent (N2)</h4>
+    <p>A ReAct loop with a strict, three-tool action space:</p>
+    <pre class="code"><span class="c"># Gatherer tool surface — strictly read-only.</span>
+<span class="k">def</span> think(thought: <span class="n">str</span>) -&gt; <span class="n">None</span>: ...
+<span class="k">def</span> get_existing_runs(printer_id: <span class="n">str</span>,
+                      window: <span class="n">str</span> = <span class="s">"30d"</span>) -&gt; <span class="n">list</span>[<span class="n">RunRef</span>]: ...
+<span class="k">def</span> query_database(sql: <span class="n">str</span>,
+                    params: <span class="n">dict</span>) -&gt; <span class="n">list</span>[<span class="n">Row</span>]: <span class="c"># SQLite historian, read-only role</span></pre>
+
+    <p>The Gatherer iterates <code>think → act → observe</code> until it judges it has sufficient telemetry, then hands off a <em>retrieved evidence bundle</em> to the Synthesizer. The bundle is structured: each row carries a <code>run_id</code>, an ISO-8601 <code>captured_at</code>, and a <code>source_query</code> hash. No free text crosses the boundary.</p>
+
+    <h4 class="subsubsec">Synthesizer Agent (N3)</h4>
+    <p>The Synthesizer reasons over the bundle and emits a strongly-typed <code>DiagnosticReport</code>. It has no tool surface — it cannot retrieve more data on its own. If it judges the bundle insufficient, its only legal output is a <code>NeedsMoreEvidence</code> object with a justification, which routes back to N2.</p>
+
+    <div class="eq">
+      <div class="body">
+        $$ \text{DiagnosticReport} \;=\; \big(\,\text{summary},\; \{\,\text{finding}_k\,\},\; \{\,\text{citation}_k\,\},\; \text{recommended\_action}\,\big) $$
+      </div>
+      <div class="tag">(9)</div>
+    </div>
+
+    <h3 class="subsec"><span class="num">3.3</span> The “No Hallucinations” Contract</h3>
+
+    <p>Grounding is enforced by the graph, not requested in the prompt. Three structural mechanisms cooperate:</p>
+
+    <ul class="dash">
+      <li><strong>Evidence citation.</strong> Every <code>finding</code> in a <code>DiagnosticReport</code> must carry at least one <code>citation</code> object pointing to a row in the bundle. The schema validator rejects reports where any finding lacks a citation; the LLM cannot route past this.</li>
+      <li><strong>Citation-accuracy guardrail.</strong> Node&nbsp;N4 re-checks each citation: it confirms the cited <code>run_id</code> appears in the Gatherer's bundle, the timestamp parses as ISO-8601, and the cited values are byte-for-byte present in the corresponding row. Failures route back to N3 with a structured error and a retry counter capped at <strong>3</strong>; a fourth failure escalates to a human queue.</li>
+      <li><strong>Proactive monitoring.</strong> A FastAPI background task subscribes to the simulator's CRITICAL/FAILED stream and triggers the same five-node graph autonomously. Resulting alerts inherit the same citation contract and are pushed to the operator console over WebSockets.</li>
+    </ul>
+
+    <div class="callout">
+      <span class="label">Design rationale</span>
+      A prompt asking an LLM to “only cite real evidence and never hallucinate” is a hope. A graph that <em>cannot serialize</em> a report missing a citation, and a validator that re-reads the bundle to verify each citation byte-for-byte, is a guarantee. The grounding lives in the topology of the graph and the typed contracts at each edge — exactly the locations where the LLM does not get to vote.
+    </div>
+
+  </section>
+
+  <div class="rule-ornament">· · ·</div>
+
+  <!-- ===================== TAKEAWAY ===================== -->
+  <section class="part" id="sec-takeaway">
+    <h2 class="part-title"><span class="num">§ 4</span> Conclusion</h2>
+    <p class="part-tag">One thesis, three layers, zero ungrounded outputs.</p>
+
+    <p>We built a digital twin that is honest about what it knows and where it knows it from. The degradation engine is stateless and physics-informed; the simulation harness evolves through three deliberate stages, each answering a question the previous left open; the agentic RAG layer enforces grounding through graph topology rather than prompt incantation. The “surrogate gap” of Stage&nbsp;2 is not a setback but a signpost: it is precisely the evidence that learned cost models pay for themselves only when the policy class outgrows what direct simulation can grid-search.</p>
+
+    <p>Looking forward, three threads remain open. First, the discrete coupling multipliers (Mechanism&nbsp;A) are presently hand-tuned; an obvious extension is to fit them jointly with the SSL encoder against the field-incident database. Second, the PPO ensemble currently votes uniformly; a learned mixture-of-experts gate conditioned on $\phi$ would let specialists dominate in their respective regimes. Third, the agentic RAG retry budget is fixed at three; a learned controller that reads the Guardrail's structured error and chooses between <em>retry</em>, <em>re-gather</em>, and <em>escalate</em> would tighten the loop further without surrendering auditability.</p>
+
+    <div class="takeaway">
+      <div class="label">Core takeaway</div>
+      <p class="quote">Grounding is a property of the graph architecture, not just a property of the prompt.</p>
+    </div>
+
+  </section>
+
+  <footer class="running-foot">
+    <span>DTPM-2026-001 · Technical Report v1.0</span>
+    <span>Team Twin · HackUPC 2026</span>
+    <span>Page 11 / 11</span>
+  </footer>
+
+</article>
+
+</body>
+</html>
