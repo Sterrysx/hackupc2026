@@ -1,4 +1,4 @@
-"""Unit tests for the voice I/O wrappers (`stt.transcriber`, `tts.speaker`).
+"""Unit tests for the voice I/O wrappers (`backend.voice.stt.transcriber`, `backend.voice.tts.speaker`).
 
 The project's `tests/conftest.py` swaps these modules with empty stubs so
 ``import app`` succeeds on Windows AppLocker-blocked dev machines (faster_whisper's
@@ -24,24 +24,31 @@ import pytest
 # ----------------------------------- import helpers (drop conftest stubs)
 
 
+def _drop_stub_pkgs(*names: str) -> None:
+    """Remove conftest's parent-package stub shims (no ``__path__``) so that
+    Python re-imports the real on-disk package next time.
+    """
+    for name in names:
+        mod = sys.modules.get(name)
+        if mod is not None and not hasattr(mod, "__path__"):
+            del sys.modules[name]
+
+
 def _reload_real_stt(fake_whisper_cls):
-    """Reload the real ``stt.transcriber`` with a faked ``WhisperModel``."""
+    """Reload the real ``backend.voice.stt.transcriber`` with a faked ``WhisperModel``."""
     fake_module = types.ModuleType("faster_whisper")
     fake_module.WhisperModel = fake_whisper_cls
     sys.modules["faster_whisper"] = fake_module
-    sys.modules.pop("stt.transcriber", None)
-    # Wipe the conftest stub's package shim, but keep `stt` package directory.
-    if "stt" in sys.modules and not hasattr(sys.modules["stt"], "__path__"):
-        del sys.modules["stt"]
-    return importlib.import_module("stt.transcriber")
+    sys.modules.pop("backend.voice.stt.transcriber", None)
+    _drop_stub_pkgs("backend.voice.stt", "backend.voice", "backend")
+    return importlib.import_module("backend.voice.stt.transcriber")
 
 
 def _reload_real_tts():
-    """Reload ``tts.speaker`` so the real (non-stub) class is exercised."""
-    sys.modules.pop("tts.speaker", None)
-    if "tts" in sys.modules and not hasattr(sys.modules["tts"], "__path__"):
-        del sys.modules["tts"]
-    return importlib.import_module("tts.speaker")
+    """Reload ``backend.voice.tts.speaker`` so the real (non-stub) class is exercised."""
+    sys.modules.pop("backend.voice.tts.speaker", None)
+    _drop_stub_pkgs("backend.voice.tts", "backend.voice", "backend")
+    return importlib.import_module("backend.voice.tts.speaker")
 
 
 # -------------------------------------------------- SpeechToText.__init__

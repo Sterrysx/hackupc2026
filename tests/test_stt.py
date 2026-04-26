@@ -1,5 +1,5 @@
 import pytest
-from stt.transcriber import SpeechToText
+from backend.voice.stt.transcriber import SpeechToText
 
 def test_stt_import():
     """Test that the SpeechToText class can be imported."""
